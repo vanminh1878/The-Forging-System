@@ -1,0 +1,46 @@
+name: hvp_forging
+description: HVP The Forging System - gamified membership app of a boxing-gym chain (student, coach, reception, admin).
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.6.2
+  # Pinned below 5.8 on purpose: 5.8 replaced MediaType with DioMediaType in
+  # MultipartFile (see core/network/upload_service.dart).
+  dio: ">=5.7.0 <5.8.0"
+  http_parser: ^4.0.2
+  flutter_secure_storage: ^9.2.2
+  shared_preferences: ^2.3.3
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+  fl_chart: ^0.69.0
+  mobile_scanner: ^6.0.2
+  qr_flutter: ^4.1.0
+  image_picker: ^1.1.2
+  confetti: ^0.8.0
+  # Version is dictated by flutter_localizations of the installed Flutter SDK.
+  intl: any
+  cached_network_image: ^3.4.1
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/brand/

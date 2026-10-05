@@ -1,0 +1,90 @@
+# HVP The Forging System - local development stack.
+#   docker compose up --build            -> postgres + api (migrations & reference data run automatically)
+#   docker compose --profile tools up    -> also starts Adminer (DB browser) on :8080
+#   docker compose --profile test run --rm api-tests   -> runs the full backend test-suite
+name: hvp
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hvp_owner
+      POSTGRES_PASSWORD: ${HVP_OWNER_PASSWORD:-hvp_owner_pw}
+      POSTGRES_DB: hvp
+      HVP_APP_PASSWORD: ${HVP_APP_PASSWORD:-hvp_app_pw}
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "${POSTGRES_PORT:-5439}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hvp_owner -d hvp"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: ./backend
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 4000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DEFAULT_TENANT_CODE: hvp
+      APP_TIMEZONE: Asia/Ho_Chi_Minh
+      DATABASE_URL: postgres://hvp_app:${HVP_APP_PASSWORD:-hvp_app_pw}@postgres:5432/hvp
+      DATABASE_MIGRATE_URL: postgres://hvp_owner:${HVP_OWNER_PASSWORD:-hvp_owner_pw}@postgres:5432/hvp
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-secret-change-me-please-0123456789}
+      UPLOAD_DIR: /data/uploads
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:4000}
+      ENABLE_SCHEDULER: "true"
+      PUSH_PROVIDER: ${PUSH_PROVIDER:-console}
+      OTP_PROVIDER: ${OTP_PROVIDER:-console}
+      # Set to "true" once to load demo accounts, classes, rewards and challenges.
+      SEED_DEMO: ${SEED_DEMO:-false}
+    ports:
+      - "${API_PORT:-4000}:4000"
+    volumes:
+      - uploads:/data/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # Development helper: web UI to inspect the database (profile "tools").
+  adminer:
+    image: adminer:4
+    profiles: ["tools"]
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+
+  # One-shot test runner (profile "test"): unit + integration against the hvp_test database.
+  api-tests:
+    build:
+      context: ./backend
+      target: dev
+    profiles: ["test"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: test
+      TEST_DATABASE_URL: postgres://hvp_app:${HVP_APP_PASSWORD:-hvp_app_pw}@postgres:5432/hvp_test
+      TEST_DATABASE_MIGRATE_URL: postgres://hvp_owner:${HVP_OWNER_PASSWORD:-hvp_owner_pw}@postgres:5432/hvp_test
+    command: ["npx", "vitest", "run"]
+
+volumes:
+  pgdata:
+  uploads:

@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: hvp_owner
+          POSTGRES_PASSWORD: hvp_owner_pw
+          POSTGRES_DB: hvp_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hvp_owner -d hvp_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      NODE_ENV: test
+      TEST_DATABASE_URL: postgres://hvp_app:hvp_app_pw@localhost:5432/hvp_test
+      TEST_DATABASE_MIGRATE_URL: postgres://hvp_owner:hvp_owner_pw@localhost:5432/hvp_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Create runtime role (non-owner, so row level security applies)
+        run: |
+          PGPASSWORD=hvp_owner_pw psql -h localhost -U hvp_owner -d hvp_test \
+            -c "CREATE ROLE hvp_app LOGIN PASSWORD 'hvp_app_pw' NOSUPERUSER NOBYPASSRLS;" \
+            -c "GRANT CONNECT ON DATABASE hvp_test TO hvp_app;"
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run test:integration
+
+  mobile:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: dart format --output=none --set-exit-if-changed lib test
+      - run: flutter analyze
+      - run: flutter test

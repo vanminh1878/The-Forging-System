@@ -1,0 +1,39 @@
+# ---- Dependencies & build output ----
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# ---- Environment & secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Runtime data ----
+uploads/
+*.log
+pgdata/
+
+# ---- Editors / OS ----
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+.claude/
+
+# ---- Flutter / Dart ----
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/.pub-cache/
+mobile/.pub/
+mobile/build/
+mobile/ios/Pods/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/**/*.g.dart
+mobile/**/*.freezed.dart
+
