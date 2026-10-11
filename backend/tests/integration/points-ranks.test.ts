@@ -1,5 +1,6 @@
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { bearer, bootTestApp, createStaff, login, nextPhone, ownerQuery, registerMember } from '../helpers/test-app';
+import { resetClock, setClock } from '../../src/common/utils/clock';
 import type { TestContext } from '../helpers/test-app';
 
 describe('points ledger & rank engine', () => {
@@ -11,7 +12,10 @@ describe('points ledger & rank engine', () => {
     ctx = await bootTestApp();
   });
 
+  afterEach(() => resetClock());
+
   beforeEach(async () => {
+    clockOffsetDays = 0;
     const m = await registerMember(ctx.api);
     memberId = m.userId;
     memberToken = m.token;
@@ -24,8 +28,20 @@ describe('points ledger & rank engine', () => {
   const rankOrder = async () => (await ctx.api.get('/api/v1/me/rank').set(bearer(memberToken))).body.data.current.rankOrder as number;
   const balances = async () =>
     (await ownerQuery<{ dp_balance: number; marks_balance: number }>('SELECT dp_balance, marks_balance FROM members WHERE user_id = $1', [memberId]))[0];
-  const backdateJoin = (months: number) =>
-    ownerQuery(`UPDATE members SET joined_at = now() - ($2 || ' days')::interval WHERE user_id = $1`, [memberId, Math.round(months * 31)]);
+  /** Moves the engine clock forward; rank entry dates come from the DB, so this ages every gate. */
+  let clockOffsetDays = 0;
+  const advanceMonths = (months: number) => {
+    clockOffsetDays += months * 30.44;
+    setClock({ now: () => new Date(Date.now() + clockOffsetDays * 86_400_000) });
+  };
+  const completeCourse = async (code: string) => {
+    const course = (await ownerQuery<{ id: string }>(`SELECT id FROM courses WHERE code = $1`, [code]))[0].id;
+    await ownerQuery(
+      `INSERT INTO course_enrollments (tenant_id, member_id, course_id, status, completed_at)
+       SELECT tenant_id, user_id, $2, 'COMPLETED', now() FROM members WHERE user_id = $1`,
+      [memberId, course],
+    );
+  };
 
   it('keeps the cached balance in sync with the ledger', async () => {
     await award('SESSION', 45, 15);
@@ -85,71 +101,78 @@ describe('points ledger & rank engine', () => {
     await expect(ownerQuery('DELETE FROM point_transactions WHERE id = $1', [transaction.id])).rejects.toBeTruthy();
   });
 
-  it('promotes automatically once DP and time gates are both met', async () => {
+  it('promotes automatically once DP and time-in-rank gates are both met', async () => {
     await adjust(500);
-    expect(await rankOrder()).toBe(1); // joined today: the 1-month gate blocks it
-    await backdateJoin(1.2);
+    expect(await rankOrder()).toBe(1); // reached rank I today: the 1-month gate blocks it
+    advanceMonths(1.2);
     await adjust(1);
     expect(await rankOrder()).toBe(2);
     const badges = await ctx.api.get('/api/v1/me/badges').set(bearer(memberToken));
     expect(badges.status).toBe(200);
   });
 
-  it('runs the full trial -> promote -> demote -> restore loop', async () => {
-    await backdateJoin(4);
+  it('counts the waiting time from the current rank, not from joining', async () => {
+    advanceMonths(1.2);
+    await adjust(500);
+    expect(await rankOrder()).toBe(2);
+    await completeCourse('FOUNDATION');
+    advanceMonths(2); // 3.2 months since joining, but only 2 at rank II (needs 3)
     await adjust(2500);
-    expect(await rankOrder()).toBe(2); // course gate still open
+    const p = (await ctx.api.get('/api/v1/me/rank').set(bearer(memberToken))).body.data;
+    expect(p.current.rankOrder).toBe(2);
+    expect(p.timeOk).toBe(false);
+    expect(p.monthsRemaining).toBeGreaterThan(0.5);
+    advanceMonths(1.1);
+    await adjust(1);
+    expect(await rankOrder()).toBe(3); // rank III needs no trial anymore
+  });
 
-    const foundation = (await ownerQuery<{ id: string }>(`SELECT id FROM courses WHERE code = 'FOUNDATION'`))[0].id;
-    await ownerQuery(
-      `INSERT INTO course_enrollments (tenant_id, member_id, course_id, status, completed_at)
-       SELECT tenant_id, user_id, $2, 'COMPLETED', now() FROM members WHERE user_id = $1`,
-      [memberId, foundation],
-    );
-    await ctx.tx(() => ctx.services.ranks.reevaluate(memberId));
-    const progress = await ctx.api.get('/api/v1/me/rank').set(bearer(memberToken));
-    expect(progress.body.data.status).toBe('TRIAL_REQUIRED');
-
-    const req = await ctx.api.post('/api/v1/me/rank-trials').set(bearer(memberToken));
-    expect(req.status).toBe(201);
-    const dup = await ctx.api.post('/api/v1/me/rank-trials').set(bearer(memberToken));
-    expect(dup.status).toBeGreaterThanOrEqual(409);
-
-    const coach = await createStaff({ role: 'COACH', fullName: 'Coach', phone: nextPhone() });
-    const { token: coachToken } = await login(ctx.api, coach.phone);
-    const decision = await ctx.api.post(`/api/v1/rank-trials/${req.body.data.id}/decision`).set(bearer(coachToken)).send({ result: 'PASS', note: 'Tốt' });
-    expect(decision.status).toBe(200);
-    expect(decision.body.data.status).toBe('PASSED');
+  it('runs promote -> demote -> restore without any trial up to rank III', async () => {
+    advanceMonths(1.2);
+    await adjust(500);
+    await completeCourse('FOUNDATION');
+    advanceMonths(3.2);
+    await adjust(2000);
     expect(await rankOrder()).toBe(3);
-    expect(Number((await balances()).dp_balance)).toBe(2650); // +150 trial bonus
+    const progress = await ctx.api.get('/api/v1/me/rank').set(bearer(memberToken));
+    expect(progress.body.data.trialRequired).toBe(false);
 
-    // Fall under the rank III threshold: automatic demotion with badge revoked.
+    // Fall under the rank III threshold: immediate demotion, badge revoked.
     await adjust(-300);
     expect(await rankOrder()).toBe(2);
+    const badges = await ctx.api.get('/api/v1/me/badges').set(bearer(memberToken));
+    expect(badges.body.data.map((b: { rankOrder: number }) => b.rankOrder)).not.toContain(3);
     const history = await ctx.api.get('/api/v1/me/rank-history').set(bearer(memberToken));
     expect(JSON.stringify(history.body.data)).toContain('AUTO_DEMOTE');
 
-    // Climb back: restoration needs no new trial.
+    // Climb back: restored straight away, no trial and no new waiting period.
     await adjust(300);
     expect(await rankOrder()).toBe(3);
     const after = await ctx.api.get('/api/v1/me/rank-history').set(bearer(memberToken));
     expect(JSON.stringify(after.body.data)).toContain('RESTORED');
   });
 
-  it('keeps a failed trial from changing the rank', async () => {
-    await backdateJoin(4);
-    const foundation = (await ownerQuery<{ id: string }>(`SELECT id FROM courses WHERE code = 'FOUNDATION'`))[0].id;
-    await ownerQuery(
-      `INSERT INTO course_enrollments (tenant_id, member_id, course_id, status, completed_at)
-       SELECT tenant_id, user_id, $2, 'COMPLETED', now() FROM members WHERE user_id = $1`,
-      [memberId, foundation],
-    );
-    await adjust(2500);
+  it('keeps the coach trial for rank VI: a failed trial leaves the rank unchanged, a pass promotes', async () => {
+    const rank5 = (await ownerQuery<{ id: string }>(`SELECT id FROM ranks WHERE rank_order = 5`))[0].id;
+    await ownerQuery(`UPDATE members SET current_rank_id = $2, peak_rank_id = $2 WHERE user_id = $1`, [memberId, rank5]);
+    await completeCourse('THE_FIGHTER');
+    await adjust(15000);
+    const p = (await ctx.api.get('/api/v1/me/rank').set(bearer(memberToken))).body.data;
+    expect(p.status).toBe('TRIAL_REQUIRED'); // DP is enough, rank VI has no waiting period
+
     const req = await ctx.api.post('/api/v1/me/rank-trials').set(bearer(memberToken));
+    expect(req.status).toBe(201);
+    expect(req.body.data.approverRole).toBe('COACH');
     const coach = await createStaff({ role: 'COACH', fullName: 'Coach 2', phone: nextPhone() });
     const { token } = await login(ctx.api, coach.phone);
+
     const fail = await ctx.api.post(`/api/v1/rank-trials/${req.body.data.id}/decision`).set(bearer(token)).send({ result: 'FAIL' });
     expect(fail.body.data.status).toBe('FAILED');
-    expect(await rankOrder()).toBe(2);
+    expect(await rankOrder()).toBe(5);
+
+    const again = await ctx.api.post('/api/v1/me/rank-trials').set(bearer(memberToken));
+    const pass = await ctx.api.post(`/api/v1/rank-trials/${again.body.data.id}/decision`).set(bearer(token)).send({ result: 'PASS' });
+    expect(pass.body.data.status).toBe('PASSED');
+    expect(await rankOrder()).toBe(6);
   });
 });

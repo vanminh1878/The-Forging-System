@@ -37,7 +37,7 @@ const member = (over: Partial<MemberRankInput> = {}): MemberRankInput => ({
   currentRankOrder: 1,
   peakRankOrder: 1,
   dpBalance: 0,
-  joinedAt: monthsAgo(0),
+  rankSince: monthsAgo(0),
   completedCourseIds: new Set(),
   latestTrialStatus: null,
   ...over,
@@ -45,7 +45,7 @@ const member = (over: Partial<MemberRankInput> = {}): MemberRankInput => ({
 
 describe('computeRankProgress', () => {
   it('reports IN_PROGRESS with the remaining DP and time', () => {
-    const p = computeRankProgress(RANKS, member({ dpBalance: 200, joinedAt: monthsAgo(0.5) }), NOW);
+    const p = computeRankProgress(RANKS, member({ dpBalance: 200, rankSince: monthsAgo(0.5) }), NOW);
     expect(p.status).toBe('IN_PROGRESS');
     expect(p.dpRemaining).toBe(300);
     expect(p.dpOk).toBe(false);
@@ -53,19 +53,19 @@ describe('computeRankProgress', () => {
   });
 
   it('is RANK_READY when DP and time are met and no trial is needed', () => {
-    const p = computeRankProgress(RANKS, member({ dpBalance: 500, joinedAt: monthsAgo(1) }), NOW);
+    const p = computeRankProgress(RANKS, member({ dpBalance: 500, rankSince: monthsAgo(1) }), NOW);
     expect(p.status).toBe('RANK_READY');
   });
 
   it('keeps DP alone from promoting when the time gate is unmet', () => {
-    const p = computeRankProgress(RANKS, member({ dpBalance: 9999, joinedAt: monthsAgo(0.2) }), NOW);
+    const p = computeRankProgress(RANKS, member({ dpBalance: 9999, rankSince: monthsAgo(0.2) }), NOW);
     expect(p.dpOk).toBe(true);
     expect(p.timeOk).toBe(false);
     expect(p.status).toBe('IN_PROGRESS');
   });
 
   it('lists missing courses and blocks promotion until they are completed', () => {
-    const base = { currentRankOrder: 2, peakRankOrder: 2, dpBalance: 3000, joinedAt: monthsAgo(4) };
+    const base = { currentRankOrder: 2, peakRankOrder: 2, dpBalance: 3000, rankSince: monthsAgo(4) };
     const blocked = computeRankProgress(RANKS, member(base), NOW);
     expect(blocked.courseOk).toBe(false);
     expect(blocked.missingCourseIds).toEqual(['c1']);
@@ -76,7 +76,7 @@ describe('computeRankProgress', () => {
   });
 
   it('walks through the trial states', () => {
-    const base = { currentRankOrder: 2, peakRankOrder: 2, dpBalance: 3000, joinedAt: monthsAgo(4), completedCourseIds: new Set(['c1']) };
+    const base = { currentRankOrder: 2, peakRankOrder: 2, dpBalance: 3000, rankSince: monthsAgo(4), completedCourseIds: new Set(['c1']) };
     expect(computeRankProgress(RANKS, member(base), NOW).status).toBe('TRIAL_REQUIRED');
     expect(computeRankProgress(RANKS, member({ ...base, latestTrialStatus: 'PENDING' }), NOW).status).toBe('TRIAL_PENDING');
     expect(computeRankProgress(RANKS, member({ ...base, latestTrialStatus: 'FAILED' }), NOW).status).toBe('TRIAL_REQUIRED');
@@ -86,10 +86,25 @@ describe('computeRankProgress', () => {
   it('waives the trial for a rank already reached before (restoration)', () => {
     const p = computeRankProgress(
       RANKS,
-      member({ currentRankOrder: 2, peakRankOrder: 3, dpBalance: 3000, joinedAt: monthsAgo(4), completedCourseIds: new Set(['c1']) }),
+      member({ currentRankOrder: 2, peakRankOrder: 3, dpBalance: 3000, rankSince: monthsAgo(4), completedCourseIds: new Set(['c1']) }),
       NOW,
     );
     expect(p.trialWaived).toBe(true);
+    expect(p.status).toBe('RANK_READY');
+  });
+
+  it('counts the time-gate from when the current rank was reached', () => {
+    // a member who joined long ago but only just reached rank 2 still has to wait 3 months for rank 3
+    const p = computeRankProgress(RANKS, member({ currentRankOrder: 2, peakRankOrder: 2, dpBalance: 3000, rankSince: monthsAgo(1), completedCourseIds: new Set(['c1']) }), NOW);
+    expect(p.timeOk).toBe(false);
+    expect(p.status).toBe('IN_PROGRESS');
+    expect(p.monthsRemaining).toBeCloseTo(2, 0);
+  });
+
+  it('does not make a member wait again to regain a rank already reached', () => {
+    const p = computeRankProgress(RANKS, member({ currentRankOrder: 2, peakRankOrder: 3, dpBalance: 3000, rankSince: monthsAgo(0), completedCourseIds: new Set(['c1']) }), NOW);
+    expect(p.timeOk).toBe(true);
+    expect(p.monthsRemaining).toBe(0);
     expect(p.status).toBe('RANK_READY');
   });
 

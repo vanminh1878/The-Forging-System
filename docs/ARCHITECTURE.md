@@ -42,7 +42,7 @@ Event được `await` tuần tự **trong cùng transaction** với hành độ
 - Monthly cap (DP 1.200 / Marks 150, cấu hình được) chỉ áp cho nguồn SESSION, ATTITUDE, ACADEMY, CHALLENGE, COMEBACK; Rank Trial, Early Renewal, điều chỉnh tay và Armory không bị cap.
 
 ### Hạng (rank)
-`rank.engine.ts` là hàm thuần: DP + time-gate + course-gate + trial-gate. Mọi thay đổi DP phát `POINTS_AWARDED` → `RankService.reevaluate` (lên/xuống/khôi phục hạng, cấp/gỡ huy hiệu). Xuống hạng tự động; khôi phục hạng ≤ đỉnh cũ không cần thi lại.
+`rank.engine.ts` là hàm thuần: DP + time-gate + course-gate + trial-gate. Time-gate = thời gian ở *hạng hiện tại* (lấy từ `member_rank_history.earned_at`), hạng I→V chỉ cần đủ DP + thời gian, V→VI cần coach chấm Rank Trial, VI→VII cần admin chấm (migration `0003`). Mọi thay đổi DP phát `POINTS_AWARDED` → `RankService.reevaluate` (lên/xuống/khôi phục hạng, cấp/gỡ huy hiệu). Xuống hạng tự động; khôi phục hạng ≤ đỉnh cũ không cần thi lại.
 
 ### Thời gian
 Không dùng `new Date()` trong nghiệp vụ: dùng `clock.now()` và `common/utils/time.ts` (múi giờ `APP_TIMEZONE`, tuần Thứ 2–CN). Nhờ đó test và batch job "du hành thời gian" được.

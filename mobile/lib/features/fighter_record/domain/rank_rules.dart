@@ -59,9 +59,9 @@ List<Requirement> buildRequirements(RankProgress progress) {
     list.add(
       Requirement(
         kind: RequirementKind.time,
-        title: 'Tập luyện tối thiểu ${next.minActiveMonths} tháng',
+        title: 'Ở hạng hiện tại tối thiểu ${next.minActiveMonths} tháng',
         detail: progress.timeOk
-            ? 'Bạn đã tập ${formatMonths(progress.monthsIn)}'
+            ? 'Bạn đã ở hạng này ${formatMonths(progress.monthsIn)}'
             : 'Còn ${formatMonths(progress.monthsRemaining)} nữa',
         met: progress.timeOk,
       ),

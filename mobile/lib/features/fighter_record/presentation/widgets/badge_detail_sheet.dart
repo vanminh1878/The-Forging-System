@@ -44,7 +44,7 @@ class _BadgeDetail extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'Yêu cầu: ${formatInt(rank.dpThreshold)} DP'
-            '${rank.minActiveMonths > 0 ? ' · ${rank.minActiveMonths} tháng luyện tập' : ''}'
+            '${rank.minActiveMonths > 0 ? ' · ${rank.minActiveMonths} tháng ở hạng trước' : ''}'
             '${rank.requiresTrial ? ' · Rank Trial' : ''}',
             style: t.body,
             textAlign: TextAlign.center,

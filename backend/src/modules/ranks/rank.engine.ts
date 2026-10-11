@@ -3,7 +3,8 @@ import { monthsBetween } from '../../common/utils/time';
 /**
  * Pure rank logic (no I/O), mirroring the customer-approved flow:
  *  - promotion needs DP + time-gate + course-gate + trial-gate;
- *  - a rank previously reached (peak) never needs a new trial;
+ *  - the time-gate counts the time spent IN THE CURRENT RANK (not since joining);
+ *  - a rank previously reached (peak) never needs a new trial nor a new waiting period;
  *  - dropping below the current threshold demotes immediately.
  */
 
@@ -27,7 +28,8 @@ export interface MemberRankInput {
   currentRankOrder: number;
   peakRankOrder: number;
   dpBalance: number;
-  joinedAt: Date;
+  /** When the member reached (or last regained) the current rank. */
+  rankSince: Date;
   completedCourseIds: ReadonlySet<string>;
   /** Status of the member's latest trial request for the NEXT rank, if any. */
   latestTrialStatus: TrialStatus | null;
@@ -48,6 +50,7 @@ export interface RankProgress {
   timeOk: boolean;
   courseOk: boolean;
   dpRemaining: number;
+  /** Months spent in the current rank. */
   monthsIn: number;
   monthsRemaining: number;
   missingCourseIds: string[];
@@ -69,7 +72,7 @@ export function computeRankProgress(ranks: RankDef[], member: MemberRankInput, n
   if (!current) throw new Error(`Unknown current rank order ${member.currentRankOrder}`);
   const next = rankByOrder(ranks, member.currentRankOrder + 1) ?? null;
 
-  const monthsIn = monthsBetween(member.joinedAt, now);
+  const monthsIn = monthsBetween(member.rankSince, now);
   if (!next) {
     return {
       current,
@@ -89,10 +92,11 @@ export function computeRankProgress(ranks: RankDef[], member: MemberRankInput, n
   }
 
   const dpOk = member.dpBalance >= next.dpThreshold;
-  const timeOk = monthsIn >= next.minActiveMonths;
+  const timeWaived = next.rankOrder <= member.peakRankOrder; // regaining a rank already reached: no new waiting period
+  const timeOk = timeWaived || monthsIn >= next.minActiveMonths;
   const missingCourseIds = next.requiredCourseIds.filter((c) => !member.completedCourseIds.has(c));
   const courseOk = missingCourseIds.length === 0;
-  const trialWaived = next.rankOrder <= member.peakRankOrder; // already reached once: no new trial
+  const trialWaived = timeWaived; // already reached once: no new trial
   const trialRequired = next.requiresTrial && !trialWaived;
   const trialStatus: TrialStatus | null = trialRequired ? (member.latestTrialStatus ?? 'NOT_REQUESTED') : null;
 
@@ -112,7 +116,7 @@ export function computeRankProgress(ranks: RankDef[], member: MemberRankInput, n
     courseOk,
     dpRemaining: Math.max(0, next.dpThreshold - member.dpBalance),
     monthsIn,
-    monthsRemaining: Math.max(0, next.minActiveMonths - monthsIn),
+    monthsRemaining: timeWaived ? 0 : Math.max(0, next.minActiveMonths - monthsIn),
     missingCourseIds,
     trialRequired,
     trialWaived,

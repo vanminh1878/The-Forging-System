@@ -159,7 +159,7 @@ export class RankService implements RankPort {
       const restored = progress.next.rankOrder <= peak.rankOrder;
       const next = progress.next;
       const reasonParts = [`Đạt ${fmt(next.dpThreshold)} DP`];
-      if (next.minActiveMonths) reasonParts.push(`đủ ${next.minActiveMonths} tháng luyện tập`);
+      if (next.minActiveMonths && !restored) reasonParts.push(`đủ ${next.minActiveMonths} tháng ở ${current.nameEn}`);
       if (next.requiredCourseIds.length) {
         const names = await this.repo.courseNames(next.requiredCourseIds);
         reasonParts.push(`hoàn thành khóa ${next.requiredCourseIds.map((id) => names.get(id) ?? id).join(' + ')}`);
@@ -283,7 +283,7 @@ export class RankService implements RankPort {
     const peakRank = ranks.find((r) => r.rankOrder === progress.peakRankOrder)!;
     await this.grantRank(state, current, target, peakRank, {
       via: 'RANK_TRIAL_PASSED',
-      reason: `Vượt qua Rank Trial do ${input.byName} chấm${input.note ? ` - "${input.note}"` : ''}. Đủ ${fmt(target.dpThreshold)} DP, ${target.minActiveMonths} tháng${target.requiredCourseIds.length ? `, khóa ${target.requiredCourseIds.map((id) => courseNames.get(id) ?? id).join(' + ')}` : ''}.`,
+      reason: `Vượt qua Rank Trial do ${input.byName} chấm${input.note ? ` - "${input.note}"` : ''}. Đủ ${fmt(target.dpThreshold)} DP${target.minActiveMonths ? `, ${target.minActiveMonths} tháng ở ${current.nameEn}` : ''}${target.requiredCourseIds.length ? `, khóa ${target.requiredCourseIds.map((id) => courseNames.get(id) ?? id).join(' + ')}` : ''}.`,
       by: input.by,
       trialId: trial.id,
     });
@@ -337,7 +337,7 @@ export class RankService implements RankPort {
       currentRankOrder: current.rankOrder,
       peakRankOrder: Math.max(peak.rankOrder, current.rankOrder),
       dpBalance: state.dpBalance,
-      joinedAt: state.joinedAt,
+      rankSince: await this.repo.rankSince(state.userId, current.id, state.joinedAt),
       completedCourseIds: await this.repo.completedCourseIds(state.userId),
       latestTrialStatus: next ? await this.repo.latestTrialStatus(state.userId, next.id) : null,
     };

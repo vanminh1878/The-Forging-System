@@ -1,3 +1,4 @@
+import { clock } from '../../common/utils/clock';
 import { db } from '../../db/database';
 import { sql } from '../../db/sql';
 import type { RankDef, TrialStatus } from './rank.engine';
@@ -82,6 +83,20 @@ export class RankRepository {
     return row?.status ?? null;
   }
 
+  /**
+   * When the member got the badge of `rankId` (latest history row, if not revoked).
+   * Falls back to the join date for members without history (legacy data).
+   */
+  async rankSince(memberId: string, rankId: string, joinedAt: Date): Promise<Date> {
+    const row = await sql.one<{ earnedAt: Date; isRevoked: boolean }>(
+      `SELECT earned_at, is_revoked FROM member_rank_history
+        WHERE member_id = $1 AND to_rank_id = $2
+        ORDER BY earned_at DESC, id LIMIT 1`,
+      [memberId, rankId],
+    );
+    return row && !row.isRevoked ? row.earnedAt : joinedAt;
+  }
+
   setRanks(memberId: string, currentRankId: string, peakRankId: string): Promise<number> {
     return sql.exec(`UPDATE members SET current_rank_id = $2, peak_rank_id = $3, updated_at = now() WHERE user_id = $1`, [
       memberId,
@@ -104,8 +119,8 @@ export class RankRepository {
     return sql.exec(
       `INSERT INTO member_rank_history
          (tenant_id, member_id, from_rank_id, to_rank_id, earned_via, reason, rank_trial_request_id, dp_at_change,
-          approved_by, is_revoked, revoked_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $10 THEN now() END)`,
+          approved_by, is_revoked, revoked_at, earned_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, CASE WHEN $10 THEN $11::timestamptz END, $11::timestamptz)`,
       [
         db.currentTenantId(),
         input.memberId,
@@ -117,6 +132,7 @@ export class RankRepository {
         input.dpAtChange,
         input.approvedBy ?? null,
         input.isRevoked ?? false,
+        clock.now(),
       ],
     );
   }
