@@ -21,7 +21,10 @@ GRANT CONNECT ON DATABASE ${POSTGRES_DB} TO hvp_app;
 SQL
 
 # Extra database used only by the automated test-suite (see docs/TESTING_GUIDE.md).
-psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<SQL
+# Production sets HVP_CREATE_TEST_DB=false so it is not created there.
+if [ "${HVP_CREATE_TEST_DB:-true}" = "true" ]; then
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<SQL
 CREATE DATABASE hvp_test OWNER ${POSTGRES_USER};
 GRANT CONNECT ON DATABASE hvp_test TO hvp_app;
 SQL
+fi

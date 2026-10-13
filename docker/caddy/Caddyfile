@@ -1,0 +1,6 @@
+# Caddy obtains and renews the TLS certificate for $API_DOMAIN by itself.
+# Ports 80 and 443 must be open in the firewall and the domain must point at the droplet.
+{$API_DOMAIN} {
+	encode gzip
+	reverse_proxy api:4000
+}

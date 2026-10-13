@@ -1,0 +1,107 @@
+# HVP The Forging System - PRODUCTION stack (DigitalOcean droplet).
+#   cp .env.prod.example .env.prod   # fill in every value, never commit it
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+#
+# Differences from docker-compose.yml (dev):
+#   - PostgreSQL is published on the droplet's 127.0.0.1 only (SSH tunnel), never on the public IP.
+#   - The api has no published port either: all traffic enters through Caddy (80/443, automatic HTTPS).
+#   - No insecure defaults: compose refuses to start when a secret is missing.
+#   - NODE_ENV=production, demo seeding disabled, no Adminer / test runner.
+name: hvp
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hvp_owner
+      POSTGRES_PASSWORD: ${HVP_OWNER_PASSWORD:?set HVP_OWNER_PASSWORD in .env.prod}
+      POSTGRES_DB: hvp
+      HVP_APP_PASSWORD: ${HVP_APP_PASSWORD:?set HVP_APP_PASSWORD in .env.prod}
+      HVP_CREATE_TEST_DB: "false"
+      TZ: Asia/Ho_Chi_Minh
+    # Sized for a 2 GB droplet shared with the api and Caddy (the api pool uses at most 10 connections).
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=50"]
+    # Bound to the droplet's loopback only: invisible from the internet, reachable by SSH tunnel
+    # (ssh -N -L 5439:127.0.0.1:5432 <user>@<ip>). Never change this to "5432:5432".
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hvp_owner -d hvp"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    logging: *default-logging
+
+  api:
+    build:
+      context: ./backend
+      target: runtime
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      DEFAULT_TENANT_CODE: hvp
+      APP_TIMEZONE: Asia/Ho_Chi_Minh
+      DATABASE_URL: postgres://hvp_app:${HVP_APP_PASSWORD}@postgres:5432/hvp
+      DATABASE_MIGRATE_URL: postgres://hvp_owner:${HVP_OWNER_PASSWORD}@postgres:5432/hvp
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env.prod (>= 32 chars)}
+      JWT_ACCESS_TTL: 15m
+      REFRESH_TOKEN_TTL_DAYS: 30
+      BCRYPT_ROUNDS: 12
+      UPLOAD_DIR: /data/uploads
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?set PUBLIC_BASE_URL in .env.prod (https://your-domain)}
+      ENABLE_SCHEDULER: "true"
+      PUSH_PROVIDER: ${PUSH_PROVIDER:-console}
+      OTP_PROVIDER: ${OTP_PROVIDER:-console}
+      SEED_DEMO: "false"
+    # NOTE: no "ports:" - reached only through Caddy on the internal network.
+    expose:
+      - "4000"
+    volumes:
+      - uploads:/data/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    logging: *default-logging
+
+  # Reverse proxy + automatic Let's Encrypt certificate for ${API_DOMAIN}.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env.prod}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: *default-logging
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:
