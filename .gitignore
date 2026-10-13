@@ -12,7 +12,8 @@ coverage/
 !.env.prod.example
 
 # ---- Runtime data ----
-uploads/
+/uploads/
+/backend/uploads/
 *.log
 pgdata/
 
