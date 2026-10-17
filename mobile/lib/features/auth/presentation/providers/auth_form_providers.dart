@@ -7,12 +7,12 @@ import 'auth_providers.dart';
 final loginSubmitProvider = NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
 final registerSubmitProvider = NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
 
-enum ForgotStep { phone, pin, reset, done }
+enum ForgotStep { email, pin, reset, done }
 
 class ForgotState {
   const ForgotState({
-    this.step = ForgotStep.phone,
-    this.phone = '',
+    this.step = ForgotStep.email,
+    this.email = '',
     this.requestId,
     this.maskedDestination,
     this.devPin,
@@ -22,7 +22,7 @@ class ForgotState {
   });
 
   final ForgotStep step;
-  final String phone;
+  final String email;
   final String? requestId;
   final String? maskedDestination;
 
@@ -34,7 +34,7 @@ class ForgotState {
 
   ForgotState copyWith({
     ForgotStep? step,
-    String? phone,
+    String? email,
     String? requestId,
     String? maskedDestination,
     String? devPin,
@@ -45,7 +45,7 @@ class ForgotState {
   }) =>
       ForgotState(
         step: step ?? this.step,
-        phone: phone ?? this.phone,
+        email: email ?? this.email,
         requestId: requestId ?? this.requestId,
         maskedDestination: maskedDestination ?? this.maskedDestination,
         devPin: devPin ?? this.devPin,
@@ -55,20 +55,20 @@ class ForgotState {
       );
 }
 
-/// Three-step password reset: phone -> PIN -> new password.
+/// Three-step password reset: email -> PIN -> new password.
 class ForgotPasswordController extends Notifier<ForgotState> {
   @override
   ForgotState build() => const ForgotState();
 
   void reset() => state = const ForgotState();
 
-  Future<void> requestPin(String phone) async {
+  Future<void> requestPin(String email) async {
     state = state.copyWith(submitting: true, clearError: true);
     try {
-      final ticket = await ref.read(authRepositoryProvider).requestPasswordReset(phone);
+      final ticket = await ref.read(authRepositoryProvider).requestPasswordReset(email);
       state = ForgotState(
         step: ForgotStep.pin,
-        phone: phone,
+        email: email,
         requestId: ticket.requestId,
         maskedDestination: ticket.maskedDestination,
         devPin: ticket.devPin,

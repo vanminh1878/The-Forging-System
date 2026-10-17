@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { env } from '../../config/env';
-import { badRequest, forbidden, unauthorized, unprocessable } from '../../common/errors/app-error';
+import { badRequest, conflict, forbidden, unauthorized, unprocessable } from '../../common/errors/app-error';
 import { clock } from '../../common/utils/clock';
 import { numericPin, randomToken } from '../../common/utils/ids';
 import { signAccessToken } from '../../common/utils/jwt';
 import { hashPassword, isStrongPassword, verifyPassword } from '../../common/utils/password';
-import { isValidPhone, normalizePhone } from '../../common/utils/phone';
+import { normalizePhone } from '../../common/utils/phone';
 import { db } from '../../db/database';
 import { primaryAppRole } from '../../shared/roles';
 import type { AppRole, RoleCode } from '../../shared/roles';
@@ -14,7 +14,7 @@ import type { MemberService } from '../members/member.service';
 import type { SettingsService } from '../settings/settings.service';
 import type { AuthRepository } from './auth.repository';
 import type { UserAuthRow } from './auth.repository';
-import type { OtpSender } from './otp.sender';
+import type { OtpPurpose, OtpSender } from './otp.sender';
 
 export interface AuthUserView {
   id: string;
@@ -35,6 +35,13 @@ export interface AuthTokens {
   user: AuthUserView;
 }
 
+export interface OtpTicket {
+  requestId: string;
+  maskedDestination: string;
+  /** Development only (console OTP provider). */
+  devPin?: string;
+}
+
 export interface RequestMeta {
   ip?: string | null;
   userAgent?: string | null;
@@ -43,12 +50,19 @@ export interface RequestMeta {
 
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 
+/** `nguyenvana@gmail.com` -> `ng***@gmail.com` */
+export const maskEmail = (email: string) => {
+  const [local, domain] = email.split('@');
+  return `${local.slice(0, Math.min(2, local.length - 1))}***@${domain}`;
+};
+
 const MSG = {
   loginFailed: 'Đăng nhập thất bại. Sai email/số điện thoại hoặc mật khẩu.',
   inactive:
     'Tài khoản không hoạt động. Toàn bộ DP, hạng và HVP Marks vẫn được lưu - liên hệ lễ tân để kích hoạt lại gói tập.',
   pinInvalid: 'Mã PIN không đúng hoặc đã hết hạn. Vui lòng yêu cầu mã mới.',
-  phoneNotRegistered: 'Số điện thoại chưa được đăng ký. Vui lòng kiểm tra lại.',
+  otpInvalid: 'Mã xác thực không đúng hoặc đã hết hạn. Vui lòng yêu cầu mã mới.',
+  emailNotRegistered: 'Email chưa được đăng ký. Vui lòng kiểm tra lại.',
 };
 
 export class AuthService {
@@ -59,13 +73,39 @@ export class AuthService {
     private readonly settings: SettingsService,
   ) {}
 
+  // ---------- registration (e-mail OTP) ----------
+
+  async requestRegisterOtp(email: string): Promise<OtpTicket> {
+    if (await this.repo.findUserByEmail(email)) throw conflict('Email đã được đăng ký.', 'EMAIL_TAKEN');
+    return this.issueOtp(email, 'REGISTER', async (pin, expiresAt) =>
+      (await this.repo.insertEmailOtp({ email, pinHash: sha256(`${email}:${pin}`), expiresAt }))!.id,
+    );
+  }
+
   async register(
-    input: { fullName: string; email?: string; phone: string; password: string; passwordConfirm?: string; homeBranchId?: string },
+    input: {
+      fullName: string;
+      email: string;
+      phone: string;
+      password: string;
+      passwordConfirm?: string;
+      homeBranchId?: string;
+      otpRequestId: string;
+      otp: string;
+    },
     meta: RequestMeta,
   ): Promise<AuthTokens> {
     if (input.passwordConfirm !== undefined && input.passwordConfirm !== input.password) {
       throw badRequest('Mật khẩu xác nhận không khớp.');
     }
+    const otp = await this.checkPin(
+      (max) => this.repo.claimEmailOtpAttempt(input.otpRequestId, max),
+      (row, pin) => row.email === input.email && row.pinHash === sha256(`${row.email}:${pin}`),
+      input.otp,
+      () => badRequest(MSG.otpInvalid, undefined, 'OTP_INVALID'),
+    );
+    // A failure below (e.g. PHONE_TAKEN) rolls this back, so the OTP stays usable for a retry.
+    await this.repo.markEmailOtpUsed(otp.id);
     const { userId } = await this.members.createMember({
       fullName: input.fullName,
       email: input.email,
@@ -73,6 +113,7 @@ export class AuthService {
       password: input.password,
       homeBranchId: input.homeBranchId ?? null,
     });
+    await this.repo.markEmailVerified(userId);
     return this.issueTokens(userId, meta, 'LOGIN');
   }
 
@@ -120,43 +161,29 @@ export class AuthService {
     return this.toView(user, await this.repo.rolesOf(userId));
   }
 
-  // ---------- password reset (phone + PIN) ----------
+  // ---------- password reset (e-mail + PIN) ----------
 
-  async requestPasswordReset(phoneInput: string): Promise<{ requestId: string; maskedDestination: string; devPin?: string }> {
-    if (!isValidPhone(phoneInput)) throw badRequest(MSG.phoneNotRegistered);
-    const phone = normalizePhone(phoneInput);
-    const user = await this.repo.findUserByPhone(phone);
-    if (!user) throw badRequest(MSG.phoneNotRegistered, undefined, 'PHONE_NOT_REGISTERED');
-
-    const ttl = await this.settings.getNumber('security.pin_ttl_minutes');
-    const pin = numericPin(6);
-    const row = await this.repo.insertResetRequest({
-      userId: user.id,
-      channel: 'SMS',
-      destination: phone,
-      pinHash: sha256(`${user.id}:${pin}`),
-      expiresAt: new Date(clock.now().getTime() + ttl * 60_000),
-    });
-    // The SMS goes out only if the transaction commits.
-    db.afterCommit(() => this.otp.send('SMS', phone, pin));
-    return {
-      requestId: row!.id,
-      maskedDestination: `${phone.slice(0, 3)}****${phone.slice(7)}`,
-      // Convenience for local development only; never returned in production.
-      ...(env.NODE_ENV !== 'production' && env.OTP_PROVIDER === 'console' ? { devPin: pin } : {}),
-    };
+  async requestPasswordReset(email: string): Promise<OtpTicket> {
+    const user = await this.repo.findUserByEmail(email);
+    if (!user) throw badRequest(MSG.emailNotRegistered, undefined, 'EMAIL_NOT_REGISTERED');
+    return this.issueOtp(email, 'PASSWORD_RESET', async (pin, expiresAt) =>
+      (await this.repo.insertResetRequest({
+        userId: user.id,
+        channel: 'EMAIL',
+        destination: email,
+        pinHash: sha256(`${user.id}:${pin}`),
+        expiresAt,
+      }))!.id,
+    );
   }
 
   async verifyPin(requestId: string, pin: string): Promise<{ resetToken: string }> {
-    const req = await this.repo.findResetRequest(requestId, true);
-    const maxAttempts = await this.settings.getNumber('security.pin_max_attempts');
-    if (!req || req.usedAt || req.expiresAt.getTime() < clock.now().getTime() || req.attemptCount >= maxAttempts) {
-      throw badRequest(MSG.pinInvalid, undefined, 'PIN_INVALID');
-    }
-    if (req.pinHash !== sha256(`${req.userId}:${pin.trim()}`)) {
-      await this.repo.bumpResetAttempt(req.id);
-      throw badRequest(`${MSG.pinInvalid} (còn ${Math.max(0, maxAttempts - req.attemptCount - 1)} lần thử)`, undefined, 'PIN_INVALID');
-    }
+    const req = await this.checkPin(
+      (max) => this.repo.claimResetAttempt(requestId, max),
+      (row, p) => row.pinHash === sha256(`${row.userId}:${p}`),
+      pin,
+      () => badRequest(MSG.pinInvalid, undefined, 'PIN_INVALID'),
+    );
     await this.repo.markResetVerified(req.id);
     const resetToken = jwt.sign({ rid: req.id, uid: req.userId, purpose: 'password-reset' }, env.JWT_ACCESS_SECRET, { expiresIn: '10m' });
     return { resetToken };
@@ -195,6 +222,36 @@ export class AuthService {
   }
 
   // ---------- internals ----------
+
+  private async issueOtp(email: string, purpose: OtpPurpose, insert: (pin: string, expiresAt: Date) => Promise<string>): Promise<OtpTicket> {
+    const ttl = await this.settings.getNumber('security.pin_ttl_minutes');
+    const pin = numericPin(6);
+    const requestId = await insert(pin, new Date(clock.now().getTime() + ttl * 60_000));
+    // The mail goes out only if the transaction commits.
+    db.afterCommit(() => this.otp.send(email, pin, purpose, ttl));
+    return {
+      requestId,
+      maskedDestination: maskEmail(email),
+      // Convenience for local development only; never returned in production.
+      ...(env.NODE_ENV !== 'production' && env.OTP_PROVIDER === 'console' ? { devPin: pin } : {}),
+    };
+  }
+
+  /**
+   * Counts the attempt in a detached transaction first, so it sticks even though
+   * a wrong PIN throws (and rolls back the request transaction).
+   */
+  private async checkPin<T extends { expiresAt: Date }>(
+    claim: (maxAttempts: number) => Promise<T | null>,
+    matches: (row: T, pin: string) => boolean,
+    pin: string,
+    invalid: () => Error,
+  ): Promise<T> {
+    const maxAttempts = await this.settings.getNumber('security.pin_max_attempts');
+    const row = await db.detachedTx(() => claim(maxAttempts));
+    if (!row || row.expiresAt.getTime() < clock.now().getTime() || !matches(row, pin.trim())) throw invalid();
+    return row;
+  }
 
   private async findByIdentifier(identifier: string): Promise<UserAuthRow | null> {
     if (identifier.includes('@')) return this.repo.findUserByEmail(identifier.toLowerCase());

@@ -99,17 +99,31 @@ export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 let phoneSeq = 0;
 export const nextPhone = () => `09${String(10_000_000 + ++phoneSeq + Math.floor(Math.random() * 1000) * 10000).slice(0, 8)}`;
 
-/** Registers a learner through the public API and returns tokens + id. */
+let emailSeq = 0;
+export const nextEmail = () => `hv${Date.now()}${++emailSeq}@example.com`;
+
+/** Requests a registration OTP and returns the ticket (`devPin` with the console provider). */
+export async function registerOtp(api: TestContext['api'], email: string) {
+  const res = await api.post('/api/v1/auth/register/otp').send({ email });
+  if (res.status !== 200) throw new Error(`register otp failed (${res.status}): ${JSON.stringify(res.body)}`);
+  return res.body.data as { requestId: string; maskedDestination: string; devPin: string };
+}
+
+/** Registers a learner through the public API (OTP included) and returns tokens + id. */
 export async function registerMember(api: TestContext['api'], overrides: Partial<{ fullName: string; phone: string; email: string }> = {}) {
   const phone = overrides.phone ?? nextPhone();
+  const email = overrides.email ?? nextEmail();
+  const otp = await registerOtp(api, email);
   const res = await api.post('/api/v1/auth/register').send({
     fullName: overrides.fullName ?? 'Học Viên Test',
     phone,
-    email: overrides.email,
+    email,
     password: DEFAULT_PASSWORD,
+    otpRequestId: otp.requestId,
+    otp: otp.devPin,
   });
   if (res.status !== 201) throw new Error(`register failed (${res.status}): ${JSON.stringify(res.body)}`);
-  return { token: res.body.data.accessToken as string, userId: res.body.data.user.id as string, phone };
+  return { token: res.body.data.accessToken as string, userId: res.body.data.user.id as string, phone, email };
 }
 
 /** Runs a statement with the owner connection (bypasses RLS) - for arranging test fixtures only. */

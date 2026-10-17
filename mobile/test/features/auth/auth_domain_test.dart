@@ -33,10 +33,10 @@ void main() {
       expect(AuthValidators.pin('12a456'), isNotNull);
     });
 
-    test('optionalEmail allows empty', () {
-      expect(AuthValidators.optionalEmail(''), isNull);
-      expect(AuthValidators.optionalEmail('x@y.vn'), isNull);
-      expect(AuthValidators.optionalEmail('x@'), isNotNull);
+    test('email is required and must be well formed', () {
+      expect(AuthValidators.email(''), 'Vui lòng nhập email.');
+      expect(AuthValidators.email('x@y.vn'), isNull);
+      expect(AuthValidators.email('x@'), 'Email chưa đúng định dạng.');
     });
 
     test('fullName and phone', () {

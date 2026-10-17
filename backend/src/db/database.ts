@@ -87,6 +87,16 @@ export class Database {
     }
   }
 
+  /**
+   * Runs `fn` in its own transaction for the current tenant, committed even if
+   * the caller's transaction later rolls back (e.g. counting a failed PIN attempt
+   * right before throwing).
+   */
+  detachedTx<T>(fn: () => Promise<T>): Promise<T> {
+    const tenantId = this.currentTenantId();
+    return storage.exit(() => this.tenantTx(tenantId, fn));
+  }
+
   /** Registers a side effect to run only after the current transaction commits. */
   afterCommit(hook: AfterCommitHook): void {
     this.requireStore().afterCommit.push(hook);

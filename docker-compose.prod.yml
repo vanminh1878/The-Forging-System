@@ -67,6 +67,9 @@ services:
       ENABLE_SCHEDULER: "true"
       PUSH_PROVIDER: ${PUSH_PROVIDER:-console}
       OTP_PROVIDER: ${OTP_PROVIDER:-console}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_BCC: ${MAIL_BCC:-}
       SEED_DEMO: "false"
     # NOTE: no "ports:" - reached only through Caddy on the internal network.
     expose:

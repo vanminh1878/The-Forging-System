@@ -23,16 +23,17 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<AuthUser> register(RegisterInput input) async {
-    final email = input.email?.trim() ?? '';
     final res = await _api.post(
       '/auth/register',
       auth: false,
       body: <String, dynamic>{
         'fullName': input.fullName.trim(),
         'phone': input.phone.trim(),
+        'email': input.email.trim(),
         'password': input.password,
         'passwordConfirm': input.password,
-        if (email.isNotEmpty) 'email': email,
+        'otpRequestId': input.otpRequestId,
+        'otp': input.otp.trim(),
         if (input.homeBranchId != null) 'homeBranchId': input.homeBranchId,
       },
     );
@@ -79,10 +80,15 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<PasswordResetTicket> requestPasswordReset(String phone) async {
-    final res = await _api.post('/auth/password/forgot', auth: false, body: <String, dynamic>{'phone': phone.trim()});
+  Future<OtpTicket> requestRegisterOtp(String email) => _requestOtp('/auth/register/otp', email);
+
+  @override
+  Future<OtpTicket> requestPasswordReset(String email) => _requestOtp('/auth/password/forgot', email);
+
+  Future<OtpTicket> _requestOtp(String path, String email) async {
+    final res = await _api.post(path, auth: false, body: <String, dynamic>{'email': email.trim()});
     final d = res.dataMap;
-    return PasswordResetTicket(
+    return OtpTicket(
       requestId: str(d, 'requestId'),
       maskedDestination: str(d, 'maskedDestination'),
       devPin: strOrNull(d, 'devPin'),

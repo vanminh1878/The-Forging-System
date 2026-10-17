@@ -47,6 +47,9 @@ services:
       ENABLE_SCHEDULER: "true"
       PUSH_PROVIDER: ${PUSH_PROVIDER:-console}
       OTP_PROVIDER: ${OTP_PROVIDER:-console}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_BCC: ${MAIL_BCC:-}
       # Set to "true" once to load demo accounts, classes, rewards and challenges.
       SEED_DEMO: ${SEED_DEMO:-false}
     ports:

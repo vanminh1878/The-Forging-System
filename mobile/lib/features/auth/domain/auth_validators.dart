@@ -37,9 +37,9 @@ abstract final class AuthValidators {
     return isPhone(v) ? null : 'Số điện thoại chưa hợp lệ.';
   }
 
-  static String? optionalEmail(String? value) {
+  static String? email(String? value) {
     final v = (value ?? '').trim();
-    if (v.isEmpty) return null;
+    if (v.isEmpty) return 'Vui lòng nhập email.';
     return isEmail(v) ? null : 'Email chưa đúng định dạng.';
   }
 
