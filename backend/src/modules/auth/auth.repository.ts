@@ -32,6 +32,15 @@ export interface ResetRequestRow {
   usedAt: Date | null;
 }
 
+export interface EmailOtpRow {
+  id: string;
+  email: string;
+  pinHash: string;
+  attemptCount: number;
+  expiresAt: Date;
+  usedAt: Date | null;
+}
+
 export class AuthRepository {
   findUserByEmail(email: string): Promise<UserAuthRow | null> {
     return sql.one<UserAuthRow>(`SELECT * FROM users WHERE email = $1`, [email]);
@@ -60,6 +69,10 @@ export class AuthRepository {
 
   touchLogin(userId: string): Promise<number> {
     return sql.exec(`UPDATE users SET last_login_at = now() WHERE id = $1`, [userId]);
+  }
+
+  markEmailVerified(userId: string): Promise<number> {
+    return sql.exec(`UPDATE users SET email_verified_at = now() WHERE id = $1`, [userId]);
   }
 
   setPassword(userId: string, passwordHash: string): Promise<number> {
@@ -101,8 +114,13 @@ export class AuthRepository {
     return sql.one<ResetRequestRow>(`SELECT * FROM password_reset_requests WHERE id = $1 ${lock ? 'FOR UPDATE' : ''}`, [id]);
   }
 
-  bumpResetAttempt(id: string): Promise<number> {
-    return sql.exec(`UPDATE password_reset_requests SET attempt_count = attempt_count + 1 WHERE id = $1`, [id]);
+  /** Counts one attempt atomically; null when the request is used or out of attempts. */
+  claimResetAttempt(id: string, maxAttempts: number): Promise<ResetRequestRow | null> {
+    return sql.one<ResetRequestRow>(
+      `UPDATE password_reset_requests SET attempt_count = attempt_count + 1
+       WHERE id = $1 AND attempt_count < $2 AND used_at IS NULL RETURNING *`,
+      [id, maxAttempts],
+    );
   }
 
   markResetVerified(id: string): Promise<number> {
@@ -111,6 +129,28 @@ export class AuthRepository {
 
   markResetUsed(id: string): Promise<number> {
     return sql.exec(`UPDATE password_reset_requests SET used_at = now() WHERE id = $1`, [id]);
+  }
+
+  // ---------- registration e-mail OTP ----------
+
+  insertEmailOtp(input: { email: string; pinHash: string; expiresAt: Date }) {
+    return sql.one<{ id: string }>(
+      `INSERT INTO email_verifications (tenant_id, email, pin_hash, expires_at) VALUES ($1,$2,$3,$4) RETURNING id`,
+      [db.currentTenantId(), input.email, input.pinHash, input.expiresAt],
+    );
+  }
+
+  /** Counts one attempt atomically; null when the OTP is used or out of attempts. */
+  claimEmailOtpAttempt(id: string, maxAttempts: number): Promise<EmailOtpRow | null> {
+    return sql.one<EmailOtpRow>(
+      `UPDATE email_verifications SET attempt_count = attempt_count + 1
+       WHERE id = $1 AND attempt_count < $2 AND used_at IS NULL RETURNING *`,
+      [id, maxAttempts],
+    );
+  }
+
+  markEmailOtpUsed(id: string): Promise<number> {
+    return sql.exec(`UPDATE email_verifications SET used_at = now() WHERE id = $1`, [id]);
   }
 
   // ---------- logs & devices ----------

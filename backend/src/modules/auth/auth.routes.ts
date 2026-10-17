@@ -5,13 +5,14 @@ import { requireAuth } from '../../common/middlewares/auth.middleware';
 import { validate } from '../../common/middlewares/validate.middleware';
 import { isTest } from '../../config/env';
 import type { AuthController } from './auth.controller';
-import { deviceBody, deviceDeleteBody, forgotBody, loginBody, logoutBody, refreshBody, registerBody, resetBody, verifyPinBody } from './auth.validation';
+import { deviceBody, deviceDeleteBody, forgotBody, loginBody, logoutBody, refreshBody, registerBody, registerOtpBody, resetBody, verifyPinBody } from './auth.validation';
 
 export function authRoutes(c: AuthController): Router {
   const r = Router();
   // Brute-force protection for credential endpoints (disabled in tests).
   const limiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false, skip: () => isTest });
 
+  r.post('/register/otp', limiter, validate({ body: registerOtpBody }), handle(c.registerOtp));
   r.post('/register', limiter, validate({ body: registerBody }), handle(c.register));
   r.post('/login', limiter, validate({ body: loginBody }), handle(c.login));
   r.post('/refresh', limiter, validate({ body: refreshBody }), handle(c.refresh));

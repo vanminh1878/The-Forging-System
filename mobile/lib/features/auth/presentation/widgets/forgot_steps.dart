@@ -11,28 +11,28 @@ import '../../../../core/widgets/status_chip.dart';
 import '../../domain/auth_validators.dart';
 import '../providers/auth_form_providers.dart';
 
-/// Step 1: ask for the registered phone number.
-class ForgotPhoneStep extends ConsumerStatefulWidget {
-  const ForgotPhoneStep({super.key});
+/// Step 1: ask for the registered email.
+class ForgotEmailStep extends ConsumerStatefulWidget {
+  const ForgotEmailStep({super.key});
 
   @override
-  ConsumerState<ForgotPhoneStep> createState() => _ForgotPhoneStepState();
+  ConsumerState<ForgotEmailStep> createState() => _ForgotEmailStepState();
 }
 
-class _ForgotPhoneStepState extends ConsumerState<ForgotPhoneStep> {
+class _ForgotEmailStepState extends ConsumerState<ForgotEmailStep> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _phone = TextEditingController(text: ref.read(forgotPasswordProvider).phone);
+  late final TextEditingController _email = TextEditingController(text: ref.read(forgotPasswordProvider).email);
 
   @override
   void dispose() {
-    _phone.dispose();
+    _email.dispose();
     super.dispose();
   }
 
   void _submit() {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusScope.of(context).unfocus();
-    ref.read(forgotPasswordProvider.notifier).requestPin(_phone.text);
+    ref.read(forgotPasswordProvider.notifier).requestPin(_email.text);
   }
 
   @override
@@ -45,12 +45,12 @@ class _ForgotPhoneStepState extends ConsumerState<ForgotPhoneStep> {
         children: <Widget>[
           if (state.error != null) ...<Widget>[InlineBanner(message: state.error!), const SizedBox(height: 16)],
           HvpTextField(
-            label: 'Số điện thoại đã đăng ký',
-            controller: _phone,
-            prefixIcon: HvpIcons.phone,
-            keyboardType: TextInputType.phone,
+            label: 'Email đã đăng ký',
+            controller: _email,
+            prefixIcon: HvpIcons.mail,
+            keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.done,
-            validator: AuthValidators.phone,
+            validator: AuthValidators.email,
             enabled: !state.submitting,
             onSubmitted: (_) => _submit(),
           ),
@@ -96,7 +96,7 @@ class _ForgotPinStepState extends ConsumerState<ForgotPinStep> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Text(
-            'Mã PIN gồm 6 chữ số đã được gửi tới ${state.maskedDestination ?? 'số điện thoại của bạn'}.',
+            'Mã PIN gồm 6 chữ số đã được gửi tới ${state.maskedDestination ?? 'email của bạn'}.',
             style: context.txt.body,
             textAlign: TextAlign.center,
           ),
@@ -130,7 +130,7 @@ class _ForgotPinStepState extends ConsumerState<ForgotPinStep> {
           HvpButton.ghost(
             label: 'Gửi lại mã',
             expand: true,
-            onPressed: state.submitting ? null : () => notifier.requestPin(state.phone),
+            onPressed: state.submitting ? null : () => notifier.requestPin(state.email),
           ),
         ],
       ),

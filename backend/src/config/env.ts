@@ -30,7 +30,17 @@ const schema = z.object({
     .transform((v) => v === 'true'),
 
   PUSH_PROVIDER: z.enum(['console', 'fcm']).default('console'),
-  OTP_PROVIDER: z.enum(['console', 'smtp']).default('console'),
+  OTP_PROVIDER: z.enum(['console', 'resend']).default('console'),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  /** Sender, e.g. `HVP <no-reply@hvp.vn>` (the domain must be verified in Resend). */
+  MAIL_FROM: z.string().min(3).optional(),
+  /** Optional address that receives a blind copy of every OTP mail. */
+  MAIL_BCC: z.string().trim().email().optional().or(z.literal('').transform(() => undefined)),
+}).superRefine((v, ctx) => {
+  if (v.OTP_PROVIDER !== 'resend') return;
+  for (const key of ['RESEND_API_KEY', 'MAIL_FROM'] as const) {
+    if (!v[key]) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [key], message: 'required when OTP_PROVIDER=resend' });
+  }
 });
 
 export type Env = z.infer<typeof schema>;
