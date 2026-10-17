@@ -165,4 +165,4 @@ for (const tenantId of await lookupActiveTenantIds()) {
 - `.env` không commit; secret JWT tối thiểu 32 ký tự.
 - Token truy cập ngắn hạn (15 phút) + refresh token xoay vòng dùng một lần.
 - Upload ảnh (minh chứng, avatar) qua `POST /uploads?purpose=` rồi lưu URL; thay `LocalDiskStorage` bằng S3/MinIO bằng cách implement `StorageService`.
-- Push: `PUSH_PROVIDER=console|fcm`; OTP qua email: `OTP_PROVIDER=console|resend` (`resend` cần `RESEND_API_KEY` và `MAIL_FROM` với domain đã xác minh trên Resend).
+- Push: `PUSH_PROVIDER=console|fcm`; OTP qua email: `OTP_PROVIDER=console|resend` (`resend` cần `RESEND_API_KEY` và `MAIL_FROM` với domain đã xác minh trên Resend, và template `hvp-otp` đã publish: sửa `src/modules/auth/otp-email.html` rồi chạy `npm run resend:template` với `RESEND_ADMIN_API_KEY` quyền Full access).

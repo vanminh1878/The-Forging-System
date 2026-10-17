@@ -228,7 +228,7 @@ export class AuthService {
     const pin = numericPin(6);
     const requestId = await insert(pin, new Date(clock.now().getTime() + ttl * 60_000));
     // The mail goes out only if the transaction commits.
-    db.afterCommit(() => this.otp.send(email, pin, purpose));
+    db.afterCommit(() => this.otp.send(email, pin, purpose, ttl));
     return {
       requestId,
       maskedDestination: maskEmail(email),
