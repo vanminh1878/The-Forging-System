@@ -53,6 +53,12 @@ export class ChallengeRepository {
     return { items, total: total ?? 0 };
   }
 
+  async setStatus(id: string, status: 'OPEN' | 'CLOSED'): Promise<ChallengeView> {
+    const row = await sql.one<ChallengeView>(`UPDATE challenges SET status=$2, updated_at=now()
+      WHERE id=$1 RETURNING ${columns}`, [id, status]);
+    return row!;
+  }
+
   private values(input: ChallengeWrite): unknown[] {
     return [input.code, input.title, input.description, input.challengeType, input.context, input.target, input.rewardDp, input.rewardMarks, input.startsAt, input.endsAt];
   }

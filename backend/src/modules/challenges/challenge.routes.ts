@@ -6,7 +6,7 @@ import { requireAuth, requireRoles } from '../../common/middlewares/auth.middlew
 import { validate } from '../../common/middlewares/validate.middleware';
 import { RoleGroup } from '../../shared/roles';
 import type { ChallengeService } from './challenge.service';
-import { challengeIdParam, challengeSearchQuery, createChallengeBody, updateChallengeBody } from './challenge.validation';
+import { challengeEnabledBody, challengeIdParam, challengeSearchQuery, createChallengeBody, updateChallengeBody } from './challenge.validation';
 
 export function challengeRoutes(service: ChallengeService): Router {
   const r = Router();
@@ -21,6 +21,9 @@ export function challengeRoutes(service: ChallengeService): Router {
   r.post('/admin/challenges', validate({ body: createChallengeBody }), handle(async (req) => created(await service.create(req.body, authOf(req).userId))));
   r.patch('/admin/challenges/:challengeId', validate({ params: challengeIdParam, body: updateChallengeBody }), handle(async (req) =>
     ok(await service.update(req.params.challengeId, req.body, authOf(req).userId)),
+  ));
+  r.patch('/admin/challenges/:challengeId/status', validate({ params: challengeIdParam, body: challengeEnabledBody }), handle(async (req) =>
+    ok(await service.setEnabled(req.params.challengeId, req.body, authOf(req).userId)),
   ));
   return r;
 }

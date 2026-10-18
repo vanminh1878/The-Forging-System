@@ -5,10 +5,10 @@
 | Task | Phạm vi | Commit dự kiến | Trạng thái |
 |---|---|---|---|
 | CHL-01 | Admin tạo/sửa Challenge, list/detail phục vụ form, validation, tenant/RBAC, audit và tests | `feat: CHL-01 admin challenge creation and editing` | Đã triển khai và kiểm thử |
-| CHL-02 | Bật/tắt Challenge qua endpoint trạng thái riêng, validation vòng đời, audit và tests | `feat: CHL-02 challenge activation and deactivation` | Chờ proceed |
+| CHL-02 | Bật/tắt Challenge qua endpoint trạng thái riêng, validation vòng đời, audit và tests | `feat: CHL-02 challenge activation and deactivation` | Đã triển khai và kiểm thử; chưa commit |
 
-Triển khai CHL-01 trước, kiểm thử và commit riêng. Không gộp CHL-02 hoặc Armory vào commit CHL-01.
-Working tree hiện có các thay đổi chưa commit từ task nhân sự và tài liệu khác; chỉ stage file thuộc task Challenge.
+Triển khai và kiểm thử từng task riêng. Chỉ commit/push khi người dùng yêu cầu rõ ràng; không tự stage hoặc commit khi được yêu cầu proceed implementation.
+Working tree hiện có các thay đổi từ task nhân sự và tài liệu khác; không đưa chúng vào task Challenge.
 
 ## Nguồn và kiến trúc
 
@@ -109,11 +109,75 @@ Response `{ data: [...], meta: { page, limit, total, totalPages } }`.
 | 409 | CHALLENGE_CANCELLED | Challenge đã cancel |
 | 409 | CHALLENGE_RULES_LOCKED | Sửa điều kiện/phần thưởng/thời gian sau khi có người tham gia |
 
-## CHL-02 — Bước tiếp theo
+## CHL-02 — API bật/tắt thử thách
 
-Endpoint dự kiến `PATCH /admin/challenges/:challengeId/status`, body `{ "enabled": true, "reason": "..." }`.
-Ánh xạ enabled thành OPEN/CLOSED; cho publish DRAFT; không mở lại CANCELLED hoặc Challenge đã hết hạn.
-Không phát thưởng hoặc sửa participation khi bật/tắt. CHL-02 chỉ được thực hiện sau khi người dùng proceed.
+```http
+PATCH /api/v1/admin/challenges/:challengeId/status
+```
+
+```json
+{
+  "enabled": true,
+  "reason": "Mở thử thách tháng 10"
+}
+```
+
+- Quyền: `ADMIN` / `SUPER_ADMIN`, cùng tenant của Challenge.
+- `enabled` bắt buộc là boolean, không nhận chuỗi `"true"`/`"false"` hay số 0/1.
+- `reason` bắt buộc, trim, 3–500 ký tự. Không nhận các field khác trong body.
+- Không toggle mù: request xác định trạng thái đích nên retry không đảo trạng thái ngoài ý muốn.
+
+### Chuyển trạng thái
+
+| Trạng thái hiện tại | enabled=true | enabled=false |
+|---|---|---|
+| DRAFT | OPEN nếu hợp lệ | Giữ DRAFT |
+| OPEN | Giữ OPEN nếu còn hợp lệ | CLOSED |
+| CLOSED | OPEN nếu hợp lệ | Giữ CLOSED |
+| CANCELLED | 409 CHALLENGE_CANCELLED | Giữ CANCELLED |
+
+- Khi bật, kiểm tra `startsAt < endsAt`, `endsAt > serverNow`, `target >= 1` và DP/Marks integer không âm.
+- Deadline bằng thời điểm server cũng đã được xem là hết hạn; trả 409 `CHALLENGE_EXPIRED`.
+- Có thể publish trước `startsAt`. OPEN là trạng thái publish; task tham gia sau này vẫn phải kiểm tra khung thời gian để cho phép join.
+- Request bật OPEN đã hết hạn vẫn bị chặn, không trả thành công vì là no-op.
+- Khi tắt, không yêu cầu cấu hình activation còn hợp lệ; Admin vẫn đóng được một OPEN đã hết hạn.
+- No-op không đổi `updatedAt`, không ghi audit thay đổi trùng.
+- Khóa row trước khi xử lý để serialize request đồng thời; update trạng thái và audit cùng transaction.
+- Audit `CHALLENGE_ENABLED` / `CHALLENGE_DISABLED`, ghi actor, before/after và reason.
+- Không sửa participation, không đặt hoàn thành, không tăng progress hoặc phát/đảo điểm thưởng.
+- Không cần migration mới; `enabled` suy ra từ `status === OPEN`, không lưu thêm cột.
+
+### Response 200
+
+```json
+{
+  "data": {
+    "id": "<challengeId>",
+    "title": "Tay đấm bền bỉ",
+    "status": "OPEN",
+    "enabled": true,
+    "startsAt": "2026-09-30T17:00:00.000Z",
+    "endsAt": "2026-10-31T17:00:00.000Z",
+    "rewardDp": 100,
+    "rewardMarks": 40,
+    "updatedAt": "<server timestamp>"
+  }
+}
+```
+
+Response thực tế gồm toàn bộ `ChallengeView` như GET/detail và thêm `enabled`.
+
+### Mã lỗi CHL-02
+
+| HTTP | Code | Trường hợp |
+|---|---|---|
+| 400 | VALIDATION_ERROR | Sai UUID/boolean, thiếu reason hoặc field ngoài contract |
+| 400 | INVALID_CHALLENGE_DATES | Khoảng thời gian không hợp lệ |
+| 400 | INVALID_CHALLENGE_CONFIG | Cấu hình cũ có target/phần thưởng sai |
+| 401/403 | UNAUTHORIZED / TOKEN_INVALID / FORBIDDEN | Chưa đăng nhập hoặc không có quyền |
+| 404 | NOT_FOUND | Challenge không tồn tại hoặc thuộc tenant khác |
+| 409 | CHALLENGE_CANCELLED | Bật Challenge đã hủy |
+| 409 | CHALLENGE_EXPIRED | Bật Challenge đã hết hạn |
 
 ## Checklist kiểm thử CHL-01
 
@@ -135,12 +199,15 @@ npm run lint
 npm run build
 npx vitest run --project unit tests/unit/challenges.test.ts
 npm run test:integration -- tests/integration/challenges.test.ts
+npx vitest run --project unit tests/unit/challenge-status.test.ts
+npm run test:integration -- tests/integration/challenge-status.test.ts
 ```
 
 Kết quả kiểm tra CHL-01: 22 unit tests và 8 integration tests pass; lint/build pass.
+Kết quả kiểm tra CHL-02: 24 unit tests và 7 integration tests pass; cả hai task chạy chung đạt 46 unit tests / 15 integration tests. Lint/build pass.
 Integration được chạy trên PostgreSQL 18.4 tạm thời ở port 55439, database `hvp_test`, có runtime role không sở hữu bảng để kiểm tra RLS.
 Docker Engine hiện không chạy; PostgreSQL 5432 local không chấp nhận credential test mặc định.
-Full `npm run typecheck` ở working tree hiện tại bị lỗi từ test nhân sự chưa track còn sót lại trên main
+Full `npm run typecheck` ở working tree hiện tại bị lỗi từ test nhân sự chưa track còn sót lại từ task trước
 (`tests/unit/staff.test.ts` import module staff chưa có). Kiểm tra TypeScript cho phần code và test tương ứng của Challenge thực hiện riêng, không sửa các file task nhân sự.
 
 ## cURL — CMD Windows
@@ -171,4 +238,16 @@ curl "http://localhost:4000/api/v1/admin/challenges?status=DRAFT&page=1&limit=20
 curl "http://localhost:4000/api/v1/admin/challenges/%CHALLENGE_ID%" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp"
 ```
 
-Deploy Docker sau khi merge task: `docker compose up --build -d api`. CHL-01 không yêu cầu migration mới.
+Bật thử thách (CHL-02):
+
+```cmd
+curl -X PATCH "http://localhost:4000/api/v1/admin/challenges/%CHALLENGE_ID%/status" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp" -H "Content-Type: application/json" -d "{\"enabled\":true,\"reason\":\"Mo thu thach thang 10\"}"
+```
+
+Tắt thử thách:
+
+```cmd
+curl -X PATCH "http://localhost:4000/api/v1/admin/challenges/%CHALLENGE_ID%/status" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp" -H "Content-Type: application/json" -d "{\"enabled\":false,\"reason\":\"Tam dong thu thach\"}"
+```
+
+Deploy Docker sau khi merge task: `docker compose up --build -d api`. CHL-01/02 không yêu cầu migration mới.

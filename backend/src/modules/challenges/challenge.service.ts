@@ -1,7 +1,8 @@
 import { badRequest, conflict, notFound } from '../../common/errors/app-error';
+import { clock } from '../../common/utils/clock';
 import type { AuditService } from '../audit/audit.service';
 import type { ChallengeRepository, ChallengeView, ChallengeWrite } from './challenge.repository';
-import type { ChallengeFilter, CreateChallengeInput, UpdateChallengeInput } from './challenge.validation';
+import type { ChallengeEnabledInput, ChallengeFilter, CreateChallengeInput, UpdateChallengeInput } from './challenge.validation';
 
 const ruleFields = ['challengeType', 'context', 'target', 'rewardDp', 'rewardMarks', 'startsAt', 'endsAt'] as const;
 
@@ -51,6 +52,34 @@ export class ChallengeService {
     const saved = await this.repo.update(id, after);
     await this.audit.record({ actorId, action: 'CHALLENGE_UPDATED', entityType: 'CHALLENGE', entityId: id, before, after: saved, reason });
     return saved;
+  }
+
+  /** Publishes/closes the catalogue entry without deciding any learner's participation. */
+  async setEnabled(id: string, input: ChallengeEnabledInput, actorId: string): Promise<ChallengeView & { enabled: boolean }> {
+    const before = await this.repo.find(id, true);
+    if (!before) throw notFound('Challenge');
+    if (input.enabled) {
+      if (before.status === 'CANCELLED') throw conflict('Thử thách đã bị hủy, không thể mở lại.', 'CHALLENGE_CANCELLED');
+      this.validateDates(before);
+      if (before.endsAt.getTime() <= clock.now().getTime()) {
+        throw conflict('Thử thách đã hết hạn, không thể bật.', 'CHALLENGE_EXPIRED');
+      }
+      if (!Number.isInteger(before.target) || before.target < 1 ||
+        !Number.isInteger(before.rewardDp) || before.rewardDp < 0 ||
+        !Number.isInteger(before.rewardMarks) || before.rewardMarks < 0) {
+        throw badRequest('Mục tiêu và phần thưởng thử thách không hợp lệ.', undefined, 'INVALID_CHALLENGE_CONFIG');
+      }
+    }
+    // Disabling a draft/cancelled/already-closed entry must not implicitly publish or revive it.
+    if ((input.enabled && before.status === 'OPEN') || (!input.enabled && before.status !== 'OPEN')) {
+      return { ...before, enabled: before.status === 'OPEN' };
+    }
+    const after = await this.repo.setStatus(id, input.enabled ? 'OPEN' : 'CLOSED');
+    await this.audit.record({
+      actorId, action: input.enabled ? 'CHALLENGE_ENABLED' : 'CHALLENGE_DISABLED',
+      entityType: 'CHALLENGE', entityId: id, before, after, reason: input.reason,
+    });
+    return { ...after, enabled: after.status === 'OPEN' };
   }
 
   private validateDates(input: ChallengeWrite) {

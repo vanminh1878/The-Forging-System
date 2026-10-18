@@ -35,6 +35,10 @@ export const updateChallengeBody = z.object(fields).partial().extend({
 });
 
 export const challengeIdParam = z.object({ challengeId: z.string().uuid() });
+export const challengeEnabledBody = z.object({
+  enabled: z.boolean(),
+  reason: z.string().trim().min(3).max(500),
+}).strict();
 export const challengeSearchQuery = paginationQuery.extend({
   q: z.string().trim().max(100).optional(),
   status: challengeStatus.optional(),
@@ -44,4 +48,5 @@ export const challengeSearchQuery = paginationQuery.extend({
 
 export type CreateChallengeInput = z.infer<typeof createChallengeBody>;
 export type UpdateChallengeInput = z.infer<typeof updateChallengeBody>;
+export type ChallengeEnabledInput = z.infer<typeof challengeEnabledBody>;
 export type ChallengeFilter = Pick<z.infer<typeof challengeSearchQuery>, 'q' | 'status' | 'challengeType' | 'context'>;
