@@ -5,6 +5,9 @@ import { AuthController } from './modules/auth/auth.controller';
 import { AuthRepository } from './modules/auth/auth.repository';
 import { authRoutes } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
+import { ChallengeRepository } from './modules/challenges/challenge.repository';
+import { challengeRoutes } from './modules/challenges/challenge.routes';
+import { ChallengeService } from './modules/challenges/challenge.service';
 import { createOtpSender } from './modules/auth/otp.sender';
 import type { OtpSender } from './modules/auth/otp.sender';
 import { MemberRepository } from './modules/members/member.repository';
@@ -42,6 +45,7 @@ export interface Container {
     members: MemberService;
     auth: AuthService;
     directory: UserDirectory;
+    challenges: ChallengeService;
     // [services:feature-modules] (declare as `name: Type;` and assign in the module block below)
   };
   storage: StorageService;
@@ -84,8 +88,9 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   const members = new MemberService(new MemberRepository(), ranks, points, notifications, audit, settings);
   const auth = new AuthService(new AuthRepository(), members, overrides.otp ?? createOtpSender(), settings);
   const directory = new UserDirectory();
+  const challenges = new ChallengeService(new ChallengeRepository(), audit);
 
-  const services = { audit, settings, notifications, points, ranks, members, auth, directory } as Container['services'];
+  const services = { audit, settings, notifications, points, ranks, members, auth, directory, challenges } as Container['services'];
 
   // ---- 4. feature modules ----
   // Each module registers itself here by adding ONE block: instantiate its repositories/services,
@@ -98,6 +103,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     // Auth routes live under /auth, everything else declares absolute paths.
     Router().use('/auth', authRoutes(new AuthController(auth))),
     memberRoutes(members),
+    challengeRoutes(challenges),
     rankRoutes(ranks, directory),
     pointsRoutes(points),
     notificationRoutes(notifications),
