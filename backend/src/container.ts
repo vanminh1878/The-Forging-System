@@ -25,6 +25,9 @@ import { rankRoutes } from './modules/ranks/rank.routes';
 import { RankService } from './modules/ranks/rank.service';
 import { settingsRoutes } from './modules/settings/settings.routes';
 import { SettingsService } from './modules/settings/settings.service';
+import { StaffRepository } from './modules/staff/staff.repository';
+import { staffRoutes } from './modules/staff/staff.routes';
+import { StaffService } from './modules/staff/staff.service';
 import { LocalDiskStorage } from './modules/uploads/storage.service';
 import type { StorageService } from './modules/uploads/storage.service';
 import { uploadRoutes } from './modules/uploads/upload.routes';
@@ -42,6 +45,7 @@ export interface Container {
     members: MemberService;
     auth: AuthService;
     directory: UserDirectory;
+    staff: StaffService;
     // [services:feature-modules] (declare as `name: Type;` and assign in the module block below)
   };
   storage: StorageService;
@@ -84,8 +88,9 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   const members = new MemberService(new MemberRepository(), ranks, points, notifications, audit, settings);
   const auth = new AuthService(new AuthRepository(), members, overrides.otp ?? createOtpSender(), settings);
   const directory = new UserDirectory();
+  const staff = new StaffService(new StaffRepository());
 
-  const services = { audit, settings, notifications, points, ranks, members, auth, directory } as Container['services'];
+  const services = { audit, settings, notifications, points, ranks, members, auth, directory, staff } as Container['services'];
 
   // ---- 4. feature modules ----
   // Each module registers itself here by adding ONE block: instantiate its repositories/services,
@@ -98,6 +103,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     // Auth routes live under /auth, everything else declares absolute paths.
     Router().use('/auth', authRoutes(new AuthController(auth))),
     memberRoutes(members),
+    staffRoutes(staff),
     rankRoutes(ranks, directory),
     pointsRoutes(points),
     notificationRoutes(notifications),

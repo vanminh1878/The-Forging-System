@@ -1,0 +1,30 @@
+import { Router } from 'express';
+import { z } from 'zod';
+import { handle, ok } from '../../common/http/handler';
+import { pageMeta, paginationQuery, toPage } from '../../common/http/pagination';
+import { requireAuth, requireRoles } from '../../common/middlewares/auth.middleware';
+import { validate } from '../../common/middlewares/validate.middleware';
+import { RoleGroup } from '../../shared/roles';
+import type { StaffService } from './staff.service';
+
+export const staffRole = z.enum(['COACH', 'HEAD_COACH', 'RECEPTIONIST', 'ADMIN', 'SUPER_ADMIN']);
+const idParam = z.object({ staffId: z.string().uuid() });
+const searchQuery = paginationQuery.extend({
+  q: z.string().trim().max(100).optional(),
+  role: staffRole.optional(),
+  branchId: z.string().uuid().optional(),
+  status: z.enum(['ACTIVE', 'LOCKED', 'DISABLED']).optional(),
+});
+
+export function staffRoutes(service: StaffService): Router {
+  const r = Router();
+  r.use('/admin/staff', requireAuth, requireRoles(...RoleGroup.ADMINS));
+  r.get('/admin/staff', validate({ query: searchQuery }), handle(async (req) => {
+    const query = req.query as unknown as z.infer<typeof searchQuery>;
+    const page = toPage(query);
+    const result = await service.search(query, page.limit, page.offset);
+    return ok(result.items, pageMeta(page, result.total));
+  }));
+  r.get('/admin/staff/:staffId', validate({ params: idParam }), handle(async (req) => ok(await service.get(req.params.staffId))));
+  return r;
+}
