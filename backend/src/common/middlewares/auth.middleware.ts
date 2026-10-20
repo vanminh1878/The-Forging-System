@@ -23,6 +23,10 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
       const user = await repo.findUserById(claims.sub);
       if (!user || user.accountStatus !== 'ACTIVE') throw forbidden('Tài khoản không hoạt động.', 'ACCOUNT_DISABLED');
       if (user.authVersion !== (claims.ver ?? 0)) throw unauthorized('Phiên đăng nhập đã hết hạn.', 'TOKEN_INVALID');
+      const allowedDuringPasswordChange = ['/me', '/logout', '/password/change'];
+      if (user.mustChangePassword && !(req.baseUrl.endsWith('/auth') && allowedDuringPasswordChange.includes(req.path))) {
+        throw forbidden('Bạn phải đổi mật khẩu tạm trước khi tiếp tục.', 'PASSWORD_CHANGE_REQUIRED');
+      }
       req.ctx.auth = { userId: user.id, roles: await repo.rolesOf(user.id), branchId: user.branchId };
     }).then(() => next()).catch(next);
   } catch {
