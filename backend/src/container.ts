@@ -88,7 +88,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   const members = new MemberService(new MemberRepository(), ranks, points, notifications, audit, settings);
   const auth = new AuthService(new AuthRepository(), members, overrides.otp ?? createOtpSender(), settings);
   const directory = new UserDirectory();
-  const staff = new StaffService(new StaffRepository());
+  const staff = new StaffService(new StaffRepository(), audit, settings);
 
   const services = { audit, settings, notifications, points, ranks, members, auth, directory, staff } as Container['services'];
 

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { handle, ok } from '../../common/http/handler';
+import { authOf, created, handle, ok } from '../../common/http/handler';
 import { pageMeta, paginationQuery, toPage } from '../../common/http/pagination';
 import { requireAuth, requireRoles } from '../../common/middlewares/auth.middleware';
 import { validate } from '../../common/middlewares/validate.middleware';
@@ -15,6 +15,13 @@ const searchQuery = paginationQuery.extend({
   branchId: z.string().uuid().optional(),
   status: z.enum(['ACTIVE', 'LOCKED', 'DISABLED']).optional(),
 });
+const createBody = z.object({
+  fullName: z.string().trim().min(2).max(100),
+  phone: z.string().trim().min(9).max(16).optional(),
+  email: z.string().trim().email().max(254).optional(),
+  role: staffRole,
+  branchId: z.string().uuid(),
+}).strict().refine((input) => input.phone || input.email, { message: 'Cần số điện thoại hoặc email.' });
 
 export function staffRoutes(service: StaffService): Router {
   const r = Router();
@@ -26,5 +33,6 @@ export function staffRoutes(service: StaffService): Router {
     return ok(result.items, pageMeta(page, result.total));
   }));
   r.get('/admin/staff/:staffId', validate({ params: idParam }), handle(async (req) => ok(await service.get(req.params.staffId))));
+  r.post('/admin/staff', validate({ body: createBody }), handle(async (req) => created(await service.create(req.body, authOf(req)))));
   return r;
 }
