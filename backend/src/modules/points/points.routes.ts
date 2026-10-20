@@ -39,6 +39,7 @@ export function pointsRoutes(service: PointsService): Router {
     }),
   );
   r.get('/me/points/monthly', requireRoles(Role.MEMBER), handle(async (req) => ok(await service.monthlyStatus(authOf(req).userId))));
+  r.get('/me/armory/wallet', requireRoles(Role.MEMBER), handle(async (req) => ok(await service.wallet(authOf(req).userId))));
 
   // Staff: any member's ledger.
   r.get(
