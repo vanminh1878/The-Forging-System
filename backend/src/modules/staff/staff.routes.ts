@@ -9,6 +9,7 @@ import type { StaffService } from './staff.service';
 
 export const staffRole = z.enum(['COACH', 'HEAD_COACH', 'RECEPTIONIST', 'ADMIN', 'SUPER_ADMIN']);
 const idParam = z.object({ staffId: z.string().uuid() });
+const reason = z.string().trim().min(3).max(500);
 const searchQuery = paginationQuery.extend({
   q: z.string().trim().max(100).optional(),
   role: staffRole.optional(),
@@ -22,6 +23,8 @@ const createBody = z.object({
   role: staffRole,
   branchId: z.string().uuid(),
 }).strict().refine((input) => input.phone || input.email, { message: 'Cần số điện thoại hoặc email.' });
+const patchBody = z.object({ role: staffRole.optional(), branchId: z.string().uuid().optional(), reason }).strict()
+  .refine((input) => input.role || input.branchId, { message: 'Cần vai trò hoặc chi nhánh mới.' });
 
 export function staffRoutes(service: StaffService): Router {
   const r = Router();
@@ -34,5 +37,14 @@ export function staffRoutes(service: StaffService): Router {
   }));
   r.get('/admin/staff/:staffId', validate({ params: idParam }), handle(async (req) => ok(await service.get(req.params.staffId))));
   r.post('/admin/staff', validate({ body: createBody }), handle(async (req) => created(await service.create(req.body, authOf(req)))));
+  r.patch('/admin/staff/:staffId', validate({ params: idParam, body: patchBody }), handle(async (req) =>
+    ok(await service.update(req.params.staffId, req.body, authOf(req))),
+  ));
+  r.post('/admin/staff/:staffId/status', validate({ params: idParam, body: z.object({ status: z.enum(['ACTIVE', 'DISABLED']), reason }).strict() }), handle(async (req) =>
+    ok(await service.setStatus(req.params.staffId, req.body.status, req.body.reason, authOf(req))),
+  ));
+  r.post('/admin/staff/:staffId/reset-password', validate({ params: idParam, body: z.object({ reason }).strict() }), handle(async (req) =>
+    ok(await service.resetPassword(req.params.staffId, req.body.reason, authOf(req))),
+  ));
   return r;
 }

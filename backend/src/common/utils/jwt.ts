@@ -7,6 +7,7 @@ export interface AccessTokenClaims {
   tid: string; // tenant id
   roles: RoleCode[];
   bid: string | null; // branch id
+  ver?: number; // credential generation, incremented when credentials are revoked
 }
 
 export function signAccessToken(claims: AccessTokenClaims): string {

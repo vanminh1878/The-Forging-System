@@ -218,7 +218,7 @@ export class AuthService {
     const user = await this.repo.findUserById(userId);
     if (!user) throw unauthorized();
     const roles = await this.repo.rolesOf(userId);
-    const accessToken = signAccessToken({ sub: userId, tid: db.currentTenantId(), roles, bid: user.branchId });
+    const accessToken = signAccessToken({ sub: userId, tid: db.currentTenantId(), roles, bid: user.branchId, ver: user.authVersion });
     const refreshToken = randomToken(32);
     await this.repo.insertRefreshToken({
       userId,
