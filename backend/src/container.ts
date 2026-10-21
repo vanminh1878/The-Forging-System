@@ -102,7 +102,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     pointsRoutes(points),
     notificationRoutes(notifications),
     settingsRoutes(settings),
-    auditRoutes(),
+    auditRoutes(audit),
     uploadRoutes(storage),
     // [routers:feature-modules]
   ];
