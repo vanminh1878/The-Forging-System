@@ -15,6 +15,7 @@ export type ConfigGroup =
   | 'SECURITY';
 
 export type ConfigValueType = 'INT' | 'DECIMAL' | 'BOOL' | 'TEXT' | 'TIME' | 'JSON';
+export const CONFIG_GROUPS = ['POINTS', 'RANK', 'STREAK', 'CHALLENGE', 'ARMORY', 'MEMBERSHIP', 'NOTIFICATION', 'CHECKIN', 'SECURITY'] as const;
 
 export interface ConfigDefinition {
   key: string;
@@ -83,7 +84,7 @@ export const CONFIG_CATALOG: ConfigDefinition[] = [
   def('checkin.geofence_enabled', 'CHECKIN', 'BOOL', false, 'Reject check-ins made outside the branch geofence'),
 
   // ---- Security ----
-  def('security.password_min_length', 'SECURITY', 'INT', 8, 'Minimum password length', { min: 6 }),
+  def('security.password_min_length', 'SECURITY', 'INT', 8, 'Minimum password length', { min: 6, max: 72 }),
   def('security.pin_ttl_minutes', 'SECURITY', 'INT', 5, 'Password reset PIN lifetime', { min: 1 }),
   def('security.pin_max_attempts', 'SECURITY', 'INT', 5, 'Wrong PIN attempts allowed', { min: 1 }),
 ];
