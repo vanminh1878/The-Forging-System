@@ -67,4 +67,7 @@ abstract final class AdminPaths {
   static const String challenges = '/admin/challenges';
   static const String notifications = '/admin/notifications';
   static const String settings = '/admin/settings';
+
+  // Pushed screens
+  static const String branches = '/admin/settings/branches';
 }
