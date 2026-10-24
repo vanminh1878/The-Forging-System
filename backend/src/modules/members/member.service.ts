@@ -1,4 +1,5 @@
 import { badRequest, conflict, forbidden, notFound, unprocessable } from '../../common/errors/app-error';
+import { env } from '../../config/env';
 import { clock } from '../../common/utils/clock';
 import { readableCode, randomToken } from '../../common/utils/ids';
 import { hashPassword, isStrongPassword } from '../../common/utils/password';
@@ -11,13 +12,16 @@ import type { PointsPort } from '../points/points.service';
 import type { RankService } from '../ranks/rank.service';
 import type { SettingsService } from '../settings/settings.service';
 import type { MemberRepository } from './member.repository';
-import type { MemberProfile, MemberStatus, StatusChannel } from './member.types';
+import type { MemberProfile, ProfilePatch, MemberStatus, StatusChannel } from './member.types';
 
 const STATUS_LABEL: Record<MemberStatus, string> = {
   ACTIVE: 'Hoạt động',
   FROZEN: 'Đóng băng',
   INACTIVE: 'Không hoạt động',
 };
+
+const PHONE_TAKEN_MSG = 'Số điện thoại này đã được đăng ký. Mỗi người chỉ có 1 tài khoản dùng chung mọi chi nhánh.';
+const EMAIL_TAKEN_MSG = 'Email này đã được đăng ký. Vui lòng dùng email khác hoặc đăng nhập.';
 
 export interface CreateMemberInput {
   fullName: string;
@@ -64,10 +68,10 @@ export class MemberService {
     }
 
     if (phone && (await this.exists('phone', phone))) {
-      throw conflict('Số điện thoại này đã được đăng ký. Mỗi người chỉ có 1 tài khoản dùng chung mọi chi nhánh.', 'PHONE_TAKEN');
+      throw conflict(PHONE_TAKEN_MSG, 'PHONE_TAKEN');
     }
     if (email && (await this.exists('email', email))) {
-      throw conflict('Email này đã được đăng ký. Vui lòng dùng email khác hoặc đăng nhập.', 'EMAIL_TAKEN');
+      throw conflict(EMAIL_TAKEN_MSG, 'EMAIL_TAKEN');
     }
 
     const userId = await this.repo.createMemberAccount({
@@ -97,8 +101,13 @@ export class MemberService {
     return profile;
   }
 
-  async updateProfile(userId: string, patch: { fullName?: string; avatarUrl?: string | null; email?: string | null; phone?: string | null; dateOfBirth?: string | null; gender?: string | null }) {
-    const clean = { ...patch };
+  /**
+   * Partial profile update (undefined = keep, null = clear). Contact changes are checked for
+   * uniqueness and reset the matching verification stamp.
+   */
+  async updateProfile(userId: string, patch: ProfilePatch): Promise<MemberProfile> {
+    const before = await this.getProfile(userId);
+    const clean: ProfilePatch = { ...patch };
     if (clean.phone) {
       clean.phone = normalizePhone(clean.phone);
       if (!isValidPhone(clean.phone)) throw badRequest('Số điện thoại không hợp lệ.');
@@ -107,8 +116,37 @@ export class MemberService {
       clean.email = clean.email.trim().toLowerCase();
       if (!isValidEmail(clean.email)) throw badRequest('Email không hợp lệ.');
     }
-    await this.repo.updateUser(userId, clean);
-    return this.getProfile(userId);
+    const email = clean.email === undefined ? before.email : clean.email;
+    const phone = clean.phone === undefined ? before.phone : clean.phone;
+    if (!email && !phone) throw badRequest('Cần giữ lại ít nhất số điện thoại hoặc email.', undefined, 'CONTACT_REQUIRED');
+
+    const phoneChanged = clean.phone !== undefined && clean.phone !== before.phone;
+    const emailChanged = clean.email !== undefined && clean.email !== before.email;
+    if (phoneChanged && phone && (await this.exists('phone', phone, userId))) throw conflict(PHONE_TAKEN_MSG, 'PHONE_TAKEN');
+    if (emailChanged && email && (await this.exists('email', email, userId))) throw conflict(EMAIL_TAKEN_MSG, 'EMAIL_TAKEN');
+
+    if (clean.avatarUrl && !clean.avatarUrl.startsWith(`${env.PUBLIC_BASE_URL.replace(/\/$/, '')}/files/`)) {
+      throw badRequest('Ảnh đại diện không hợp lệ. Vui lòng tải ảnh lên trước rồi chọn lại.', undefined, 'INVALID_AVATAR_URL');
+    }
+    if (clean.homeBranchId && !(await this.repo.isActiveBranch(clean.homeBranchId))) {
+      throw badRequest('Chi nhánh không tồn tại hoặc đã ngừng hoạt động.', undefined, 'INVALID_BRANCH');
+    }
+
+    await this.repo.updateUser(userId, { ...clean, resetEmailVerified: emailChanged, resetPhoneVerified: phoneChanged });
+    if (clean.homeBranchId !== undefined) await this.repo.setHomeBranch(userId, clean.homeBranchId);
+
+    const after = await this.getProfile(userId);
+    const keys = ['fullName', 'avatarUrl', 'email', 'phone', 'dateOfBirth', 'gender', 'homeBranchId'] as const;
+    const changed = keys.filter((k) => patch[k] !== undefined);
+    await this.audit.record({
+      actorId: userId,
+      action: 'PROFILE_UPDATED',
+      entityType: 'MEMBER',
+      entityId: userId,
+      before: Object.fromEntries(changed.map((k) => [k, before[k]])),
+      after: Object.fromEntries(changed.map((k) => [k, after[k]])),
+    });
+    return after;
   }
 
   search(filter: { q?: string; status?: MemberStatus; branchId?: string }, limit: number, offset: number) {
@@ -224,8 +262,8 @@ export class MemberService {
     });
   }
 
-  private async exists(column: 'phone' | 'email', value: string): Promise<boolean> {
-    const n = await sql.scalar<number>(`SELECT count(*) FROM users WHERE ${column} = $1`, [value]);
+  private async exists(column: 'phone' | 'email', value: string, exceptUserId?: string): Promise<boolean> {
+    const n = await sql.scalar<number>(`SELECT count(*) FROM users WHERE ${column} = $1 AND ($2::uuid IS NULL OR id <> $2)`, [value, exceptUserId ?? null]);
     return (n ?? 0) > 0;
   }
 }
