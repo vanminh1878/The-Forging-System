@@ -95,7 +95,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   // Each module registers itself here by adding ONE block: instantiate its repositories/services,
   // register event listeners, and push its router. Never reach into another module's repository;
   // depend on its exported port or listen to its domain events (src/shared/events.ts).
-  const memberships = new MembershipService(new MembershipRepository());
+  const memberships = new MembershipService(new MembershipRepository(), settings);
   services.memberships = memberships;
   // [modules:feature-modules]
 
