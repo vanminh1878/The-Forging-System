@@ -88,4 +88,33 @@ export class BranchService {
     });
     return after;
   }
+
+  /** Printable QR content for reception / print (rotating time-window codes are CHK-01). */
+  async getQr(id: string): Promise<{ branchId: string; code: string; qrVersion: string; payload: string }> {
+    const b = await this.repo.findById(id);
+    if (!b) throw notFound('Chi nhánh');
+    return qrOf(b);
+  }
+
+  /** Invalidates every check-in code issued under the previous version. */
+  async rotateQr(id: string, reason: string | undefined, by: string) {
+    const before = await this.repo.findById(id);
+    if (!before) throw notFound('Chi nhánh');
+    const qrVersion = await this.repo.bumpQrVersion(id, `HVP-${before.code}`);
+    await this.audit.record({
+      actorId: by,
+      action: 'BRANCH_QR_UPDATED',
+      entityType: 'BRANCH',
+      entityId: id,
+      before: { qrVersion: before.qrVersion },
+      after: { qrVersion },
+      reason: reason ?? 'Cập nhật QR check-in',
+    });
+    return qrOf({ ...before, qrVersion });
+  }
+}
+
+function qrOf(b: { id: string; code: string; qrVersion: string | null }) {
+  const qrVersion = b.qrVersion ?? '1';
+  return { branchId: b.id, code: b.code, qrVersion, payload: `HVP|${b.code}|${qrVersion}` };
 }

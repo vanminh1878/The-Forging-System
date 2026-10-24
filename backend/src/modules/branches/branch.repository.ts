@@ -1,9 +1,10 @@
 import { sql } from '../../db/sql';
 import type { Branch, BranchInput } from './branch.types';
 
+// An unset qr_version reads as '1' everywhere (single source of truth for the QR contract).
 // numeric columns come back from pg as strings, so cast them for the API.
 const COLUMNS = `id, code, name, address, opening_hours, latitude::float8 AS latitude, longitude::float8 AS longitude,
-  geofence_radius_m, is_active, qr_version`;
+  geofence_radius_m, is_active, COALESCE(qr_version, '1') AS qr_version`;
 
 export class BranchRepository {
   list(includeInactive: boolean): Promise<Array<Branch & { qrVersion: string | null }>> {
@@ -58,5 +59,18 @@ export class BranchRepository {
 
   setActive(id: string, isActive: boolean): Promise<number> {
     return sql.exec(`UPDATE branches SET is_active = $2, updated_at = now() WHERE id = $1`, [id, isActive]);
+  }
+
+  /** Bumps qr_version (non-numeric/unset counts as 1) and fills qr_prefix when empty. Returns the new version. */
+  bumpQrVersion(id: string, defaultPrefix: string): Promise<string | null> {
+    return sql.scalar<string>(
+      `UPDATE branches
+          SET qr_version = (CASE WHEN COALESCE(qr_version, '1') ~ '^[0-9]{1,9}$' THEN COALESCE(qr_version, '1')::int + 1 ELSE 2 END)::text,
+              qr_prefix = COALESCE(NULLIF(qr_prefix, ''), $2),
+              updated_at = now()
+        WHERE id = $1
+        RETURNING qr_version`,
+      [id, defaultPrefix],
+    );
   }
 }

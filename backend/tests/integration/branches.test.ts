@@ -81,6 +81,6 @@ describe('branches: list and detail', () => {
     expect(m.body.data).not.toHaveProperty('qrVersion');
     const s = await ctx.api.get(`/api/v1/branches/${inactiveId}`).set(bearer(coach));
     expect(s.status).toBe(200);
-    expect(s.body.data).toMatchObject({ code: 'OLD', isActive: false, qrVersion: null });
+    expect(s.body.data).toMatchObject({ code: 'OLD', isActive: false, qrVersion: '1' });
   });
 });

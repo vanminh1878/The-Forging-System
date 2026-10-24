@@ -40,6 +40,7 @@ const patchBody = z.object({
   longitude: writable.longitude.optional(),
   geofenceRadiusM: writable.geofenceRadiusM.optional(),
 });
+const rotateBody = z.object({ reason: z.string().trim().min(3).max(500).optional() });
 const statusBody = z.object({ isActive: z.boolean(), reason: z.string().trim().min(3).max(500) });
 
 export function branchRoutes(service: BranchService): Router {
@@ -58,6 +59,13 @@ export function branchRoutes(service: BranchService): Router {
     '/branches/:branchId',
     validate({ params: idParam }),
     handle(async (req) => ok(await service.get(req.params.branchId, authOf(req).roles))),
+  );
+
+  r.get(
+    '/branches/:branchId/qr',
+    requireRoles(...RoleGroup.FRONT_DESK),
+    validate({ params: idParam }),
+    handle(async (req) => ok(await service.getQr(req.params.branchId))),
   );
 
   // ---- admin ----
@@ -81,6 +89,14 @@ export function branchRoutes(service: BranchService): Router {
       ok(
         await service.setStatus(req.params.branchId, req.body.isActive, req.body.reason, authOf(req).userId),
       ),
+    ),
+  );
+  r.post(
+    '/admin/branches/:branchId/qr/rotate',
+    requireRoles(...RoleGroup.ADMINS),
+    validate({ params: idParam, body: rotateBody }),
+    handle(async (req) =>
+      ok(await service.rotateQr(req.params.branchId, req.body.reason, authOf(req).userId)),
     ),
   );
   return r;

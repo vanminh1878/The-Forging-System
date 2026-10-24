@@ -100,6 +100,46 @@ Body: `{ "isActive": false, "reason": "Đóng cửa sửa chữa" }`. `reason` b
 - Form tạo/sửa: hiển thị `code` tự in hoa; lỗi `BRANCH_CODE_TAKEN` hiện ngay dưới ô Mã. Toast: "Đã tạo chi nhánh", "Đã lưu thay đổi".
 - Nút bật/tắt mở hộp thoại bắt nhập lý do (≥ 3 ký tự); toast "Đã ngừng hoạt động chi nhánh" / "Đã kích hoạt lại chi nhánh".
 
+## QR check-in của chi nhánh
+
+`qrVersion` là chuỗi số tăng dần; chưa từng đặt thì coi là `"1"` (mọi API đều trả `"1"`, không trả `null`).
+
+### GET `/branches/:branchId/qr`
+
+Quyền: lễ tân + admin (FD). Học viên/coach → 403.
+
+```json
+{ "data": { "branchId": "6f1c0a52-8d0e-4c0b-9a55-0b6f3a2f6c11", "code": "Q1", "qrVersion": "3", "payload": "HVP|Q1|3" } }
+```
+
+`payload` = `HVP|<mã chi nhánh>|<qrVersion>`, chuỗi để in/hiển thị mã QR tĩnh (màn lễ tân, in bảng QR).
+
+| HTTP | code | message |
+|---|---|---|
+| 403 | `FORBIDDEN` | Không đủ quyền |
+| 404 | `NOT_FOUND` | Chi nhánh not found |
+
+### POST `/admin/branches/:branchId/qr/rotate`
+
+Quyền: admin (A). Body (tuỳ chọn): `{ "reason": "Mất bảng QR" }` (3–500 ký tự; mặc định "Cập nhật QR check-in"). Tăng `qrVersion` thêm 1 (đặt `qr_prefix` mặc định `HVP-<code>` nếu đang trống), ghi audit `BRANCH_QR_UPDATED`. Trả 200 cùng shape như GET `/qr` với version mới.
+
+| HTTP | code | message |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Lý do quá ngắn/dài |
+| 403 | `FORBIDDEN` | Không đủ quyền |
+| 404 | `NOT_FOUND` | Chi nhánh not found |
+
+### Hợp đồng cho CHK-01 (check-in)
+
+- Mã check-in xoay vòng được **suy ra** từ `chi nhánh + qrVersion + cửa sổ thời gian`, cửa sổ dài `checkin.code_ttl_seconds` giây (ví dụ `HMAC(secret, branchId|qrVersion|floor(now/ttl))`).
+- Vì `qrVersion` nằm trong đầu vào, **tăng `qrVersion` làm vô hiệu mọi mã đã phát hành** (kể cả QR in cũ), không cần lưu danh sách mã.
+- CHK-01 phải đọc version đúng quy tắc: cột `branches.qr_version`, thiếu → `"1"`.
+
+### Ghi chú FE
+
+- Màn admin: nút "Làm mới mã QR" mở hộp thoại cảnh báo "Mã QR đã in sẽ không còn dùng được" + ô lý do tuỳ chọn; sau khi thành công toast "Đã cập nhật QR check-in" và hiển thị "Mã QR: phiên bản {qrVersion}".
+- Màn lễ tân: dùng `payload` để vẽ mã QR; tải lại khi admin vừa làm mới.
+
 ## Ghi chú FE
 
 - Danh sách chọn chi nhánh (đăng ký, đặt lớp…): gọi `GET /branches`, hiển thị `name` + `address`, và `openingHours` nếu có.
