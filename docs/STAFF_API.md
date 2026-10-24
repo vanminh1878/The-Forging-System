@@ -145,3 +145,150 @@ npm run test:integration -- tests/integration/staff.test.ts tests/integration/au
 Migration `0004_staff_credentials.sql` thêm `must_change_password`, `auth_version` và index tìm nhân sự.
 Phải chạy migration trước khi khởi động API mới. Cờ mặc định false để giữ tương thích tài khoản cũ.
 STF-05 ở đây được hỗ trợ bằng API list/filter; màn Flutter chưa được triển khai trong thay đổi backend này.
+
+## cURL test API — CMD Windows
+
+Các lệnh dưới dành cho **Command Prompt (CMD)**. Token Admin và token nhân sự dùng hai biến riêng.
+Các ví dụ tạo/cập nhật dùng tài khoản test; nếu SĐT/email đã có, đổi thông tin để tránh lỗi 409.
+
+### 1. Migration và chạy backend
+
+Chạy tại thư mục backend, sử dụng kết nối trong `.env`, không cần Docker:
+
+```cmd
+cd /d "E:\Hoc\Boxing\HVPForgingSystem\backend"
+npm run migrate
+npm run dev
+```
+
+Giữ terminal này chạy, mở CMD thứ hai để test:
+
+```cmd
+curl "http://localhost:4000/health"
+```
+
+### 2. Đăng nhập Admin và đặt biến
+
+Tài khoản demo đã kiểm tra đăng nhập thành công trên DB hiện tại:
+
+```cmd
+curl -X POST "http://localhost:4000/api/v1/auth/login" -H "Content-Type: application/json" -H "X-Tenant-Code: hvp" -d "{\"identifier\":\"0900000001\",\"password\":\"hvp12345\"}"
+```
+
+Copy `data.accessToken` từ response, thay placeholder rồi chạy:
+
+```cmd
+set "TOKEN=ACCESS_TOKEN_ADMIN"
+set "BRANCH_ID=d9740649-d99f-4a7c-a5bb-184e12f21aa2"
+```
+
+`BRANCH_ID` trên là chi nhánh Quận 7 của DB `localhost:5439/hvp` đã xác minh trong phiên kiểm tra.
+Đây không phải ID mặc định cố định: khi dùng DB khác hoặc seed lại, thay bằng UUID chi nhánh thực tế.
+
+### 3. STF-01 — Danh sách, tìm kiếm và bộ lọc
+
+```cmd
+curl "http://localhost:4000/api/v1/admin/staff?page=1&limit=20" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp"
+```
+
+Lọc kết hợp tên, vai trò, trạng thái và chi nhánh:
+
+```cmd
+curl "http://localhost:4000/api/v1/admin/staff?q=Test&role=COACH&status=ACTIVE&branchId=%BRANCH_ID%&page=1&limit=20" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp"
+```
+
+Kết quả thành công: 200 với `data` và `meta`. Không có kết quả phù hợp vẫn trả 200 với danh sách rỗng.
+
+### 4. STF-02 — Tạo nhân sự
+
+```cmd
+curl -X POST "http://localhost:4000/api/v1/admin/staff" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp" -H "Content-Type: application/json" -d "{\"fullName\":\"Coach Test STF\",\"phone\":\"0909000021\",\"email\":\"coach.stf.test@example.com\",\"role\":\"COACH\",\"branchId\":\"%BRANCH_ID%\"}"
+```
+
+Thành công: 201. Copy `data.staff.id` và `data.temporaryPassword`, thay placeholder:
+
+```cmd
+set "STAFF_ID=ID_NHAN_SU_VUA_TAO"
+set "TEMP_PASSWORD=MAT_KHAU_TAM_TU_RESPONSE"
+```
+
+Xem chi tiết tài khoản vừa tạo:
+
+```cmd
+curl "http://localhost:4000/api/v1/admin/staff/%STAFF_ID%" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp"
+```
+
+### 5. STF-03 — Đổi vai trò hoặc chi nhánh
+
+```cmd
+curl -X PATCH "http://localhost:4000/api/v1/admin/staff/%STAFF_ID%" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp" -H "Content-Type: application/json" -d "{\"role\":\"RECEPTIONIST\",\"branchId\":\"%BRANCH_ID%\",\"reason\":\"Dieu chuyen nhan su\"}"
+```
+
+Thành công: 200. Có thể chỉ gửi role hoặc branchId, luôn kèm reason.
+
+### 6. STF-03 — Vô hiệu hóa và kích hoạt lại
+
+Vô hiệu hóa tài khoản test:
+
+```cmd
+curl -X POST "http://localhost:4000/api/v1/admin/staff/%STAFF_ID%/status" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp" -H "Content-Type: application/json" -d "{\"status\":\"DISABLED\",\"reason\":\"Nhan su tam nghi\"}"
+```
+
+Kích hoạt lại trước khi test đăng nhập:
+
+```cmd
+curl -X POST "http://localhost:4000/api/v1/admin/staff/%STAFF_ID%/status" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp" -H "Content-Type: application/json" -d "{\"status\":\"ACTIVE\",\"reason\":\"Nhan su quay lai\"}"
+```
+
+### 7. STF-03 — Reset mật khẩu
+
+```cmd
+curl -X POST "http://localhost:4000/api/v1/admin/staff/%STAFF_ID%/reset-password" -H "Authorization: Bearer %TOKEN%" -H "X-Tenant-Code: hvp" -H "Content-Type: application/json" -d "{\"reason\":\"Nhan su quen mat khau\"}"
+```
+
+Thành công: 200 với mật khẩu tạm mới. **Thay `%TEMP_PASSWORD%` bằng `data.temporaryPassword` mới**, không dùng mật khẩu từ lúc tạo tài khoản:
+
+```cmd
+set "TEMP_PASSWORD=MAT_KHAU_TAM_MOI_TU_RESPONSE_RESET"
+```
+
+### 8. STF-04 — Đăng nhập bằng mật khẩu tạm
+
+```cmd
+curl -X POST "http://localhost:4000/api/v1/auth/login" -H "Content-Type: application/json" -H "X-Tenant-Code: hvp" -d "{\"identifier\":\"0909000021\",\"password\":\"%TEMP_PASSWORD%\"}"
+```
+
+Nếu đã đổi SĐT test ở bước tạo tài khoản, thay identifier tương ứng ở đây và bước đăng nhập cuối.
+Copy access token của nhân sự, không ghi đè biến `%TOKEN%` của Admin:
+
+```cmd
+set "STAFF_TOKEN=ACCESS_TOKEN_NHAN_SU"
+curl "http://localhost:4000/api/v1/auth/me" -H "Authorization: Bearer %STAFF_TOKEN%" -H "X-Tenant-Code: hvp"
+```
+
+Response có `mustChangePassword=true`. Có thể kiểm tra API nghiệp vụ đang bị chặn:
+
+```cmd
+curl "http://localhost:4000/api/v1/members" -H "Authorization: Bearer %STAFF_TOKEN%" -H "X-Tenant-Code: hvp"
+```
+
+Kỳ vọng 403 `PASSWORD_CHANGE_REQUIRED` cho tới khi đổi mật khẩu.
+
+### 9. STF-04 — Đổi mật khẩu lần đầu
+
+```cmd
+curl -i -X POST "http://localhost:4000/api/v1/auth/password/change" -H "Authorization: Bearer %STAFF_TOKEN%" -H "X-Tenant-Code: hvp" -H "Content-Type: application/json" -d "{\"currentPassword\":\"%TEMP_PASSWORD%\",\"password\":\"NewStaffPass123\",\"passwordConfirm\":\"NewStaffPass123\"}"
+```
+
+Thành công: **204 No Content**. Token cũ bị thu hồi; đăng nhập lại bằng mật khẩu mới:
+
+```cmd
+curl -X POST "http://localhost:4000/api/v1/auth/login" -H "Content-Type: application/json" -H "X-Tenant-Code: hvp" -d "{\"identifier\":\"0909000021\",\"password\":\"NewStaffPass123\"}"
+```
+
+Response lúc này có `mustChangePassword=false`. Nếu tiếp tục gọi API, thay `%STAFF_TOKEN%` bằng access token mới.
+
+### 10. Khi chuyển nhánh
+
+Chạy `npm run migrate` tại backend sau khi checkout nhánh cần test, rồi khởi động lại backend để nạp code của nhánh đó.
+Migration là forward-only, chỉ áp dụng file chưa chạy; checkout nhánh khác không tự rollback cấu trúc DB.
