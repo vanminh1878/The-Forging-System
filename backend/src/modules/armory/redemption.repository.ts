@@ -31,6 +31,17 @@ export interface RedemptionView {
   requestedAt: Date;
 }
 
+export interface MemberRedemptionView extends RedemptionView {
+  rewardSku: string;
+  rewardName: string;
+  rewardImageUrl: string | null;
+  pickupBranchName: string;
+  reason: string | null;
+  decidedAt: Date | null;
+}
+
+export interface RedemptionFilter { status?: 'PENDING_PICKUP' | 'DELIVERED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED' }
+
 export interface RedemptionWallet {
   marksBalance: number;
   marksHeld: number;
@@ -80,6 +91,26 @@ export class RedemptionRepository {
       (id,tenant_id,redemption_code,member_id,reward_id,pickup_branch_id,marks_cost,idempotency_key,requested_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING ${orderColumns}`,
     [input.id, db.currentTenantId(), input.code, input.memberId, input.rewardId, input.pickupBranchId, input.marksCost, input.key, input.at]))!;
+  }
+
+  async listForMember(memberId: string, filter: RedemptionFilter, limit: number, offset: number) {
+    const params = [memberId, filter.status ?? null];
+    const where = `d.member_id=$1 AND ($2::text IS NULL OR d.status=$2)`;
+    const items = await sql.many<MemberRedemptionView>(`SELECT d.id,d.redemption_code,d.reward_id,d.pickup_branch_id,d.marks_cost,d.status,d.requested_at,
+      d.decided_at,d.reason,r.sku AS reward_sku,r.name AS reward_name,r.image_url AS reward_image_url,b.name AS pickup_branch_name
+      FROM redemptions d JOIN rewards r ON r.id=d.reward_id AND r.tenant_id=d.tenant_id
+      JOIN branches b ON b.id=d.pickup_branch_id AND b.tenant_id=d.tenant_id
+      WHERE ${where} ORDER BY d.requested_at DESC,d.id DESC LIMIT $3 OFFSET $4`, [...params, limit, offset]);
+    const total = await sql.scalar<number>(`SELECT count(*)::int FROM redemptions d WHERE ${where}`, params);
+    return { items, total: total ?? 0 };
+  }
+
+  findForMember(memberId: string, id: string): Promise<MemberRedemptionView | null> {
+    return sql.one<MemberRedemptionView>(`SELECT d.id,d.redemption_code,d.reward_id,d.pickup_branch_id,d.marks_cost,d.status,d.requested_at,
+      d.decided_at,d.reason,r.sku AS reward_sku,r.name AS reward_name,r.image_url AS reward_image_url,b.name AS pickup_branch_name
+      FROM redemptions d JOIN rewards r ON r.id=d.reward_id AND r.tenant_id=d.tenant_id
+      JOIN branches b ON b.id=d.pickup_branch_id AND b.tenant_id=d.tenant_id
+      WHERE d.member_id=$1 AND d.id=$2`, [memberId, id]);
   }
 
   consumeStock(rewardId: string) { return sql.exec('UPDATE rewards SET stock=stock-1,updated_at=now() WHERE id=$1 AND stock>0', [rewardId]); }
