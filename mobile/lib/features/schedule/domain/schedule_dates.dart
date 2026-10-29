@@ -84,3 +84,22 @@ String formatSessionDay(String isoDate) {
   if (d == null) return isoDate;
   return '${weekdayLong(d.weekday)} · ${formatCalendarDate(isoDate)}';
 }
+
+/// First day of the month [months] away from [d] (any day of that month works for the API).
+DateTime shiftMonths(DateTime d, int months) =>
+    DateTime.utc(d.year, d.month + months, 1);
+
+/// `Tháng 03/2026`.
+String monthLabel(DateTime d) =>
+    'Tháng ${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+/// Every day shown in the month grid: Monday-first, padded with the
+/// neighbouring months' days so the last row is a full week (28..42 days).
+List<DateTime> monthGrid(DateTime d) {
+  final first = DateTime.utc(d.year, d.month, 1);
+  final daysInMonth = DateTime.utc(d.year, d.month + 1, 0).day;
+  final leading = first.weekday - 1;
+  final cells = ((leading + daysInMonth + 6) ~/ 7) * 7;
+  final start = first.subtract(Duration(days: leading));
+  return List<DateTime>.generate(cells, (i) => start.add(Duration(days: i)));
+}

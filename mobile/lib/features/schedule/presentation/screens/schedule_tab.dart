@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../domain/schedule_dates.dart';
 import '../../domain/schedule_models.dart';
+import '../../domain/schedule_query.dart';
 import '../providers/schedule_providers.dart';
+import '../widgets/month_grid.dart';
 import '../widgets/period_header.dart';
 import '../widgets/schedule_list.dart';
+import '../widgets/view_switch.dart';
 import '../widgets/week_strip.dart';
 
 /// "Lịch tập" tab of the student shell (body only; the shell provides the app bar).
@@ -20,7 +23,9 @@ class ScheduleTab extends ConsumerWidget {
     final async = ref.watch(scheduleProvider);
     final today = ref.watch(scheduleTodayProvider);
     final selected = ref.watch(selectedDayProvider);
+    final select = ref.read(selectedDayProvider.notifier).select;
     final all = async.valueOrNull?.items ?? const <ScheduleItem>[];
+    final isWeek = query.view == ScheduleView.week;
 
     return Column(
       children: <Widget>[
@@ -28,20 +33,32 @@ class ScheduleTab extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Column(
             children: <Widget>[
+              ViewSwitch(view: query.view, onChanged: notifier.setView),
               PeriodHeader(
-                title: weekRangeLabel(query.anchorDate),
-                todayLabel: 'Tuần này',
-                onPrev: () => notifier.shiftWeek(-1),
-                onNext: () => notifier.shiftWeek(1),
+                title: isWeek
+                    ? weekRangeLabel(query.anchorDate)
+                    : monthLabel(query.anchorDate),
+                todayLabel: isWeek ? 'Tuần này' : 'Tháng này',
+                onPrev: () => notifier.shift(-1),
+                onNext: () => notifier.shift(1),
                 onToday: notifier.goToday,
               ),
-              WeekStrip(
-                days: weekDays(query.anchorDate),
-                items: all,
-                today: today,
-                selected: selected,
-                onSelect: ref.read(selectedDayProvider.notifier).select,
-              ),
+              if (isWeek)
+                WeekStrip(
+                  days: weekDays(query.anchorDate),
+                  items: all,
+                  today: today,
+                  selected: selected,
+                  onSelect: select,
+                )
+              else
+                MonthGrid(
+                  month: query.anchorDate,
+                  items: all,
+                  today: today,
+                  selected: selected,
+                  onSelect: select,
+                ),
             ],
           ),
         ),
@@ -56,20 +73,27 @@ class ScheduleTab extends ConsumerWidget {
                       .where((i) => i.date == isoDay(selected))
                       .toList(growable: false);
               return ScheduleList(
-                heading: selected == null
-                    ? 'Tất cả buổi tập tuần này'
-                    : '${weekdayLong(selected.weekday)} — buổi trong ngày',
+                heading: _heading(isWeek, selected),
                 items: items,
                 onRefresh: () => ref.refresh(scheduleProvider.future),
-                onClearDay: selected == null
-                    ? null
-                    : () => ref.read(selectedDayProvider.notifier).select(null),
-                clearDayLabel: 'Bỏ lọc, xem cả tuần',
+                onClearDay: selected == null ? null : () => select(null),
+                clearDayLabel:
+                    isWeek ? 'Bỏ lọc, xem cả tuần' : 'Bỏ lọc, xem cả tháng',
               );
             },
           ),
         ),
       ],
     );
+  }
+
+  static String _heading(bool isWeek, DateTime? day) {
+    if (day == null) {
+      return isWeek ? 'Tất cả buổi tập tuần này' : 'Tất cả buổi tập tháng này';
+    }
+    final label = isWeek
+        ? weekdayLong(day.weekday)
+        : '${weekdayLong(day.weekday)} ${formatDayMonth(day)}';
+    return '$label — buổi trong ngày';
   }
 }
