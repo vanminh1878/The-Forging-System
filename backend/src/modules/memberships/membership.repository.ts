@@ -25,6 +25,16 @@ export interface MembershipRow {
   endDate: string | null;
   totalSessions: number | null;
   usedSessions: number;
+  paymentEvidenceUrl: string | null;
+}
+
+export interface PackageForSale {
+  id: string;
+  name: string;
+  isActive: boolean;
+  durationDays: number | null;
+  totalSessions: number | null;
+  priceVnd: string | null;
 }
 
 export interface PendingRenewalRow {
@@ -84,7 +94,7 @@ const RENEWAL_FROM = `
 const MEMBERSHIP_SELECT = `
   SELECT ms.id, ms.package_type_id, pt.code AS package_code, pt.name AS package_name, pt.is_trial, ms.status,
          to_char(ms.start_date, 'YYYY-MM-DD') AS start_date, to_char(ms.end_date, 'YYYY-MM-DD') AS end_date,
-         ms.total_sessions, ms.used_sessions
+         ms.total_sessions, ms.used_sessions, ms.payment_evidence_url
     FROM memberships ms
     JOIN package_types pt ON pt.id = ms.package_type_id`;
 
@@ -177,5 +187,105 @@ export class MembershipRepository {
       sql.scalar<string>(`SELECT count(*) ${RENEWAL_FROM}`, params),
     ]);
     return { items, total: Number(total ?? 0) };
+  }
+
+  /** Locks the member row for the rest of the transaction; null when the member does not exist. */
+  lockMember(memberId: string): Promise<{ status: string; homeBranchId: string | null } | null> {
+    return sql.one(`SELECT status, home_branch_id FROM members WHERE user_id = $1 FOR UPDATE`, [memberId]);
+  }
+
+  findPackageForSale(id: string): Promise<PackageForSale | null> {
+    return sql.one<PackageForSale>(
+      `SELECT id, name, is_active, duration_days, total_sessions, price_vnd FROM package_types WHERE id = $1`,
+      [id],
+    );
+  }
+
+  async branchExists(id: string): Promise<boolean> {
+    return (await sql.scalar<number>(`SELECT 1 FROM branches WHERE id = $1`, [id])) !== null;
+  }
+
+  async latestMembershipId(memberId: string): Promise<string | null> {
+    return sql.scalar<string>(
+      `SELECT id FROM memberships WHERE member_id = $1 ORDER BY start_date DESC, created_at DESC LIMIT 1`,
+      [memberId],
+    );
+  }
+
+  async expireMembership(id: string, now: Date): Promise<void> {
+    await sql.exec(`UPDATE memberships SET status = 'EXPIRED', expired_at = $2, updated_at = $2 WHERE id = $1`, [
+      id,
+      now,
+    ]);
+  }
+
+  async insertMembership(input: {
+    memberId: string;
+    packageTypeId: string;
+    branchId: string | null;
+    status: 'ACTIVE' | 'SCHEDULED';
+    startDate: string;
+    endDate: string | null;
+    totalSessions: number | null;
+    pricePaidVnd: string | null;
+    paymentEvidenceUrl: string;
+    previousMembershipId: string | null;
+    activatedBy: string;
+    now: Date;
+    note: string | null;
+  }): Promise<string> {
+    const id = await sql.scalar<string>(
+      `INSERT INTO memberships (tenant_id, member_id, package_type_id, branch_id, start_date, end_date, total_sessions,
+                                status, previous_membership_id, price_paid_vnd, payment_evidence_url, activated_by,
+                                activated_at, note)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       RETURNING id`,
+      [
+        db.currentTenantId(),
+        input.memberId,
+        input.packageTypeId,
+        input.branchId,
+        input.startDate,
+        input.endDate,
+        input.totalSessions,
+        input.status,
+        input.previousMembershipId,
+        input.pricePaidVnd,
+        input.paymentEvidenceUrl,
+        input.activatedBy,
+        input.now,
+        input.note,
+      ],
+    );
+    return id!;
+  }
+
+  findMembership(id: string): Promise<MembershipRow | null> {
+    return sql.one<MembershipRow>(`${MEMBERSHIP_SELECT} WHERE ms.id = $1`, [id]);
+  }
+
+  /** Locks a renewal request so two receptionists cannot approve it at once. */
+  lockRenewal(id: string): Promise<{ memberId: string; status: string; desiredPackageTypeId: string | null } | null> {
+    return sql.one(
+      `SELECT member_id, status, desired_package_type_id FROM renewal_requests WHERE id = $1 FOR UPDATE`,
+      [id],
+    );
+  }
+
+  async completeRenewal(input: {
+    id: string;
+    by: string;
+    now: Date;
+    evidenceUrl: string;
+    membershipId: string;
+    note: string | null;
+  }): Promise<void> {
+    await sql.exec(
+      `UPDATE renewal_requests
+          SET status = 'COMPLETED', handled_by = $2, handled_at = $3, payment_evidence_url = $4,
+              resulting_membership_id = $5, reason = COALESCE($6, reason), updated_at = $3
+        WHERE id = $1`,
+      [input.id, input.by, input.now, input.evidenceUrl, input.membershipId, input.note],
+    );
   }
 }

@@ -188,3 +188,84 @@ Hộp thư yêu cầu gia hạn cho lễ tân (MEM-12).
 - **Response 200:** `{ "data": [<renewalRequest>...], "meta": { "page", "limit", "total", "totalPages" } }`, mới nhất trước.
 - **Lỗi:** 400 `VALIDATION_ERROR` (ví dụ `status` sai), 401 `UNAUTHORIZED`, 403 `FORBIDDEN` (HLV/học viên).
 - **Ghi chú FE:** tab mặc định `status=PENDING` kèm ô tìm kiếm; mỗi dòng hiển thị tên + mã học viên, gói muốn gia hạn + giá, gói hiện tại + ngày hết hạn, ghi chú, thời điểm gửi. Trống: "Chưa có yêu cầu gia hạn nào". Nút Duyệt/Huỷ sẽ có ở MEM-04/MEM-06.
+
+## MEM-04 — Lễ tân kích hoạt / gia hạn gói kèm ảnh thu phí
+
+Ảnh minh chứng: tải lên bằng `POST /uploads?purpose=evidence`, lấy `url` trả về điền vào `paymentEvidenceUrl`.
+
+### `POST /members/:memberId/memberships`  (vai trò: RECEPTIONIST, ADMIN, SUPER_ADMIN)
+
+Kích hoạt thủ công gói cho học viên. Trả **201**.
+
+| Trường body | Kiểu | Bắt buộc | Giới hạn |
+|---|---|---|---|
+| `packageTypeId` | uuid | có | Gói phải đang bán |
+| `paymentEvidenceUrl` | string | có (kiểm tra ở server) | Phải bắt đầu bằng `${PUBLIC_BASE_URL}/files/` |
+| `branchId` | uuid | không | Mặc định chi nhánh chính của học viên |
+| `note` | string | không | Tối đa 500 ký tự |
+
+### `POST /renewal-requests/:id/approve`  (vai trò: RECEPTIONIST, ADMIN, SUPER_ADMIN)
+
+Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
+
+| Trường body | Kiểu | Bắt buộc | Giới hạn |
+|---|---|---|---|
+| `paymentEvidenceUrl` | string | có | Như trên |
+| `packageTypeId` | uuid | không | Mặc định `desiredPackage` của yêu cầu |
+| `note` | string | không | Tối đa 500 ký tự, lưu vào `reason` của yêu cầu |
+
+### Response (cả hai endpoint)
+
+```json
+{
+  "data": {
+    "membership": {
+      "id": "b2c1...",
+      "packageType": { "id": "6f1c...", "code": "BOOK_2", "name": "BOOK II — Foundation 2", "isTrial": false },
+      "status": "SCHEDULED",
+      "startDate": "2027-01-16",
+      "endDate": "2027-04-09",
+      "totalSessions": 36,
+      "usedSessions": 0,
+      "paymentEvidenceUrl": "http://localhost:4000/files/evidence/abc.jpg"
+    },
+    "mode": "SCHEDULED",
+    "reactivated": false,
+    "message": "Gia hạn sớm: gói mới xếp nối tiếp từ 16/01/2027."
+  }
+}
+```
+
+`mode`: `ACTIVATED` (gói mới ACTIVE từ hôm nay) hoặc `SCHEDULED` (xếp nối tiếp).
+
+### Lỗi
+
+| HTTP | code | message |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Dữ liệu không hợp lệ |
+| 400 | `PAYMENT_EVIDENCE_REQUIRED` | Vui lòng tải ảnh minh chứng đã thu phí. |
+| 400 | `INVALID_PAYMENT_EVIDENCE` | Ảnh minh chứng không hợp lệ. |
+| 400 | `PACKAGE_REQUIRED` | Vui lòng chọn gói tập. (duyệt yêu cầu không có gói mong muốn và body không có `packageTypeId`) |
+| 401 | `UNAUTHORIZED` | Chưa đăng nhập |
+| 403 | `FORBIDDEN` | Không đủ quyền (HLV / học viên) |
+| 404 | `NOT_FOUND` | Không tìm thấy học viên / gói tập / chi nhánh / yêu cầu gia hạn |
+| 409 | `MEMBERSHIP_ALREADY_SCHEDULED` | Học viên đã có gói nối tiếp đang chờ kích hoạt. |
+| 409 | `RENEWAL_ALREADY_HANDLED` | Yêu cầu này đã được xử lý. |
+| 422 | `PACKAGE_INACTIVE` | Gói tập này đã ngừng bán. |
+
+### Quy tắc nghiệp vụ
+
+- Gói ACTIVE còn hiệu lực (còn ngày và còn buổi) và có ngày kết thúc: gói mới là `SCHEDULED`, `startDate = endDate + 1`. Nếu gói hiện tại không có ngày kết thúc, gói mới `SCHEDULED` bắt đầu từ hôm nay.
+- Ngược lại (không có gói, hoặc gói ACTIVE đã hết hạn/hết buổi): gói cũ chuyển `EXPIRED`, gói mới `ACTIVE` từ hôm nay. Nếu học viên đang FROZEN/INACTIVE thì tài khoản được mở lại `ACTIVE` (`reactivated = true`).
+- `endDate = startDate + durationDays - 1` (null nếu gói không giới hạn ngày). Giá thu = giá gói, `totalSessions` lấy snapshot từ gói.
+- HVP Marks không bị đóng băng/mở băng khi đổi trạng thái.
+- Duyệt yêu cầu: yêu cầu chuyển `COMPLETED`, lưu người xử lý, thời điểm, ảnh và gói kết quả.
+- Học viên nhận thông báo `RENEWAL_COMPLETED` ("GIA HẠN THÀNH CÔNG"). Audit: `MEMBERSHIP_CREATED`, `MEMBERSHIP_EXPIRED` (gói cũ), `RENEWAL_COMPLETED`.
+- `GET /members/:memberId/membership` (lễ tân) có thêm `paymentEvidenceUrl` trong `current` / `scheduled`; `GET /me/membership` thì không.
+
+### Ghi chú FE
+
+- Form: chọn gói, tải ảnh thu phí (bắt buộc, có preview), chi nhánh (tuỳ chọn), ghi chú. Nút "Xác nhận đã thu phí" bị khoá tới khi ảnh upload xong.
+- Thành công: hiển thị `message` làm toast, tải lại `GET /members/:memberId/membership` và hộp thư yêu cầu.
+- 409 `RENEWAL_ALREADY_HANDLED`: tải lại hộp thư. 409 `MEMBERSHIP_ALREADY_SCHEDULED`: hiển thị `error.message`. 422: tải lại danh sách gói.
+- Chỉ lễ tân/admin thấy ảnh minh chứng; màn học viên không có field này.
