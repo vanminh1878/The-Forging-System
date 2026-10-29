@@ -92,6 +92,15 @@ class ScheduleItem {
       '${isExam ? '📝 ' : ''}${title ?? sessionType.label}';
 }
 
+/// `GET /me/sessions/:id`: the calendar item plus lesson plan and notes.
+class SessionDetail {
+  const SessionDetail({required this.item, this.lessonPlanTitle, this.notes});
+
+  final ScheduleItem item;
+  final String? lessonPlanTitle;
+  final String? notes;
+}
+
 /// A schedule response: items plus the covered range (`meta.from` / `meta.to`).
 class ScheduleResult {
   const ScheduleResult({required this.items, this.from, this.to});

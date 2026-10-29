@@ -65,6 +65,13 @@ final scheduleProvider = FutureProvider.autoDispose<ScheduleResult>((ref) {
   return ref.watch(scheduleRepositoryProvider).getSchedule(query);
 });
 
+/// One session's detail (CLS-13).
+final sessionDetailProvider =
+    FutureProvider.autoDispose.family<SessionDetail, String>((ref, id) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(scheduleRepositoryProvider).getSession(id);
+});
+
 /// Day picked in the week strip (null = whole week). Resets when the period changes.
 class SelectedDayNotifier extends Notifier<DateTime?> {
   @override

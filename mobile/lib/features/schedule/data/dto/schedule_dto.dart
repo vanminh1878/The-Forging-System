@@ -27,6 +27,12 @@ ScheduleItem scheduleItemFromJson(JsonMap j) {
   );
 }
 
+SessionDetail sessionDetailFromJson(JsonMap j) => SessionDetail(
+      item: scheduleItemFromJson(j),
+      lessonPlanTitle: strOrNull(asMap(j['lessonPlan']), 'title'),
+      notes: strOrNull(j, 'notes'),
+    );
+
 ScheduleResult scheduleResultFromEnvelope(ApiEnvelope e) {
   final meta = asMap(e.meta);
   return ScheduleResult(

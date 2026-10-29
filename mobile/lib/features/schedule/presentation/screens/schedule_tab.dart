@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../../../../app/route_paths.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../domain/schedule_dates.dart';
 import '../../domain/schedule_models.dart';
@@ -83,6 +86,8 @@ class ScheduleTab extends ConsumerWidget {
               return ScheduleList(
                 heading: _heading(isWeek, selected),
                 items: items,
+                onTapItem: (i) =>
+                    context.push(StudentPaths.session(i.sessionId)),
                 emptyTitle: filtered
                     ? 'Không có buổi nào khớp bộ lọc.'
                     : 'Không có buổi nào.',

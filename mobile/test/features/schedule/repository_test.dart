@@ -94,4 +94,32 @@ void main() {
       'status': 'CONFIRMED_FAIL',
     });
   });
+
+  test('getSession hits /me/sessions/:id and parses lesson plan and notes',
+      () async {
+    final t = _build((o) => okEnvelope(<String, dynamic>{
+          'sessionId': 's1',
+          'sessionType': 'GROUP',
+          'startsAt': '2026-03-04T11:00:00.000Z',
+          'endsAt': '2026-03-04T12:30:00.000Z',
+          'date': '2026-03-04',
+          'branch': <String, dynamic>{'id': 'b1', 'name': 'The Corner'},
+          'status': 'UPCOMING',
+          'lessonPlan': <String, dynamic>{'id': 'p1', 'title': 'JAB (1)'},
+          'notes': 'Mang băng tay',
+        }));
+    final detail = await t.repo.getSession('s1');
+    expect(t.adapter.requests.single.path, '/me/sessions/s1');
+    expect(detail.lessonPlanTitle, 'JAB (1)');
+    expect(detail.notes, 'Mang băng tay');
+
+    final bare = _build((o) => okEnvelope(<String, dynamic>{
+          'sessionId': 's2',
+          'lessonPlan': null,
+          'notes': null
+        }));
+    final d2 = await bare.repo.getSession('s2');
+    expect(d2.lessonPlanTitle, isNull);
+    expect(d2.notes, isNull);
+  });
 }
