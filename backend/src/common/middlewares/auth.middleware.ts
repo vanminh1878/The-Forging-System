@@ -25,7 +25,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
 
 /** Allows the request only when the user holds at least one of the roles. */
 export function requireRoles(...allowed: readonly RoleCode[]) {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+  const middleware = (req: Request, _res: Response, next: NextFunction): void => {
     const roles = req.ctx.auth?.roles ?? [];
     if (!roles.some((r) => allowed.includes(r))) {
       next(forbidden());
@@ -33,4 +33,6 @@ export function requireRoles(...allowed: readonly RoleCode[]) {
     }
     next();
   };
+  // Read by common/http/openapi.ts to generate the API docs.
+  return Object.assign(middleware, { openapiRoles: allowed });
 }
