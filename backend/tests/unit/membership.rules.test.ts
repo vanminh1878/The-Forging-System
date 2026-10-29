@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isEndingSoon, renewNoticeOf, usageOf } from '../../src/modules/memberships/membership.rules';
+import { isEndingSoon, isUsableOn, renewNoticeOf, usageOf } from '../../src/modules/memberships/membership.rules';
 
 describe('membership rules', () => {
   const m = { totalSessions: 36, usedSessions: 30, endDate: '2026-10-31' };
@@ -26,5 +26,15 @@ describe('membership rules', () => {
     expect(renewNoticeOf({ current: ok, hasScheduled: false, hasEnded: false, endingSoon: true })).toBe('ENDING_SOON');
     expect(renewNoticeOf({ current: ok, hasScheduled: true, hasEnded: false, endingSoon: true })).toBe('OK');
     expect(renewNoticeOf({ current: ok, hasScheduled: false, hasEnded: false, endingSoon: false })).toBe('OK');
+  });
+
+  it('isUsableOn: start/end dates inclusive, sessions left, unlimited packages', () => {
+    const base = { startDate: '2026-10-10', endDate: '2026-10-20', totalSessions: 2, usedSessions: 1 };
+    expect(isUsableOn(base, '2026-10-10')).toBe(true);
+    expect(isUsableOn(base, '2026-10-20')).toBe(true);
+    expect(isUsableOn(base, '2026-10-09')).toBe(false);
+    expect(isUsableOn(base, '2026-10-21')).toBe(false);
+    expect(isUsableOn({ ...base, usedSessions: 2 }, '2026-10-15')).toBe(false);
+    expect(isUsableOn({ ...base, endDate: null, totalSessions: null, usedSessions: 99 }, '2030-01-01')).toBe(true);
   });
 });

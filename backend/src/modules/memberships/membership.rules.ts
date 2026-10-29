@@ -27,6 +27,18 @@ export function isValid(u: MembershipUsage): boolean {
   );
 }
 
+/** Whether an ACTIVE package can be charged for a session on `onDate` (YYYY-MM-DD, compared as strings). */
+export function isUsableOn(
+  m: { startDate: string; endDate: string | null; totalSessions: number | null; usedSessions: number },
+  onDate: string,
+): boolean {
+  return (
+    m.startDate <= onDate &&
+    (m.endDate === null || m.endDate >= onDate) &&
+    (m.totalSessions === null || m.usedSessions < m.totalSessions)
+  );
+}
+
 export function isEndingSoon(u: MembershipUsage, remindDays: number, remindSessions: number): boolean {
   return (
     (u.daysRemaining !== null && u.daysRemaining <= remindDays) ||

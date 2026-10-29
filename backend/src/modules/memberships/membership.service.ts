@@ -1,7 +1,10 @@
 import { AppError, badRequest, conflict, forbidden, notFound, unprocessable } from '../../common/errors/app-error';
+import { DomainEvents, eventBus } from '../../common/events/event-bus';
 import { clock } from '../../common/utils/clock';
 import { addDays, localDate } from '../../common/utils/time';
 import { env } from '../../config/env';
+import type { MembershipEvent } from '../../shared/events';
+import type { MembershipPort, UsableMembership } from '../../shared/ports';
 import { RoleGroup } from '../../shared/roles';
 import type { AuditService } from '../audit/audit.service';
 import { NotificationEvent } from '../notifications/notification.events';
@@ -16,10 +19,10 @@ import type {
   RenewalFilter,
   RenewalRow,
 } from './membership.repository';
-import { isEndingSoon, isValid, renewNoticeOf, usageOf } from './membership.rules';
+import { isEndingSoon, isUsableOn, isValid, renewNoticeOf, usageOf } from './membership.rules';
 
 /** Package catalogue, memberships and renewal requests. */
-export class MembershipService {
+export class MembershipService implements MembershipPort {
   constructor(
     private readonly repo: MembershipRepository,
     private readonly settings: SettingsService,
@@ -217,6 +220,11 @@ export class MembershipService {
         after: { status: 'EXPIRED' },
         reason: 'Gói cũ hết hiệu lực, được thay bằng gói mới',
       });
+      await eventBus.emit(DomainEvents.MEMBERSHIP_EXPIRED, {
+        membershipId: current.id,
+        memberId: input.memberId,
+        packageTypeId: current.packageTypeId,
+      } satisfies MembershipEvent);
     }
 
     const reactivated = mode === 'ACTIVATED' && member.status !== 'ACTIVE';
@@ -288,7 +296,11 @@ export class MembershipService {
       payload: { membershipId: id },
       dedupeKey: `renewal-completed:${id}`,
     });
-    // MEM-07: emit MEMBERSHIP_* events here.
+    await eventBus.emit(mode === 'SCHEDULED' ? DomainEvents.MEMBERSHIP_SCHEDULED : DomainEvents.MEMBERSHIP_ACTIVATED, {
+      membershipId: id,
+      memberId: input.memberId,
+      packageTypeId: pkg.id,
+    } satisfies MembershipEvent);
     return { membership: toMembershipView(membership, true), mode, reactivated, bonusMarks, message };
   }
 
@@ -373,7 +385,47 @@ export class MembershipService {
       body: `Gói ${ms.packageName} đã bị huỷ. Lý do: ${why}.`,
       payload: { membershipId: id },
     });
-    return { membership: toMembershipView((await this.repo.findMembership(id))!, true) };
+    const view = (await this.repo.findMembership(id))!;
+    await eventBus.emit(DomainEvents.MEMBERSHIP_CANCELLED, {
+      membershipId: id,
+      memberId: ms.memberId,
+      packageTypeId: view.packageTypeId,
+    } satisfies MembershipEvent);
+    return { membership: toMembershipView(view, true) };
+  }
+
+  /** MembershipPort: the ACTIVE package that can be charged for a session on `onDate` (member status is the caller's concern). */
+  async findUsable(memberId: string, onDate: string): Promise<UsableMembership | null> {
+    const m = await this.repo.findByStatus(memberId, 'ACTIVE');
+    if (!m || !isUsableOn(m, onDate)) return null;
+    return {
+      id: m.id,
+      packageTypeId: m.packageTypeId,
+      packageName: m.packageName,
+      startDate: m.startDate,
+      endDate: m.endDate,
+      sessionsRemaining: usageOf(m, onDate).sessionsRemaining,
+      totalSessions: m.totalSessions,
+      isTrial: m.isTrial,
+    };
+  }
+
+  /** MembershipPort: charges one session; completes the package when the last one is used. */
+  async consumeSession(membershipId: string): Promise<void> {
+    const m = await this.repo.lockForConsume(membershipId);
+    if (!m || m.status !== 'ACTIVE' || (m.totalSessions !== null && m.usedSessions >= m.totalSessions))
+      throw unprocessable(
+        'Gói tập của bạn đã hết hạn hoặc hết số buổi. Vui lòng gia hạn để tiếp tục.',
+        'MEMBERSHIP_NOT_USABLE',
+      );
+    const complete = m.totalSessions !== null && m.usedSessions + 1 >= m.totalSessions && m.expireOnZero;
+    await this.repo.addUsedSession(membershipId, complete, clock.now());
+    if (complete)
+      await eventBus.emit(DomainEvents.MEMBERSHIP_COMPLETED, {
+        membershipId,
+        memberId: m.memberId,
+        packageTypeId: m.packageTypeId,
+      } satisfies MembershipEvent);
   }
 
   async listRenewals(filter: RenewalFilter, limit: number, offset: number) {
