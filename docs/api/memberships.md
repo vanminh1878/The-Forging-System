@@ -272,3 +272,53 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
 - Thành công: hiển thị `message` làm toast (đã kèm số Marks thưởng nếu có), tải lại `GET /members/:memberId/membership` và hộp thư yêu cầu.
 - 409 `RENEWAL_ALREADY_HANDLED`: tải lại hộp thư. 409 `MEMBERSHIP_ALREADY_SCHEDULED`: hiển thị `error.message`. 422: tải lại danh sách gói.
 - Chỉ lễ tân/admin thấy ảnh minh chứng; màn học viên không có field này.
+
+## MEM-06 — Huỷ yêu cầu gia hạn và huỷ gói
+
+### `POST /renewal-requests/:id/cancel`  (vai trò: RECEPTIONIST, ADMIN, SUPER_ADMIN)
+
+Huỷ yêu cầu gia hạn đang `PENDING`. Trả **200** với yêu cầu đã huỷ (cùng dạng item của `GET /renewal-requests`, `status = CANCELLED`, `reason` = lý do huỷ).
+
+| Trường body | Kiểu | Bắt buộc | Giới hạn |
+|---|---|---|---|
+| `reason` | string | có (kiểm tra ở server) | Tối đa 500 ký tự |
+
+### `POST /memberships/:id/cancel`  (vai trò: RECEPTIONIST, ADMIN, SUPER_ADMIN)
+
+Huỷ gói `SCHEDULED` (lễ tân được) hoặc `ACTIVE` (chỉ Admin). Trả **200**.
+
+| Trường body | Kiểu | Bắt buộc | Giới hạn |
+|---|---|---|---|
+| `reason` | string | có (kiểm tra ở server) | Tối đa 500 ký tự |
+
+```json
+{ "data": { "membership": { "id": "b2c1...", "status": "CANCELLED", "startDate": "2027-01-16", "endDate": "2027-04-09", "totalSessions": 36, "usedSessions": 0, "packageType": { "...": "..." }, "paymentEvidenceUrl": "..." } } }
+```
+
+### Lỗi
+
+| HTTP | code | message |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Dữ liệu không hợp lệ |
+| 400 | `CANCEL_REASON_REQUIRED` | Vui lòng nhập lý do huỷ. |
+| 401 | `UNAUTHORIZED` | Chưa đăng nhập |
+| 403 | `FORBIDDEN` | Không đủ quyền (HLV / học viên) |
+| 403 | `ADMIN_ONLY` | Chỉ Admin được huỷ gói đang hoạt động. |
+| 404 | `NOT_FOUND` | Không tìm thấy yêu cầu gia hạn / gói tập |
+| 409 | `RENEWAL_ALREADY_HANDLED` | Yêu cầu này đã được xử lý. |
+| 409 | `CANCEL_SCHEDULED_FIRST` | Huỷ gói nối tiếp trước. |
+| 409 | `MEMBERSHIP_NOT_CANCELLABLE` | Chỉ huỷ được gói đang hoạt động hoặc đang chờ kích hoạt. |
+| 422 | `BONUS_ALREADY_SPENT` | Học viên đã dùng Marks thưởng gia hạn sớm, không thể huỷ tự động — liên hệ Admin điều chỉnh điểm. |
+
+### Quy tắc nghiệp vụ
+
+- Huỷ yêu cầu: `status = CANCELLED`, lưu `handled_by`, `handled_at`, `reason`. Học viên nhận thông báo `RENEWAL_CANCELLED` ("YÊU CẦU GIA HẠN BỊ HUỶ"). Audit `RENEWAL_CANCELLED`. Học viên không tự huỷ được yêu cầu.
+- Huỷ gói: `status = CANCELLED`, lưu `cancelled_by`, `cancel_reason`. Chỉ gói `ACTIVE` / `SCHEDULED` huỷ được; gói ACTIVE khi còn gói SCHEDULED phải huỷ gói SCHEDULED trước.
+- Huỷ gói `ACTIVE` xong học viên (đang `ACTIVE`) chuyển `FROZEN` (lý do "Huỷ gói tập: ..."). Huỷ gói `SCHEDULED` không đổi trạng thái học viên.
+- Nếu gói có thưởng gia hạn sớm (MEM-05), thưởng được đảo bằng giao dịch `REVERSAL`. Nếu Marks đã tiêu (số dư sẽ âm) thì cả thao tác bị từ chối (422), không thay đổi gì. Gia hạn lại sau đó sẽ nhận thưởng lại.
+- Học viên nhận thông báo `MEMBERSHIP_STATUS` ("GÓI TẬP ĐÃ BỊ HUỶ"). Audit `MEMBERSHIP_CANCELLED`.
+
+### Ghi chú FE
+
+- Hộp thư yêu cầu: nút "Huỷ yêu cầu" mở hộp thoại nhập lý do (bắt buộc). 409 `RENEWAL_ALREADY_HANDLED`: tải lại hộp thư.
+- Màn gói của học viên (lễ tân): nút "Huỷ gói nối tiếp" cho cả lễ tân/admin; nút "Huỷ gói đang hoạt động" chỉ hiện cho Admin. Hiển thị `error.message` cho các lỗi 403/409/422; sau khi thành công tải lại `GET /members/:memberId/membership`.

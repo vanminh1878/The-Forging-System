@@ -1,7 +1,8 @@
-import { badRequest, conflict, forbidden, notFound, unprocessable } from '../../common/errors/app-error';
+import { AppError, badRequest, conflict, forbidden, notFound, unprocessable } from '../../common/errors/app-error';
 import { clock } from '../../common/utils/clock';
 import { addDays, localDate } from '../../common/utils/time';
 import { env } from '../../config/env';
+import { RoleGroup } from '../../shared/roles';
 import type { AuditService } from '../audit/audit.service';
 import { NotificationEvent } from '../notifications/notification.events';
 import type { MemberService } from '../members/member.service';
@@ -291,6 +292,90 @@ export class MembershipService {
     return { membership: toMembershipView(membership, true), mode, reactivated, bonusMarks, message };
   }
 
+  /** Reception cancels a PENDING renewal request (MEM-06). */
+  async cancelRenewal(id: string, by: string, reason: string | undefined) {
+    const why = requireReason(reason);
+    const rr = await this.repo.lockRenewal(id);
+    if (!rr) throw notFound('Yêu cầu gia hạn');
+    if (rr.status !== 'PENDING') throw conflict('Yêu cầu này đã được xử lý.', 'RENEWAL_ALREADY_HANDLED');
+    await this.repo.cancelRenewal({ id, by, now: clock.now(), reason: why });
+    await this.audit.record({
+      actorId: by,
+      action: 'RENEWAL_CANCELLED',
+      entityType: 'RENEWAL_REQUEST',
+      entityId: id,
+      before: { status: 'PENDING' },
+      after: { status: 'CANCELLED' },
+      reason: why,
+    });
+    await this.notifier.notifyMember({
+      userId: rr.memberId,
+      event: NotificationEvent.RENEWAL_CANCELLED,
+      title: 'YÊU CẦU GIA HẠN BỊ HUỶ',
+      body: `Yêu cầu gia hạn đã bị huỷ. Lý do: ${why}.`,
+      payload: { renewalRequestId: id },
+    });
+    return toRenewalView((await this.repo.findRenewal(id))!);
+  }
+
+  /** Cancels a SCHEDULED package (reception) or the ACTIVE one (admins only) and takes back its early-renewal bonus (MEM-06). */
+  async cancelMembership(id: string, by: string, actorRoles: readonly string[], reason: string | undefined) {
+    const why = requireReason(reason);
+    const ms = await this.repo.lockMembership(id);
+    if (!ms) throw notFound('Gói tập');
+    if (ms.status !== 'ACTIVE' && ms.status !== 'SCHEDULED')
+      throw conflict(
+        'Chỉ huỷ được gói đang hoạt động hoặc đang chờ kích hoạt.',
+        'MEMBERSHIP_NOT_CANCELLABLE',
+      );
+    if (ms.status === 'ACTIVE') {
+      if (!actorRoles.some((r) => (RoleGroup.ADMINS as readonly string[]).includes(r)))
+        throw forbidden('Chỉ Admin được huỷ gói đang hoạt động.', 'ADMIN_ONLY');
+      if (await this.repo.findByStatus(ms.memberId, 'SCHEDULED'))
+        throw conflict('Huỷ gói nối tiếp trước.', 'CANCEL_SCHEDULED_FIRST');
+    }
+
+    try {
+      await this.points.reverseByKey(`renewal:${id}`, `Huỷ gói: ${why}`, by);
+    } catch (e) {
+      if (e instanceof AppError && e.code === 'NEGATIVE_BALANCE')
+        throw unprocessable(
+          'Học viên đã dùng Marks thưởng gia hạn sớm, không thể huỷ tự động — liên hệ Admin điều chỉnh điểm.',
+          'BONUS_ALREADY_SPENT',
+        );
+      throw e;
+    }
+    await this.repo.cancelMembership({ id, by, now: clock.now(), reason: why });
+    // No package left: freeze the account (INACTIVE already outranks FROZEN, leave it).
+    if (ms.status === 'ACTIVE' && (await this.repo.memberStatus(ms.memberId)) === 'ACTIVE')
+      await this.members.changeStatus({
+        memberId: ms.memberId,
+        status: 'FROZEN',
+        reason: `Huỷ gói tập: ${why}`,
+        by,
+        via: 'MANUAL',
+        actorRoles,
+        notifyMember: false,
+      });
+    await this.audit.record({
+      actorId: by,
+      action: 'MEMBERSHIP_CANCELLED',
+      entityType: 'MEMBERSHIP',
+      entityId: id,
+      before: { status: ms.status },
+      after: { status: 'CANCELLED' },
+      reason: why,
+    });
+    await this.notifier.notifyMember({
+      userId: ms.memberId,
+      event: NotificationEvent.MEMBERSHIP_STATUS,
+      title: 'GÓI TẬP ĐÃ BỊ HUỶ',
+      body: `Gói ${ms.packageName} đã bị huỷ. Lý do: ${why}.`,
+      payload: { membershipId: id },
+    });
+    return { membership: toMembershipView((await this.repo.findMembership(id))!, true) };
+  }
+
   async listRenewals(filter: RenewalFilter, limit: number, offset: number) {
     const { items, total } = await this.repo.listRenewals(filter, limit, offset);
     return { items: items.map(toRenewalView), total };
@@ -323,6 +408,11 @@ function checkEvidence(url: string | undefined): string {
   if (!url.startsWith(`${env.PUBLIC_BASE_URL.replace(/\/$/, '')}/files/`))
     throw badRequest('Ảnh minh chứng không hợp lệ.', undefined, 'INVALID_PAYMENT_EVIDENCE');
   return url;
+}
+
+function requireReason(reason: string | undefined): string {
+  if (!reason?.trim()) throw badRequest('Vui lòng nhập lý do huỷ.', undefined, 'CANCEL_REASON_REQUIRED');
+  return reason.trim();
 }
 
 const formatDmy = (d: string) => d.split('-').reverse().join('/');
