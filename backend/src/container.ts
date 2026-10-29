@@ -35,6 +35,10 @@ import { BranchService } from './modules/branches/branch.service';
 import { ClassRepository } from './modules/classes/class.repository';
 import { classRoutes } from './modules/classes/class.routes';
 import { ClassService } from './modules/classes/class.service';
+import { BatchRepository } from './modules/batch/batch.repository';
+import { batchRoutes } from './modules/batch/batch.routes';
+import { BatchService } from './modules/batch/batch.service';
+import { jobs } from './jobs/registry';
 // [imports:feature-modules] (one line per module, keep alphabetical)
 
 /** Everything the HTTP layer and the scheduled jobs need, wired once at startup. */
@@ -50,6 +54,7 @@ export interface Container {
     directory: UserDirectory;
     branches: BranchService;
     classes: ClassService;
+    batch: BatchService;
     // [services:feature-modules] (declare as `name: Type;` and assign in the module block below)
   };
   storage: StorageService;
@@ -103,6 +108,8 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   services.branches = branches;
   const classes = new ClassService(new ClassRepository(), audit);
   services.classes = classes;
+  const batch = new BatchService(new BatchRepository(), audit, jobs);
+  services.batch = batch;
   // [modules:feature-modules]
 
   // ---- routers ----
@@ -118,6 +125,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     uploadRoutes(storage),
     branchRoutes(branches),
     classRoutes(classes),
+    batchRoutes(batch),
     // [routers:feature-modules]
   ];
 
