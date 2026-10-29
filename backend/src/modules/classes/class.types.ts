@@ -50,3 +50,30 @@ export interface SessionRow {
   coach: { id: string; fullName: string };
   attendeeCount: number;
 }
+
+export interface SessionTypeRow {
+  code: string;
+  maxDp: number;
+  maxDpUpper: number | null;
+}
+
+export interface SessionInput {
+  classId: string | null;
+  branchId: string;
+  sessionTypeCode: string;
+  coachId: string;
+  lessonPlanId: string | null;
+  title: string | null;
+  startsAt: Date;
+  endsAt: Date;
+  maxDpOverride: number | null;
+  isExam: boolean;
+  capacity: number | null;
+  notes: string | null;
+  createdBy: string;
+}
+
+export interface SessionRecord extends Omit<SessionInput, 'createdBy'> {
+  id: string;
+  status: string;
+}
