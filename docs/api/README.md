@@ -30,4 +30,5 @@ Tài liệu theo từng tính năng để FE dựng màn hình mà không cần 
 - [`branches.md`](branches.md): chi nhánh (danh sách, chi tiết, quản trị, QR check-in)
 - `classes.md`: lớp học
 - `memberships.md`: gói tập
+- [`schedule.md`](schedule.md): lịch học viên tuần/tháng, chi tiết buổi
 - `profile.md`: hồ sơ cá nhân
