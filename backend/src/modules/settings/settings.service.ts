@@ -55,6 +55,27 @@ export class SettingsService {
     return { ...def, value: row ? row.value : def.defaultValue, isDefault: !row, updatedAt: row?.updatedAt ?? null, updatedBy: row?.updatedBy ?? null };
   }
 
+  async history(key: string, limit = 50): Promise<Array<{ id: number; action: string; beforeData: unknown; afterData: unknown; reason: string | null; actorId: string | null; createdAt: Date }>> {
+    const def = CONFIG_BY_KEY.get(key);
+    if (!def) throw notFound('Config');
+    return sql.many(`SELECT id, action, before_data, after_data, reason, actor_id, created_at
+      FROM audit_logs WHERE entity_type='SYSTEM_CONFIG' AND entity_id=$1
+      ORDER BY created_at DESC, id DESC LIMIT $2`, [key, limit]);
+  }
+
+  async rollback(key: string, versionId: number, actorId: string | null, reason: string): Promise<void> {
+    const def = CONFIG_BY_KEY.get(key);
+    if (!def) throw notFound('Config');
+    const row = await sql.one<{ beforeData: unknown; afterData: unknown }>(
+      `SELECT before_data, after_data FROM audit_logs WHERE id=$1 AND entity_type='SYSTEM_CONFIG' AND entity_id=$2`,
+      [versionId, key],
+    );
+    if (!row) throw notFound('Config version');
+    const target = row.afterData !== null && row.afterData !== undefined ? row.afterData : row.beforeData;
+    if (target === null || target === undefined) throw badRequest('Selected config version has no value to restore.', undefined, 'INVALID_CONFIG_VERSION');
+    await this.set(key, target, actorId, reason);
+  }
+
   /**
    * Upserts a parameter. The DB trigger fn_system_configs_audit records the
    * before/after value in audit_logs on insert or value changes (migration 0005).
