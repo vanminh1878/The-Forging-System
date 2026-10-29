@@ -28,9 +28,14 @@ class ScheduleQueryNotifier extends Notifier<ScheduleQuery> {
         view: ScheduleView.week, anchorDate: ref.read(scheduleTodayProvider));
   }
 
-  /// Previous (-1) or next (+1) week.
-  void shiftWeek(int delta) =>
-      state = state.copyWith(anchorDate: shiftWeeks(state.anchorDate, delta));
+  /// Previous (-1) or next (+1) week or month, depending on the view.
+  void shift(int delta) => state = state.copyWith(
+        anchorDate: state.view == ScheduleView.week
+            ? shiftWeeks(state.anchorDate, delta)
+            : shiftMonths(state.anchorDate, delta),
+      );
+
+  void setView(ScheduleView view) => state = state.copyWith(view: view);
 
   void goToday() =>
       state = state.copyWith(anchorDate: ref.read(scheduleTodayProvider));

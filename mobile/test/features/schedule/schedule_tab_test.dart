@@ -9,6 +9,7 @@ import 'package:hvp_forging/core/widgets/error_state.dart';
 import 'package:hvp_forging/core/widgets/shimmer_box.dart';
 import 'package:hvp_forging/features/auth/presentation/providers/auth_controller.dart';
 import 'package:hvp_forging/features/schedule/domain/schedule_models.dart';
+import 'package:hvp_forging/features/schedule/domain/schedule_query.dart';
 import 'package:hvp_forging/features/schedule/presentation/providers/schedule_providers.dart';
 import 'package:hvp_forging/features/schedule/presentation/screens/schedule_tab.dart';
 
@@ -127,5 +128,43 @@ void main() {
     await tester.tap(find.byTooltip('Trước'));
     await tester.pumpAndSettle();
     expect(find.text('23/02 – 01/03'), findsOneWidget);
+  });
+
+  testWidgets('switching to Tháng queries view=month and pages by month',
+      (tester) async {
+    final repo = FakeScheduleRepository()
+      ..onSchedule = (_) async => ScheduleResult(items: <ScheduleItem>[
+            sampleItem('s1', isToday: true),
+            sampleItem('s2', date: '2026-03-20', title: 'Thể lực'),
+          ]);
+    await _pump(tester, repo);
+    await tester.pumpAndSettle();
+    expect(repo.queries.last.view, ScheduleView.week);
+
+    await tester.tap(find.text('Tháng'));
+    await tester.pumpAndSettle();
+    expect(repo.queries.last.view, ScheduleView.month);
+    expect(find.text('Tháng 03/2026'), findsOneWidget);
+    expect(find.text('TẤT CẢ BUỔI TẬP THÁNG NÀY'), findsOneWidget);
+    expect(find.textContaining('Thể lực'), findsOneWidget);
+
+    await tester.tap(find.text('20'));
+    await tester.pumpAndSettle();
+    expect(find.text('THỨ SÁU 20/03 — BUỔI TRONG NGÀY'), findsOneWidget);
+    expect(find.textContaining('Boxing tối'), findsNothing);
+
+    await tester.tap(find.byTooltip('Sau'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tháng 04/2026'), findsOneWidget);
+    expect(repo.queries.last.anchorDate, DateTime.utc(2026, 4, 1));
+
+    await tester.tap(find.text('Tháng này'));
+    await tester.pumpAndSettle();
+    expect(find.text('Tháng 03/2026'), findsOneWidget);
+
+    await tester.tap(find.text('Tuần'));
+    await tester.pumpAndSettle();
+    expect(repo.queries.last.view, ScheduleView.week);
+    expect(find.text('02/03 – 08/03'), findsOneWidget);
   });
 }

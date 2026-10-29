@@ -3,6 +3,7 @@ import 'package:hvp_forging/features/schedule/domain/schedule_dates.dart';
 import 'package:hvp_forging/features/schedule/domain/schedule_models.dart';
 
 void main() {
+  monthTests();
   test('weekDays runs Monday to Sunday for any day of the week', () {
     for (final d in <DateTime>[
       DateTime.utc(2026, 3, 2),
@@ -81,3 +82,28 @@ void main() {
 }
 
 final DateTime _t = DateTime.utc(2026);
+
+void monthTests() {
+  test('monthGrid pads to full Monday-first weeks', () {
+    // March 2026 starts on Sunday: 6 leading days, 31 days -> 37 -> 42 cells.
+    final march = monthGrid(DateTime.utc(2026, 3, 15));
+    expect(march, hasLength(42));
+    expect(isoDay(march.first), '2026-02-23');
+    expect(isoDay(march.last), '2026-04-05');
+
+    // June 2026 starts on Monday, 30 days: 5 rows, 2 trailing days.
+    final june = monthGrid(DateTime.utc(2026, 6, 1));
+    expect(june, hasLength(35));
+    expect(isoDay(june.first), '2026-06-01');
+    expect(isoDay(june.last), '2026-07-05');
+
+    // February 2027 starts on Monday with 28 days: exactly 4 rows.
+    expect(monthGrid(DateTime.utc(2027, 2, 10)), hasLength(28));
+  });
+
+  test('month label and shifting across years', () {
+    expect(monthLabel(DateTime.utc(2026, 3, 4)), 'Tháng 03/2026');
+    expect(isoDay(shiftMonths(DateTime.utc(2026, 1, 31), -1)), '2025-12-01');
+    expect(isoDay(shiftMonths(DateTime.utc(2026, 12, 5), 1)), '2027-01-01');
+  });
+}
