@@ -38,7 +38,7 @@ import { ClassService } from './modules/classes/class.service';
 import { BatchRepository } from './modules/batch/batch.repository';
 import { batchRoutes } from './modules/batch/batch.routes';
 import { BatchService } from './modules/batch/batch.service';
-import { jobs } from './jobs/registry';
+import { jobs, registerJob } from './jobs/registry';
 // [imports:feature-modules] (one line per module, keep alphabetical)
 
 /** Everything the HTTP layer and the scheduled jobs need, wired once at startup. */
@@ -106,8 +106,14 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   // depend on its exported port or listen to its domain events (src/shared/events.ts).
   const branches = new BranchService(new BranchRepository());
   services.branches = branches;
-  const classes = new ClassService(new ClassRepository(), audit);
+  const classes = new ClassService(new ClassRepository(), audit, settings);
   services.classes = classes;
+  registerJob({
+    key: 'sessions',
+    name: 'Sinh buổi tập từ lịch lớp',
+    cron: '10 0 * * *',
+    run: ({ now }) => classes.generateSessions(now),
+  });
   const batch = new BatchService(new BatchRepository(), audit, jobs);
   services.batch = batch;
   // [modules:feature-modules]

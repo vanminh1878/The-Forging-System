@@ -1,7 +1,7 @@
 import { db } from '../../db/database';
 import { sql } from '../../db/sql';
 import { RoleGroup } from '../../shared/roles';
-import type { ClassInput, ClassRow, RosterEntry } from './class.types';
+import type { ClassInput, ClassRow, RosterEntry, SessionRow } from './class.types';
 
 const COLUMNS = `id, branch_id, name, session_type_code, course_id, default_coach_id, weekdays::int[] AS weekdays,
   to_char(start_time, 'HH24:MI') AS start_time, duration_minutes, capacity, is_active`;
@@ -123,6 +123,65 @@ export class ClassRepository {
       `UPDATE class_enrollments SET status = 'ENDED', end_date = $3
         WHERE class_id = $1 AND member_id = $2 AND status = 'ACTIVE' RETURNING id`,
       [classId, memberId, today],
+    );
+  }
+
+  // ---- session generation (CLS-02) ----
+
+  activeClasses(classId?: string): Promise<ClassRow[]> {
+    return sql.many(
+      `SELECT ${COLUMNS} FROM classes WHERE is_active AND ($1::uuid IS NULL OR id = $1) ORDER BY name, id`,
+      [classId ?? null],
+    );
+  }
+
+  /** Inserts the given start instants for a class; existing (class, start) pairs are skipped. Returns the number created. */
+  insertSessions(cls: ClassRow, coachId: string, startsAt: Date[]): Promise<number> {
+    return sql.exec(
+      `INSERT INTO sessions (tenant_id, class_id, branch_id, session_type_code, coach_id, title, starts_at, ends_at, capacity)
+       SELECT $1, $2, $3, $4, $5, $6, s, s + make_interval(mins => $7::int), $8
+         FROM unnest($9::timestamptz[]) AS s
+       ON CONFLICT DO NOTHING`,
+      [db.currentTenantId(), cls.id, cls.branchId, cls.sessionTypeCode, coachId, cls.name, cls.durationMinutes, cls.capacity, startsAt],
+    );
+  }
+
+  /** Future SCHEDULED sessions of a class, with whether anyone already has an attendance row. */
+  futureScheduledSessions(classId: string, from: Date): Promise<Array<{ id: string; branchId: string; startsAt: Date; endsAt: Date; hasAttendance: boolean }>> {
+    return sql.many(
+      `SELECT s.id, s.branch_id, s.starts_at, s.ends_at,
+              EXISTS (SELECT 1 FROM attendances a WHERE a.session_id = s.id) AS has_attendance
+         FROM sessions s WHERE s.class_id = $1 AND s.status = 'SCHEDULED' AND s.starts_at >= $2 ORDER BY s.starts_at`,
+      [classId, from],
+    );
+  }
+
+  deleteSessions(ids: string[]): Promise<number> {
+    return sql.exec(`DELETE FROM sessions WHERE id = ANY($1::uuid[])`, [ids]);
+  }
+
+  cancelSessions(ids: string[]): Promise<number> {
+    return sql.exec(`UPDATE sessions SET status = 'CANCELLED', updated_at = now() WHERE id = ANY($1::uuid[])`, [ids]);
+  }
+
+  setFutureCoach(classId: string, coachId: string, from: Date): Promise<number> {
+    return sql.exec(
+      `UPDATE sessions SET coach_id = $2, updated_at = now()
+        WHERE class_id = $1 AND status = 'SCHEDULED' AND starts_at >= $3 AND coach_id <> $2`,
+      [classId, coachId, from],
+    );
+  }
+
+  listSessions(classId: string, from: Date, to: Date): Promise<Array<Omit<SessionRow, 'date'>>> {
+    return sql.many<Omit<SessionRow, 'coach' | 'date'> & { coachId: string; coachName: string }>(
+      `SELECT s.id, s.class_id, s.title, s.starts_at, s.ends_at, s.status, s.is_exam, s.capacity,
+              s.coach_id, u.full_name AS coach_name,
+              (SELECT COUNT(*)::int FROM attendances a WHERE a.session_id = s.id) AS attendee_count
+         FROM sessions s JOIN users u ON u.id = s.coach_id
+        WHERE s.class_id = $1 AND s.starts_at >= $2 AND s.starts_at < $3 ORDER BY s.starts_at, s.id`,
+      [classId, from, to],
+    ).then((rows) =>
+      rows.map(({ coachId, coachName, ...r }) => ({ ...r, coach: { id: coachId, fullName: coachName } }) as Omit<SessionRow, 'date'>),
     );
   }
 }
