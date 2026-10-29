@@ -3,6 +3,9 @@ import express from 'express';
 import type { Express } from 'express';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
+import swaggerUi from 'swagger-ui-express';
+import { env } from './config/env';
+import { buildOpenApi } from './common/http/openapi';
 import { errorHandler, notFoundHandler } from './common/middlewares/error.middleware';
 import { resolveTenant } from './common/middlewares/tenant.middleware';
 import { logger } from './common/utils/logger';
@@ -32,6 +35,14 @@ export function createApp(overrides: ContainerOverrides = {}): AppBundle {
 
   if (container.storage instanceof LocalDiskStorage) {
     app.use('/files', express.static(container.storage.root, { fallthrough: false, index: false, maxAge: '7d' }));
+  }
+
+  if (env.NODE_ENV !== 'production') {
+    let doc: ReturnType<typeof buildOpenApi> | undefined;
+    app.get('/api/docs.json', (_req, res) => {
+      res.json((doc ??= buildOpenApi(container.routers)));
+    });
+    app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(null, { swaggerUrl: '/api/docs.json', swaggerOptions: { persistAuthorization: true } }));
   }
 
   app.use('/api/v1', resolveTenant, ...container.routers);
