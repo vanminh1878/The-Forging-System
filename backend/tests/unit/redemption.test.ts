@@ -32,7 +32,11 @@ describe('ARM-02 redemption rules', () => {
   const repo = { lockMember: vi.fn(), findByKey: vi.fn(), pickupBranchExists: vi.fn(), lockReward: vi.fn(),
     wallet: vi.fn(), memberRewardCount: vi.fn(), create: vi.fn(), consumeStock: vi.fn(), inventoryOut: vi.fn() };
   const audit = { record: vi.fn() };
-  const service = new RedemptionService(repo as unknown as RedemptionRepository, audit as unknown as AuditService);
+  const points = { award: vi.fn() };
+  const notifier = { notifyMember: vi.fn() };
+  const settings = { getNumber: vi.fn() };
+  const service = new RedemptionService(repo as unknown as RedemptionRepository, audit as unknown as AuditService,
+    points as never, notifier as never, settings as never);
   let reward: RedeemableReward;
   const previous = { id: 'order', rewardId: input.rewardId, pickupBranchId: input.pickupBranchId, status: 'PENDING_PICKUP', marksCost: 120 };
 

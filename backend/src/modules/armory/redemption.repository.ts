@@ -29,6 +29,9 @@ export interface RedemptionView {
   marksCost: number;
   status: string;
   requestedAt: Date;
+  reason: string | null;
+  decidedAt: Date | null;
+  deliveryEvidenceUrl: string | null;
 }
 
 export interface RedemptionWallet {
@@ -37,7 +40,18 @@ export interface RedemptionWallet {
   marksAvailable: number;
 }
 
-const orderColumns = 'id,redemption_code,reward_id,pickup_branch_id,marks_cost,status,requested_at';
+export interface LockedRedemption {
+  id: string;
+  memberId: string;
+  rewardId: string;
+  pickupBranchId: string;
+  marksCost: number;
+  status: 'PENDING_PICKUP' | 'DELIVERED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED';
+  requestedAt: Date;
+  pickupDays: number | null;
+}
+
+const orderColumns = 'id,redemption_code,reward_id,pickup_branch_id,marks_cost,status,requested_at,reason,decided_at,delivery_evidence_url';
 
 export class RedemptionRepository {
   lockMember(id: string) {
@@ -87,5 +101,46 @@ export class RedemptionRepository {
   inventoryOut(rewardId: string, redemptionId: string, memberId: string) {
     return sql.exec(`INSERT INTO inventory_movements (tenant_id,reward_id,movement_type,quantity,redemption_id,actor_id,reason)
       VALUES ($1,$2,'OUT',1,$3,$4,'Stock allocated to pending redemption')`, [db.currentTenantId(), rewardId, redemptionId, memberId]);
+  }
+
+  lockForMember(memberId: string, id: string): Promise<LockedRedemption | null> {
+    return sql.one<LockedRedemption>(`SELECT d.id,d.member_id,d.reward_id,d.pickup_branch_id,d.marks_cost,d.status,d.requested_at,r.pickup_days
+      FROM redemptions d JOIN rewards r ON r.id=d.reward_id AND r.tenant_id=d.tenant_id
+      WHERE d.member_id=$1 AND d.id=$2 FOR UPDATE OF d,r`, [memberId,id]);
+  }
+
+  lockForStaff(id: string): Promise<LockedRedemption | null> {
+    return sql.one<LockedRedemption>(`SELECT d.id,d.member_id,d.reward_id,d.pickup_branch_id,d.marks_cost,d.status,d.requested_at,r.pickup_days
+      FROM redemptions d JOIN rewards r ON r.id=d.reward_id AND r.tenant_id=d.tenant_id
+      WHERE d.id=$1 FOR UPDATE OF d,r`, [id]);
+  }
+
+  memberIdForRedemption(id: string) {
+    return sql.scalar<string>(`SELECT member_id FROM redemptions WHERE id=$1`, [id]);
+  }
+
+  getById(id: string) {
+    return sql.one<RedemptionView>(`SELECT ${orderColumns} FROM redemptions WHERE id=$1`, [id]);
+  }
+
+  setStatus(input: { id: string; status: 'DELIVERED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED'; by: string | null; reason: string | null; evidenceUrl?: string | null }) {
+    return sql.exec(`UPDATE redemptions SET status=$2,decided_by=$3,decided_at=now(),reason=$4,delivery_evidence_url=$5,updated_at=now()
+      WHERE id=$1 AND status='PENDING_PICKUP'`, [input.id,input.status,input.by,input.reason,input.evidenceUrl ?? null]);
+  }
+
+  restoreStock(redemption: LockedRedemption, by: string | null, reason: string) {
+    return sql.exec(`UPDATE rewards SET stock=stock+1,updated_at=now() WHERE id=$1`, [redemption.rewardId]).then(async (updated) => {
+      if (updated !== 1) throw new Error(`Reward stock could not be restored for redemption ${redemption.id}`);
+      await sql.exec(`INSERT INTO inventory_movements (tenant_id,reward_id,movement_type,quantity,redemption_id,actor_id,reason)
+        VALUES ($1,$2,'IN',1,$3,$4,$5)`, [db.currentTenantId(), redemption.rewardId, redemption.id, by, reason]);
+      return updated;
+    });
+  }
+
+  expiredCandidates(now: Date, defaultPickupDays: number, limit = 100) {
+    return sql.many<{ memberId: string; redemptionId: string }>(`SELECT d.member_id,d.id AS redemption_id FROM redemptions d
+      JOIN rewards r ON r.id=d.reward_id AND r.tenant_id=d.tenant_id
+      WHERE d.status='PENDING_PICKUP' AND d.requested_at + make_interval(days => COALESCE(r.pickup_days,$1)) <= $2
+      ORDER BY d.requested_at,d.id LIMIT $3`, [defaultPickupDays,now,limit]);
   }
 }

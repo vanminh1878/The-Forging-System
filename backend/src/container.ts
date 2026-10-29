@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { RedemptionRepository } from './modules/armory/redemption.repository';
 import { redemptionRoutes } from './modules/armory/redemption.routes';
 import { RedemptionService } from './modules/armory/redemption.service';
+import type { NotifierPort } from './modules/notifications/notification.service';
+import type { PointsPort } from './modules/points/points.service';
 import { AuditService } from './modules/audit/audit.service';
 import { auditRoutes } from './modules/audit/audit.routes';
 import { AuthController } from './modules/auth/auth.controller';
@@ -88,7 +90,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   const members = new MemberService(new MemberRepository(), ranks, points, notifications, audit, settings);
   const auth = new AuthService(new AuthRepository(), members, overrides.otp ?? createOtpSender(), settings);
   const directory = new UserDirectory();
-  const redemptions = new RedemptionService(new RedemptionRepository(), audit);
+  const redemptions = new RedemptionService(new RedemptionRepository(), audit, points as PointsPort, notifications as NotifierPort, settings);
 
   const services = { audit, settings, notifications, points, ranks, members, auth, directory, redemptions } as Container['services'];
 
