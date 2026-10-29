@@ -322,3 +322,22 @@ Huỷ gói `SCHEDULED` (lễ tân được) hoặc `ACTIVE` (chỉ Admin). Trả
 
 - Hộp thư yêu cầu: nút "Huỷ yêu cầu" mở hộp thoại nhập lý do (bắt buộc). 409 `RENEWAL_ALREADY_HANDLED`: tải lại hộp thư.
 - Màn gói của học viên (lễ tân): nút "Huỷ gói nối tiếp" cho cả lễ tân/admin; nút "Huỷ gói đang hoạt động" chỉ hiện cho Admin. Hiển thị `error.message` cho các lỗi 403/409/422; sau khi thành công tải lại `GET /members/:memberId/membership`.
+
+## MEM-07 — MembershipPort và sự kiện (dành cho dev nội bộ, không có endpoint)
+
+`MembershipService implements MembershipPort` (`shared/ports.ts`), các module khác (check-in, điểm danh, job) dùng qua port:
+
+- `findUsable(memberId, onDate)`: trả gói `ACTIVE` thoả `start_date <= onDate`, `end_date` null hoặc `>= onDate`, `total_sessions` null hoặc `used_sessions < total_sessions`; ngược lại `null`. Không kiểm tra trạng thái học viên (việc của người gọi).
+- `consumeSession(membershipId)`: khoá dòng, tăng `used_sessions`. Hết buổi và loại gói có `expire_on_zero_sessions` thì gói chuyển `COMPLETED` và phát `MEMBERSHIP_COMPLETED`. Gói không `ACTIVE` hoặc đã hết buổi: 422 `MEMBERSHIP_NOT_USABLE` ("Gói tập của bạn đã hết hạn hoặc hết số buổi. Vui lòng gia hạn để tiếp tục."). Thời điểm gọi (check-in hay khi HLV xác nhận) do CHK/ATT quyết định.
+
+Sự kiện phát đồng bộ trong transaction, payload `MembershipEvent { membershipId, memberId, packageTypeId }` (`DomainEvents` trong `common/events/event-bus.ts`):
+
+| Sự kiện | Khi nào |
+|---|---|
+| `MEMBERSHIP_ACTIVATED` | Gói mới `ACTIVE` (kích hoạt / duyệt gia hạn) |
+| `MEMBERSHIP_SCHEDULED` | Gói mới xếp nối tiếp (gia hạn sớm) |
+| `MEMBERSHIP_EXPIRED` | Gói cũ hết hiệu lực bị gói mới thay |
+| `MEMBERSHIP_CANCELLED` | Huỷ gói (MEM-06) |
+| `MEMBERSHIP_COMPLETED` | `consumeSession` dùng hết buổi |
+
+Hiện chưa có consumer.
