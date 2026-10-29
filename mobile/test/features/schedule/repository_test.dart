@@ -77,4 +77,21 @@ void main() {
     expect(item.completionPercent, 80);
     expect(item.checkinAt, isNotNull);
   });
+
+  test('getSchedule sends branchId and status filters and view=month',
+      () async {
+    final t = _build((o) => okEnvelope(<dynamic>[]));
+    await t.repo.getSchedule(ScheduleQuery(
+      view: ScheduleView.month,
+      anchorDate: DateTime.utc(2026, 3, 1),
+      branchId: 'b1',
+      status: SessionStatus.confirmedFail,
+    ));
+    expect(t.adapter.requests.single.queryParameters, <String, dynamic>{
+      'view': 'month',
+      'date': '2026-03-01',
+      'branchId': 'b1',
+      'status': 'CONFIRMED_FAIL',
+    });
+  });
 }

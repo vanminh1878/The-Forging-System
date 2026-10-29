@@ -116,19 +116,23 @@ Future<T?> showOptionSheet<T>(
     builder: (sheetContext) {
       final c = sheetContext.hvp;
       final t = sheetContext.txt;
-      return ListView(
-        shrinkWrap: true,
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
-        children: <Widget>[
-          for (final option in options)
-            ListTile(
-              leading: option.icon == null ? null : Icon(option.icon, color: c.gold),
-              title: Text(option.label, style: t.bodyL),
-              subtitle: option.subtitle == null ? null : Text(option.subtitle!, style: t.bodySmall),
-              trailing: option.value == selected ? Icon(HvpIcons.checkCircle, color: c.gold) : null,
-              onTap: () => Navigator.of(sheetContext).pop(option.value),
-            ),
-        ],
+      // Material ancestor so ListTile ink shows above the sheet's decorated container.
+      return Material(
+        type: MaterialType.transparency,
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 16),
+          children: <Widget>[
+            for (final option in options)
+              ListTile(
+                leading: option.icon == null ? null : Icon(option.icon, color: c.gold),
+                title: Text(option.label, style: t.bodyL),
+                subtitle: option.subtitle == null ? null : Text(option.subtitle!, style: t.bodySmall),
+                trailing: option.value == selected ? Icon(HvpIcons.checkCircle, color: c.gold) : null,
+                onTap: () => Navigator.of(sheetContext).pop(option.value),
+              ),
+          ],
+        ),
       );
     },
   );

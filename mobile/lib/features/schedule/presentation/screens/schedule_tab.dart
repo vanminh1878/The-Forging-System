@@ -6,6 +6,7 @@ import '../../domain/schedule_dates.dart';
 import '../../domain/schedule_models.dart';
 import '../../domain/schedule_query.dart';
 import '../providers/schedule_providers.dart';
+import '../widgets/filter_bar.dart';
 import '../widgets/month_grid.dart';
 import '../widgets/period_header.dart';
 import '../widgets/schedule_list.dart';
@@ -34,6 +35,12 @@ class ScheduleTab extends ConsumerWidget {
           child: Column(
             children: <Widget>[
               ViewSwitch(view: query.view, onChanged: notifier.setView),
+              FilterBar(
+                branchId: query.branchId,
+                status: query.status,
+                onBranch: notifier.setBranch,
+                onStatus: notifier.setStatus,
+              ),
               PeriodHeader(
                 title: isWeek
                     ? weekRangeLabel(query.anchorDate)
@@ -72,9 +79,14 @@ class ScheduleTab extends ConsumerWidget {
                   : result.items
                       .where((i) => i.date == isoDay(selected))
                       .toList(growable: false);
+              final filtered = query.hasFilter && items.isEmpty;
               return ScheduleList(
                 heading: _heading(isWeek, selected),
                 items: items,
+                emptyTitle: filtered
+                    ? 'Không có buổi nào khớp bộ lọc.'
+                    : 'Không có buổi nào.',
+                onEmptyAction: filtered ? notifier.clearFilters : null,
                 onRefresh: () => ref.refresh(scheduleProvider.future),
                 onClearDay: selected == null ? null : () => select(null),
                 clearDayLabel:

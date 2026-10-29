@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hvp_forging/core/branch/branch.dart';
+import 'package:hvp_forging/core/branch/branch_providers.dart';
 import 'package:hvp_forging/core/error/api_exception.dart';
 import 'package:hvp_forging/core/widgets/empty_state.dart';
 import 'package:hvp_forging/core/widgets/error_state.dart';
@@ -24,6 +26,12 @@ Future<void> _pump(WidgetTester tester, FakeScheduleRepository repo) async {
       scheduleRepositoryProvider.overrideWithValue(repo),
       scheduleTodayProvider.overrideWithValue(fixtureToday),
       currentUserIdProvider.overrideWithValue('u1'),
+      branchesProvider.overrideWith(
+        (ref) async => const <Branch>[
+          Branch(id: 'b1', code: 'Q1', name: 'The Corner'),
+          Branch(id: 'b2', code: 'Q2', name: 'Riverside'),
+        ],
+      ),
     ],
   );
 }
@@ -166,5 +174,61 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.queries.last.view, ScheduleView.week);
     expect(find.text('02/03 – 08/03'), findsOneWidget);
+  });
+
+  testWidgets(
+      'branch and status filters go to the query and survive paging and view switch',
+      (tester) async {
+    final repo = FakeScheduleRepository();
+    await _pump(tester, repo);
+    await tester.pumpAndSettle();
+    expect(find.text('Tất cả chi nhánh'), findsOneWidget);
+    expect(find.text('Tất cả trạng thái'), findsOneWidget);
+
+    await tester.tap(find.text('Tất cả chi nhánh'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Riverside'));
+    await tester.pumpAndSettle();
+    expect(repo.queries.last.branchId, 'b2');
+    expect(find.text('Riverside'), findsOneWidget);
+
+    await tester.tap(find.text('Tất cả trạng thái'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chờ coach xác nhận'));
+    await tester.pumpAndSettle();
+    expect(repo.queries.last.status, SessionStatus.awaitingCoach);
+
+    await tester.tap(find.byTooltip('Sau'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tháng'));
+    await tester.pumpAndSettle();
+    expect(repo.queries.last.view, ScheduleView.month);
+    expect(repo.queries.last.branchId, 'b2');
+    expect(repo.queries.last.status, SessionStatus.awaitingCoach);
+  });
+
+  testWidgets(
+      'empty result with a filter shows the filtered empty state and "Bỏ lọc" clears it',
+      (tester) async {
+    final repo = FakeScheduleRepository()
+      ..onSchedule = (q) async => ScheduleResult(
+            items: q.hasFilter
+                ? const <ScheduleItem>[]
+                : <ScheduleItem>[sampleItem('s1')],
+          );
+    await _pump(tester, repo);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tất cả trạng thái'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Vắng mặt'));
+    await tester.pumpAndSettle();
+    expect(find.text('KHÔNG CÓ BUỔI NÀO KHỚP BỘ LỌC.'), findsOneWidget);
+
+    await tester.tap(find.text('BỎ LỌC'));
+    await tester.pumpAndSettle();
+    expect(repo.queries.last.hasFilter, isFalse);
+    expect(find.textContaining('Boxing tối'), findsOneWidget);
+    expect(find.text('Tất cả trạng thái'), findsOneWidget);
   });
 }
