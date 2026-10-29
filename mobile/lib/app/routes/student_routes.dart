@@ -5,6 +5,7 @@ import '../../core/widgets/coming_soon_page.dart';
 import '../../core/widgets/hvp_button.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/fighter_record/presentation/screens/fighter_record_screen.dart';
+import '../../features/membership/presentation/screens/membership_screen.dart';
 import '../../features/schedule/presentation/screens/schedule_tab.dart';
 import '../../features/schedule/presentation/screens/session_detail_screen.dart';
 import '../route_paths.dart';
@@ -112,12 +113,7 @@ List<RouteBase> studentRoutes() => <RouteBase>[
       ),
       GoRoute(
         path: StudentPaths.membership,
-        builder: (context, state) => const ComingSoonPage(
-          title: 'Gói tập',
-          owner: 'feature: membership',
-          icon: HvpIcons.ticket,
-          standalone: true,
-        ),
+        builder: (context, state) => const MembershipScreen(),
       ),
       GoRoute(
         path: StudentPaths.workLog,
