@@ -231,12 +231,14 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
     },
     "mode": "SCHEDULED",
     "reactivated": false,
-    "message": "Gia hạn sớm: gói mới xếp nối tiếp từ 16/01/2027."
+    "bonusMarks": 50,
+    "message": "Gia hạn sớm: gói mới xếp nối tiếp từ 16/01/2027, học viên nhận +50 Marks (1 lần cho mỗi gói)."
   }
 }
 ```
 
 `mode`: `ACTIVATED` (gói mới ACTIVE từ hôm nay) hoặc `SCHEDULED` (xếp nối tiếp).
+`bonusMarks`: số Marks thưởng gia hạn sớm (MEM-05); `0` khi không thưởng.
 
 ### Lỗi
 
@@ -261,11 +263,81 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
 - HVP Marks không bị đóng băng/mở băng khi đổi trạng thái.
 - Duyệt yêu cầu: yêu cầu chuyển `COMPLETED`, lưu người xử lý, thời điểm, ảnh và gói kết quả.
 - Học viên nhận thông báo `RENEWAL_COMPLETED` ("GIA HẠN THÀNH CÔNG"). Audit: `MEMBERSHIP_CREATED`, `MEMBERSHIP_EXPIRED` (gói cũ), `RENEWAL_COMPLETED`.
+- **Thưởng gia hạn sớm (MEM-05)**: chỉ khi `mode = SCHEDULED`, học viên nhận `+N` HVP Marks (setting `points.early_renewal_marks`, mặc định 50; đặt 0 thì tắt). Không tính vào trần Marks hàng tháng. Mỗi gói mới nhận thưởng đúng 1 lần (khoá `renewal:{membershipId}`); thưởng bị đảo khi gói đó bị huỷ (MEM-06). Kích hoạt khi gói cũ đã hết hạn/hết buổi thì không thưởng.
 - `GET /members/:memberId/membership` (lễ tân) có thêm `paymentEvidenceUrl` trong `current` / `scheduled`; `GET /me/membership` thì không.
 
 ### Ghi chú FE
 
 - Form: chọn gói, tải ảnh thu phí (bắt buộc, có preview), chi nhánh (tuỳ chọn), ghi chú. Nút "Xác nhận đã thu phí" bị khoá tới khi ảnh upload xong.
-- Thành công: hiển thị `message` làm toast, tải lại `GET /members/:memberId/membership` và hộp thư yêu cầu.
+- Thành công: hiển thị `message` làm toast (đã kèm số Marks thưởng nếu có), tải lại `GET /members/:memberId/membership` và hộp thư yêu cầu.
 - 409 `RENEWAL_ALREADY_HANDLED`: tải lại hộp thư. 409 `MEMBERSHIP_ALREADY_SCHEDULED`: hiển thị `error.message`. 422: tải lại danh sách gói.
 - Chỉ lễ tân/admin thấy ảnh minh chứng; màn học viên không có field này.
+
+## MEM-06 — Huỷ yêu cầu gia hạn và huỷ gói
+
+### `POST /renewal-requests/:id/cancel`  (vai trò: RECEPTIONIST, ADMIN, SUPER_ADMIN)
+
+Huỷ yêu cầu gia hạn đang `PENDING`. Trả **200** với yêu cầu đã huỷ (cùng dạng item của `GET /renewal-requests`, `status = CANCELLED`, `reason` = lý do huỷ).
+
+| Trường body | Kiểu | Bắt buộc | Giới hạn |
+|---|---|---|---|
+| `reason` | string | có (kiểm tra ở server) | Tối đa 500 ký tự |
+
+### `POST /memberships/:id/cancel`  (vai trò: RECEPTIONIST, ADMIN, SUPER_ADMIN)
+
+Huỷ gói `SCHEDULED` (lễ tân được) hoặc `ACTIVE` (chỉ Admin). Trả **200**.
+
+| Trường body | Kiểu | Bắt buộc | Giới hạn |
+|---|---|---|---|
+| `reason` | string | có (kiểm tra ở server) | Tối đa 500 ký tự |
+
+```json
+{ "data": { "membership": { "id": "b2c1...", "status": "CANCELLED", "startDate": "2027-01-16", "endDate": "2027-04-09", "totalSessions": 36, "usedSessions": 0, "packageType": { "...": "..." }, "paymentEvidenceUrl": "..." } } }
+```
+
+### Lỗi
+
+| HTTP | code | message |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Dữ liệu không hợp lệ |
+| 400 | `CANCEL_REASON_REQUIRED` | Vui lòng nhập lý do huỷ. |
+| 401 | `UNAUTHORIZED` | Chưa đăng nhập |
+| 403 | `FORBIDDEN` | Không đủ quyền (HLV / học viên) |
+| 403 | `ADMIN_ONLY` | Chỉ Admin được huỷ gói đang hoạt động. |
+| 404 | `NOT_FOUND` | Không tìm thấy yêu cầu gia hạn / gói tập |
+| 409 | `RENEWAL_ALREADY_HANDLED` | Yêu cầu này đã được xử lý. |
+| 409 | `CANCEL_SCHEDULED_FIRST` | Huỷ gói nối tiếp trước. |
+| 409 | `MEMBERSHIP_NOT_CANCELLABLE` | Chỉ huỷ được gói đang hoạt động hoặc đang chờ kích hoạt. |
+| 422 | `BONUS_ALREADY_SPENT` | Học viên đã dùng Marks thưởng gia hạn sớm, không thể huỷ tự động — liên hệ Admin điều chỉnh điểm. |
+
+### Quy tắc nghiệp vụ
+
+- Huỷ yêu cầu: `status = CANCELLED`, lưu `handled_by`, `handled_at`, `reason`. Học viên nhận thông báo `RENEWAL_CANCELLED` ("YÊU CẦU GIA HẠN BỊ HUỶ"). Audit `RENEWAL_CANCELLED`. Học viên không tự huỷ được yêu cầu.
+- Huỷ gói: `status = CANCELLED`, lưu `cancelled_by`, `cancel_reason`. Chỉ gói `ACTIVE` / `SCHEDULED` huỷ được; gói ACTIVE khi còn gói SCHEDULED phải huỷ gói SCHEDULED trước.
+- Huỷ gói `ACTIVE` xong học viên (đang `ACTIVE`) chuyển `FROZEN` (lý do "Huỷ gói tập: ..."). Huỷ gói `SCHEDULED` không đổi trạng thái học viên.
+- Nếu gói có thưởng gia hạn sớm (MEM-05), thưởng được đảo bằng giao dịch `REVERSAL`. Nếu Marks đã tiêu (số dư sẽ âm) thì cả thao tác bị từ chối (422), không thay đổi gì. Gia hạn lại sau đó sẽ nhận thưởng lại.
+- Học viên nhận thông báo `MEMBERSHIP_STATUS` ("GÓI TẬP ĐÃ BỊ HUỶ"). Audit `MEMBERSHIP_CANCELLED`.
+
+### Ghi chú FE
+
+- Hộp thư yêu cầu: nút "Huỷ yêu cầu" mở hộp thoại nhập lý do (bắt buộc). 409 `RENEWAL_ALREADY_HANDLED`: tải lại hộp thư.
+- Màn gói của học viên (lễ tân): nút "Huỷ gói nối tiếp" cho cả lễ tân/admin; nút "Huỷ gói đang hoạt động" chỉ hiện cho Admin. Hiển thị `error.message` cho các lỗi 403/409/422; sau khi thành công tải lại `GET /members/:memberId/membership`.
+
+## MEM-07 — MembershipPort và sự kiện (dành cho dev nội bộ, không có endpoint)
+
+`MembershipService implements MembershipPort` (`shared/ports.ts`), các module khác (check-in, điểm danh, job) dùng qua port:
+
+- `findUsable(memberId, onDate)`: trả gói `ACTIVE` thoả `start_date <= onDate`, `end_date` null hoặc `>= onDate`, `total_sessions` null hoặc `used_sessions < total_sessions`; ngược lại `null`. Không kiểm tra trạng thái học viên (việc của người gọi).
+- `consumeSession(membershipId)`: khoá dòng, tăng `used_sessions`. Hết buổi và loại gói có `expire_on_zero_sessions` thì gói chuyển `COMPLETED` và phát `MEMBERSHIP_COMPLETED`. Gói không `ACTIVE` hoặc đã hết buổi: 422 `MEMBERSHIP_NOT_USABLE` ("Gói tập của bạn đã hết hạn hoặc hết số buổi. Vui lòng gia hạn để tiếp tục."). Thời điểm gọi (check-in hay khi HLV xác nhận) do CHK/ATT quyết định.
+
+Sự kiện phát đồng bộ trong transaction, payload `MembershipEvent { membershipId, memberId, packageTypeId }` (`DomainEvents` trong `common/events/event-bus.ts`):
+
+| Sự kiện | Khi nào |
+|---|---|
+| `MEMBERSHIP_ACTIVATED` | Gói mới `ACTIVE` (kích hoạt / duyệt gia hạn) |
+| `MEMBERSHIP_SCHEDULED` | Gói mới xếp nối tiếp (gia hạn sớm) |
+| `MEMBERSHIP_EXPIRED` | Gói cũ hết hiệu lực bị gói mới thay |
+| `MEMBERSHIP_CANCELLED` | Huỷ gói (MEM-06) |
+| `MEMBERSHIP_COMPLETED` | `consumeSession` dùng hết buổi |
+
+Hiện chưa có consumer.

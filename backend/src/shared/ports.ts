@@ -25,4 +25,10 @@ export interface MembershipPort {
    * Returns null when the learner has no usable membership.
    */
   findUsable(memberId: string, onDate: string): Promise<UsableMembership | null>;
+  /**
+   * Charges one session to the membership (row locked). Completes the package and emits
+   * MEMBERSHIP_COMPLETED when the last session is used and the package type expires on zero.
+   * Throws 422 MEMBERSHIP_NOT_USABLE when the membership is not ACTIVE or has no sessions left.
+   */
+  consumeSession(membershipId: string): Promise<void>;
 }

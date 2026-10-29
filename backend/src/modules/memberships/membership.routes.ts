@@ -23,6 +23,7 @@ const approveBody = z.object({
   packageTypeId: z.string().uuid().optional(),
   note: z.string().trim().max(500).optional(),
 });
+const cancelBody = z.object({ reason: z.string().trim().max(500).optional() });
 const idParam = z.object({ id: z.string().uuid() });
 const inboxQuery = paginationQuery.extend({
   status: z.enum(['PENDING', 'COMPLETED', 'CANCELLED']).optional(),
@@ -74,6 +75,22 @@ export function membershipRoutes(service: MembershipService): Router {
     handle(async (req) => {
       const a = authOf(req);
       return ok(await service.approveRenewal(req.params.id, a.userId, a.roles, req.body));
+    }),
+  );
+  r.post(
+    '/renewal-requests/:id/cancel',
+    requireRoles(...RoleGroup.FRONT_DESK),
+    validate({ params: idParam, body: cancelBody }),
+    handle(async (req) => ok(await service.cancelRenewal(req.params.id, authOf(req).userId, req.body.reason))),
+  );
+  // Reception may cancel a SCHEDULED package; the service restricts ACTIVE ones to admins.
+  r.post(
+    '/memberships/:id/cancel',
+    requireRoles(...RoleGroup.FRONT_DESK),
+    validate({ params: idParam, body: cancelBody }),
+    handle(async (req) => {
+      const a = authOf(req);
+      return ok(await service.cancelMembership(req.params.id, a.userId, a.roles, req.body.reason));
     }),
   );
 

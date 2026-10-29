@@ -92,7 +92,9 @@ describe('activate / renew package (MEM-04)', () => {
     const b = await activate(staff, m.userId, { packageTypeId: book2, paymentEvidenceUrl: EVIDENCE });
     expect(b.body.data).toMatchObject({ mode: 'SCHEDULED', reactivated: false });
     expect(b.body.data.membership.startDate).toBe('2027-01-16');
-    expect(b.body.data.message).toBe('Gia hạn sớm: gói mới xếp nối tiếp từ 16/01/2027.');
+    expect(b.body.data.message).toBe(
+      'Gia hạn sớm: gói mới xếp nối tiếp từ 16/01/2027, học viên nhận +50 Marks (1 lần cho mỗi gói).',
+    );
     const row = (
       await ownerQuery<{ previous_membership_id: string; price_paid_vnd: string }>(
         `SELECT previous_membership_id, price_paid_vnd FROM memberships WHERE id = $1`,
@@ -136,7 +138,7 @@ describe('activate / renew package (MEM-04)', () => {
     const early = await activate(staff, m.userId, { packageTypeId: book1, paymentEvidenceUrl: EVIDENCE });
     expect(early.body.data.mode).toBe('SCHEDULED');
     expect(early.body.data.membership.startDate).toBe('2026-10-24');
-    await ownerQuery(`DELETE FROM memberships WHERE id = $1`, [early.body.data.membership.id]);
+    await ownerQuery(`UPDATE memberships SET status = 'CANCELLED' WHERE id = $1`, [early.body.data.membership.id]); // ledger row keeps the FK
 
     setClock(fixedClock(new Date('2026-10-24T05:00:00Z'))); // day after -> expired -> ACTIVE
     const res = await activate(staff, m.userId, { packageTypeId: book1, paymentEvidenceUrl: EVIDENCE });
