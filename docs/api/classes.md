@@ -229,6 +229,104 @@ Danh sách buổi của lớp (phục vụ lịch lớp CLS-06/09). Quyền: **S
 | 403  | `FORBIDDEN`        | Không đủ quyền (học viên)              |
 | 404  | `NOT_FOUND`        | Lớp học not found                      |
 
+## Buổi lẻ, buổi kiểm tra, huỷ buổi (CLS-03)
+
+Vai trò: coach, trưởng coach, admin (`COACH`, `HEAD_COACH`, `ADMIN`, `SUPER_ADMIN`). Lễ tân và học viên nhận 403, chưa đăng nhập nhận 401. Coach chỉ thao tác được buổi có `coachId` là mình, hoặc buổi/lớp có coach mặc định là mình; sai thì 403 `NOT_YOUR_SESSION`. Admin thao tác mọi buổi.
+
+### POST `/sessions`: tạo buổi lẻ (PT, Academy, workshop, sparring...)
+
+| Trường            | Kiểu        | Bắt buộc | Ghi chú                                                                      |
+| ----------------- | ----------- | -------- | ---------------------------------------------------------------------------- |
+| `sessionTypeCode` | string      | có       | `GROUP`, `PT`, `ACADEMY`, `WORKSHOP`, `SPARRING`                             |
+| `branchId`        | uuid        | có       | Chi nhánh đang hoạt động                                                     |
+| `startsAt`        | ISO 8601    | có       | Có múi giờ, ví dụ `2026-03-03T11:00:00Z`; phải sau thời điểm hiện tại        |
+| `durationMinutes` | int         | có       | 15–480                                                                       |
+| `title`           | string      | có       | 1–200 ký tự                                                                  |
+| `coachId`         | uuid        | không    | Mặc định là người gọi. Coach không được đặt người khác                       |
+| `classId`         | uuid        | không    | Gắn buổi vào một lớp                                                         |
+| `lessonPlanId`    | uuid        | không    | Giáo án                                                                      |
+| `isExam`          | boolean     | không    | Mặc định `false`                                                             |
+| `capacity`        | int         | không    | 1–1000                                                                       |
+| `maxDpOverride`   | int         | không    | Phải trong [`max_dp`, `max_dp_upper`] của loại buổi                          |
+| `notes`           | string      | không    | Tối đa 1000 ký tự                                                            |
+| `memberIds`       | uuid[]      | không    | Tối đa 50 học viên thêm lẻ, tạo dòng điểm danh `UPCOMING`                    |
+
+Response `201`:
+
+```json
+{
+  "data": {
+    "id": "7a1c...",
+    "classId": null,
+    "branchId": "6f1c...",
+    "sessionTypeCode": "PT",
+    "coachId": "a1c0...",
+    "lessonPlanId": null,
+    "title": "PT 1-1",
+    "startsAt": "2026-03-03T11:00:00.000Z",
+    "endsAt": "2026-03-03T12:00:00.000Z",
+    "maxDpOverride": null,
+    "isExam": false,
+    "capacity": null,
+    "status": "SCHEDULED",
+    "notes": null,
+    "attendeeCount": 1
+  }
+}
+```
+
+| HTTP | code                    | message                                       |
+| ---- | ----------------------- | --------------------------------------------- |
+| 400  | `VALIDATION_ERROR`      | Dữ liệu không hợp lệ                          |
+| 400  | `MEMBER_NOT_FOUND`      | Có học viên không tồn tại                     |
+| 400  | `COACH_INVALID`         | Người dùng được chọn không phải huấn luyện viên |
+| 400  | `LESSON_PLAN_NOT_FOUND` | Giáo án không tồn tại                         |
+| 401  | `UNAUTHORIZED`          | Yêu cầu đăng nhập                             |
+| 403  | `FORBIDDEN`             | Không đủ quyền (lễ tân, học viên)             |
+| 403  | `NOT_YOUR_SESSION`      | Bạn chỉ được thao tác buổi/lớp mình phụ trách. |
+| 404  | `NOT_FOUND`             | Lớp học not found (khi `classId` sai)         |
+| 409  | `COACH_SESSION_OVERLAP` | Coach đã có buổi khác trùng giờ.              |
+| 409  | `SESSION_ALREADY_EXISTS`| Lớp đã có buổi vào giờ này.                   |
+| 422  | `SESSION_IN_PAST`       | Không thể tạo buổi trong quá khứ.             |
+| 422  | `SESSION_TYPE_INACTIVE` | Loại buổi tập không tồn tại hoặc đã tắt       |
+| 422  | `BRANCH_INACTIVE`       | Chi nhánh không tồn tại hoặc đã ngừng hoạt động |
+| 422  | `MAX_DP_OUT_OF_RANGE`   | DP tối đa phải trong khoảng {a}–{b}.          |
+
+Quy tắc: trùng giờ được tính theo khoảng `[startsAt, endsAt)` với các buổi chưa huỷ của cùng coach (buổi nối tiếp nhau không bị coi là trùng). Loại buổi không có `max_dp_upper` (GROUP, PT, ACADEMY) không cho đặt `maxDpOverride`. Ghi nhật ký `SESSION_CREATED`.
+
+### POST `/classes/:id/exam-sessions`: buổi kiểm tra của lớp
+
+Body: `{ "date": "2026-03-04", "title"?: string, "lessonPlanId"?: uuid }`. Giờ bắt đầu và độ dài lấy theo lớp (`startTime`, `durationMinutes`). `title` mặc định `Kiểm tra — {tên lớp}`.
+
+- Nếu lớp đã có buổi `SCHEDULED` đúng giờ đó (do hệ thống sinh), buổi ấy được đánh dấu `isExam = true` kèm `title` và `lessonPlanId`. Chưa có thì tạo buổi mới (coach là coach mặc định của lớp, nếu lớp chưa có thì là người gọi) và kiểm tra trùng giờ coach.
+- Học viên đang ghi danh lớp (và học viên có điểm danh buổi đó), tài khoản `ACTIVE`, nhận thông báo `EXAM`: "BUỔI KIỂM TRA MỚI" / "{title} — dd/MM/yyyy HH:mm.". Mỗi học viên nhận tối đa một lần cho mỗi buổi.
+- Response `201` có cùng dạng với buổi lẻ (không có `attendeeCount`). Ghi nhật ký `EXAM_CREATED`.
+
+| HTTP | code                    | message                                |
+| ---- | ----------------------- | -------------------------------------- |
+| 400  | `VALIDATION_ERROR`      | Ngày không hợp lệ                      |
+| 403  | `NOT_YOUR_SESSION`      | Coach không phải coach mặc định của lớp |
+| 404  | `NOT_FOUND`             | Lớp học not found                      |
+| 409  | `COACH_SESSION_OVERLAP` | Coach đã có buổi khác trùng giờ.       |
+| 409  | `SESSION_ALREADY_EXISTS`| Buổi này đã bắt đầu hoặc kết thúc.     |
+| 422  | `SESSION_IN_PAST`       | Không thể tạo buổi trong quá khứ.      |
+| 422  | `CLASS_INACTIVE`        | Lớp học đã ngừng hoạt động             |
+
+### POST `/sessions/:id/cancel`: huỷ một buổi (ví dụ ngày nghỉ lễ)
+
+Body: `{ "reason": "Nghỉ lễ" }`, bắt buộc, không được rỗng. Response `200` trả buổi với `status = CANCELLED`.
+
+- Chỉ huỷ được buổi `SCHEDULED` chưa bắt đầu (`startsAt` còn sau thời điểm hiện tại), nếu không 409 `SESSION_NOT_CANCELLABLE` "Chỉ huỷ được buổi chưa diễn ra."
+- Buổi được giữ lại với `status = CANCELLED`, không xoá. Job sinh buổi sẽ không sinh lại buổi này.
+- Học viên của buổi (ghi danh lớp hoặc có điểm danh, tài khoản `ACTIVE`) nhận thông báo `SESSION_CANCELLED`: "BUỔI TẬP BỊ HUỶ" / "{title} HH:mm dd/MM đã huỷ. Lý do: {lý do}." Phát sự kiện `SESSION_CANCELLED` sau khi giao dịch hoàn tất. Ghi nhật ký `SESSION_CANCELLED`.
+
+| HTTP | code                      | message                         |
+| ---- | ------------------------- | ------------------------------- |
+| 400  | `CANCEL_REASON_REQUIRED`  | Vui lòng nhập lý do huỷ.        |
+| 403  | `NOT_YOUR_SESSION`        | Bạn chỉ được thao tác buổi/lớp mình phụ trách. |
+| 404  | `NOT_FOUND`               | Buổi tập not found              |
+| 409  | `SESSION_NOT_CANCELLABLE` | Chỉ huỷ được buổi chưa diễn ra. |
+
 ## Ghi chú FE
 
 - Màn danh sách lớp (CLS-06): bảng/thẻ với tên, thứ trong tuần (map 1..7 sang T2..CN), giờ `startTime` + `durationMinutes`, `enrolledCount/capacity` (hiện "∞" nếu `capacity = null`). Bộ lọc chi nhánh, loại buổi, trạng thái. Trạng thái: loading, rỗng ("Chưa có lớp học"), lỗi (thử lại).
@@ -236,3 +334,4 @@ Danh sách buổi của lớp (phục vụ lịch lớp CLS-06/09). Quyền: **S
 - Chi tiết lớp: hiện roster; nút "Thêm học viên" và "Cho rời lớp" chỉ hiện cho lễ tân và admin. Coach chỉ xem.
 - Hiển thị theo `code`: `ALREADY_ENROLLED` ("Học viên đã có trong lớp"), `CLASS_FULL` ("Lớp đã đủ sĩ số"), `MEMBER_INACTIVE` ("Tài khoản học viên đã ngừng hoạt động"). Xác nhận trước khi cho rời lớp, có ô lý do tuỳ chọn.
 - Buổi tập được hệ thống tự sinh từ lịch lớp (xem mục "Sinh buổi tập" bên dưới); FE không tạo buổi cho lớp. Sau khi admin sửa lịch/coach/trạng thái lớp, nên tải lại danh sách buổi.
+- Buổi lẻ / kiểm tra / huỷ (coach, admin): màn "Tạo buổi" gồm loại buổi, chi nhánh, ngày giờ, thời lượng, tiêu đề, danh sách học viên (tối đa 50). Toast: "Đã tạo buổi", "Đã tạo buổi kiểm tra", "Đã huỷ buổi". Dialog huỷ bắt buộc nhập lý do; hiển thị theo `code`: `COACH_SESSION_OVERLAP` ("Coach đã có buổi khác trùng giờ"), `SESSION_IN_PAST`, `MAX_DP_OUT_OF_RANGE` (hiện khoảng cho phép), `SESSION_NOT_CANCELLABLE`. Lễ tân không thấy các nút này. Buổi đã huỷ vẫn nằm trong danh sách buổi với `status = CANCELLED`.
