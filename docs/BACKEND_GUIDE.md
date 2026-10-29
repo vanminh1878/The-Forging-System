@@ -166,3 +166,9 @@ for (const tenantId of await lookupActiveTenantIds()) {
 - Token truy cập ngắn hạn (15 phút) + refresh token xoay vòng dùng một lần.
 - Upload ảnh (minh chứng, avatar) qua `POST /uploads?purpose=` rồi lưu URL; thay `LocalDiskStorage` bằng S3/MinIO bằng cách implement `StorageService`.
 - Push: `PUSH_PROVIDER=console|fcm`; OTP: `OTP_PROVIDER=console` (cần nhà cung cấp SMS khi lên production).
+
+## 8. Swagger UI (tài liệu API tự sinh)
+- Chạy dev rồi mở http://localhost:4000/api/docs (JSON: `/api/docs.json`). Tắt khi `NODE_ENV=production`.
+- Bấm **Authorize**, dán access token lấy từ `POST /auth/login`; header `X-Tenant-Code` tùy chọn (bỏ trống = tenant mặc định).
+- Tài liệu sinh từ zod trong `validate()` và vai trò trong `requireRoles()` (xem `common/http/openapi.ts`), nên route mới tự xuất hiện, không cần khai báo thêm.
+- Cấu trúc response chi tiết và quy tắc nghiệp vụ: tài liệu API trong `docs/`.
