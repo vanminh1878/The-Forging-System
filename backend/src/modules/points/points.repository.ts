@@ -42,6 +42,22 @@ export interface InsertTransaction {
   occurredAt?: Date;
 }
 
+export interface MarksWallet {
+  memberId: string;
+  status: string;
+  marksBalance: number;
+  marksHeld: number;
+  marksAvailable: number;
+  canRedeem: boolean;
+}
+
+export interface RedemptionDebitSource {
+  id: string;
+  memberId: string;
+  marksCost: number;
+  status: string;
+}
+
 export class PointsRepository {
   insert(input: InsertTransaction): Promise<PointTransaction | null> {
     return sql.one<PointTransaction>(
@@ -83,8 +99,30 @@ export class PointsRepository {
   }
 
   /** Locks the member row so concurrent awards cannot both slip under the monthly cap. */
-  async lockMember(memberId: string): Promise<{ dpBalance: number; marksBalance: number } | null> {
-    return sql.one(`SELECT dp_balance, marks_balance FROM members WHERE user_id = $1 FOR UPDATE`, [memberId]);
+  async lockMember(memberId: string): Promise<{ dpBalance: number; marksBalance: number; status: string } | null> {
+    return sql.one(`SELECT dp_balance, marks_balance, status FROM members WHERE user_id = $1 FOR UPDATE`, [memberId]);
+  }
+
+  /** Marks holds are derived from open redemption requests, not ledger entries or a cache column. */
+  wallet(memberId: string): Promise<MarksWallet | null> {
+    return sql.one<MarksWallet>(`SELECT m.user_id AS member_id,m.status,m.marks_balance,
+      COALESCE(h.held_marks,0)::int AS marks_held,(m.marks_balance-COALESCE(h.held_marks,0))::int AS marks_available,
+      (m.status <> 'INACTIVE') AS can_redeem
+      FROM members m LEFT JOIN LATERAL (SELECT SUM(r.marks_cost) AS held_marks FROM redemptions r
+        WHERE r.member_id=m.user_id AND r.status='PENDING_PICKUP') h ON true WHERE m.user_id=$1`, [memberId]);
+  }
+
+  async heldMarks(memberId: string, excludingRedemptionId?: string): Promise<number> {
+    return (await sql.scalar<number>(`SELECT COALESCE(SUM(marks_cost),0) FROM redemptions
+      WHERE member_id=$1 AND status='PENDING_PICKUP' AND ($2::uuid IS NULL OR id<>$2)`, [memberId, excludingRedemptionId ?? null])) ?? 0;
+  }
+
+  redemptionForDebit(id: string): Promise<RedemptionDebitSource | null> {
+    return sql.one<RedemptionDebitSource>(`SELECT id,member_id,marks_cost,status FROM redemptions WHERE id=$1 FOR UPDATE`, [id]);
+  }
+
+  findRedemptionDebit(id: string): Promise<PointTransaction | null> {
+    return sql.one<PointTransaction>(`SELECT * FROM point_transactions WHERE redemption_id=$1 AND source='ARMORY_REDEEM'`, [id]);
   }
 
   /** Sum of DP / Marks granted by cap-limited sources since `monthStart`. */
