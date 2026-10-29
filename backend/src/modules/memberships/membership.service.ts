@@ -6,6 +6,7 @@ import type { AuditService } from '../audit/audit.service';
 import { NotificationEvent } from '../notifications/notification.events';
 import type { MemberService } from '../members/member.service';
 import type { NotifierPort } from '../notifications/notification.service';
+import type { PointsPort } from '../points/points.service';
 import type { SettingsService } from '../settings/settings.service';
 import type {
   MembershipRepository,
@@ -24,6 +25,7 @@ export class MembershipService {
     private readonly notifier: NotifierPort,
     private readonly audit: AuditService,
     private readonly members: MemberService,
+    private readonly points: PointsPort,
   ) {}
 
   async listPackageTypes(includeInactive: boolean) {
@@ -246,9 +248,28 @@ export class MembershipService {
     });
     const membership = (await this.repo.findMembership(id))!;
 
+    // MEM-05: early renewal earns Marks once per new package (the key is the new membership id).
+    let bonusMarks = 0;
+    if (mode === 'SCHEDULED') {
+      const marks = await this.settings.getNumber('points.early_renewal_marks');
+      if (marks > 0) {
+        await this.points.award({
+          memberId: input.memberId,
+          source: 'EARLY_RENEWAL',
+          marks,
+          note: `Gia hạn sớm ${pkg.name}`,
+          by: input.by,
+          membershipId: id,
+          idempotencyKey: `renewal:${id}`,
+        });
+        bonusMarks = marks;
+      }
+    }
+
     const message =
       mode === 'SCHEDULED'
-        ? `Gia hạn sớm: gói mới xếp nối tiếp từ ${formatDmy(startDate)}.`
+        ? `Gia hạn sớm: gói mới xếp nối tiếp từ ${formatDmy(startDate)}` +
+          (bonusMarks > 0 ? `, học viên nhận +${bonusMarks} Marks (1 lần cho mỗi gói).` : '.')
         : `Gói ${pkg.name} đã kích hoạt từ hôm nay${reactivated ? ' — tài khoản được mở lại.' : '.'}`;
     await this.audit.record({
       actorId: input.by,
@@ -266,9 +287,8 @@ export class MembershipService {
       payload: { membershipId: id },
       dedupeKey: `renewal-completed:${id}`,
     });
-    // MEM-05: early-renewal bonus (+50 Marks) goes here when mode === 'SCHEDULED'.
     // MEM-07: emit MEMBERSHIP_* events here.
-    return { membership: toMembershipView(membership, true), mode, reactivated, message };
+    return { membership: toMembershipView(membership, true), mode, reactivated, bonusMarks, message };
   }
 
   async listRenewals(filter: RenewalFilter, limit: number, offset: number) {

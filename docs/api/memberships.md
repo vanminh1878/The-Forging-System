@@ -231,12 +231,14 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
     },
     "mode": "SCHEDULED",
     "reactivated": false,
-    "message": "Gia hạn sớm: gói mới xếp nối tiếp từ 16/01/2027."
+    "bonusMarks": 50,
+    "message": "Gia hạn sớm: gói mới xếp nối tiếp từ 16/01/2027, học viên nhận +50 Marks (1 lần cho mỗi gói)."
   }
 }
 ```
 
 `mode`: `ACTIVATED` (gói mới ACTIVE từ hôm nay) hoặc `SCHEDULED` (xếp nối tiếp).
+`bonusMarks`: số Marks thưởng gia hạn sớm (MEM-05); `0` khi không thưởng.
 
 ### Lỗi
 
@@ -261,11 +263,12 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
 - HVP Marks không bị đóng băng/mở băng khi đổi trạng thái.
 - Duyệt yêu cầu: yêu cầu chuyển `COMPLETED`, lưu người xử lý, thời điểm, ảnh và gói kết quả.
 - Học viên nhận thông báo `RENEWAL_COMPLETED` ("GIA HẠN THÀNH CÔNG"). Audit: `MEMBERSHIP_CREATED`, `MEMBERSHIP_EXPIRED` (gói cũ), `RENEWAL_COMPLETED`.
+- **Thưởng gia hạn sớm (MEM-05)**: chỉ khi `mode = SCHEDULED`, học viên nhận `+N` HVP Marks (setting `points.early_renewal_marks`, mặc định 50; đặt 0 thì tắt). Không tính vào trần Marks hàng tháng. Mỗi gói mới nhận thưởng đúng 1 lần (khoá `renewal:{membershipId}`); thưởng bị đảo khi gói đó bị huỷ (MEM-06). Kích hoạt khi gói cũ đã hết hạn/hết buổi thì không thưởng.
 - `GET /members/:memberId/membership` (lễ tân) có thêm `paymentEvidenceUrl` trong `current` / `scheduled`; `GET /me/membership` thì không.
 
 ### Ghi chú FE
 
 - Form: chọn gói, tải ảnh thu phí (bắt buộc, có preview), chi nhánh (tuỳ chọn), ghi chú. Nút "Xác nhận đã thu phí" bị khoá tới khi ảnh upload xong.
-- Thành công: hiển thị `message` làm toast, tải lại `GET /members/:memberId/membership` và hộp thư yêu cầu.
+- Thành công: hiển thị `message` làm toast (đã kèm số Marks thưởng nếu có), tải lại `GET /members/:memberId/membership` và hộp thư yêu cầu.
 - 409 `RENEWAL_ALREADY_HANDLED`: tải lại hộp thư. 409 `MEMBERSHIP_ALREADY_SCHEDULED`: hiển thị `error.message`. 422: tải lại danh sách gói.
 - Chỉ lễ tân/admin thấy ảnh minh chứng; màn học viên không có field này.
