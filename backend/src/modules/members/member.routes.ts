@@ -27,7 +27,8 @@ const profilePatch = z.object({
   email: z.string().trim().email().nullable().optional(),
   phone: z.string().trim().min(9).max(16).nullable().optional(),
   dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
-  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).nullable().optional(),
+  homeBranchId: z.string().uuid().nullable().optional(),
 });
 
 export function memberRoutes(service: MemberService): Router {

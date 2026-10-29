@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/design/hvp_icons.dart';
 import '../../core/widgets/coming_soon_page.dart';
 import '../../features/auth/domain/auth_user.dart';
+import '../../features/branch_admin/presentation/screens/admin_settings_page.dart';
+import '../../features/branch_admin/presentation/screens/branch_list_screen.dart';
 import '../route_paths.dart';
 import '../shell/shell_tab.dart';
 
@@ -73,13 +75,13 @@ List<RouteBase> adminRoutes() => <RouteBase>[
             label: 'Cấu hình',
             icon: HvpIcons.gear,
             activeIcon: HvpIcons.gearFill,
-            builder: (_) => const ComingSoonPage(
-              title: 'Cấu hình',
-              owner: 'feature: admin_settings',
-              icon: HvpIcons.gear,
-              description: 'Quy tắc, hạng, chi nhánh và nhật ký hệ thống.',
-            ),
+            builder: (_) => const AdminSettingsPage(),
           ),
         ],
+      ),
+      // ---- pushed screens (full screen, outside the shell) ----
+      GoRoute(
+        path: AdminPaths.branches,
+        builder: (context, state) => const BranchListScreen(),
       ),
     ];

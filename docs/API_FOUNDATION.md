@@ -3,6 +3,7 @@
 Base URL `/api/v1`. Header: `Authorization: Bearer <accessToken>`; `X-Tenant-Code` (tuỳ chọn, mặc định `hvp`).
 Response thành công `{ "data": …, "meta"?: … }`; lỗi `{ "error": { "code", "message", "details"? } }`.
 Phân trang: `?page=1&pageSize=20` → `meta { page, pageSize, total … }`. Ngày giờ ISO-8601 (UTC); ngày lịch `YYYY-MM-DD`.
+Tài liệu chi tiết cho FE theo từng tính năng (request/response/lỗi/ghi chú màn hình): [`docs/api/`](api/README.md).
 Chi tiết field của từng endpoint: đọc `backend/src/modules/<module>/*.routes.ts` (schema zod ở đầu file là hợp đồng chính thức).
 
 Ký hiệu vai trò: **M** = học viên (MEMBER), **S** = staff (COACH, HEAD_COACH, RECEPTIONIST, ADMIN), **FD** = lễ tân + admin, **CS** = coach + admin, **A** = admin.

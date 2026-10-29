@@ -47,3 +47,14 @@ export interface MemberSummary {
   packageName: string | null;
   packageEndDate: string | null;
 }
+
+/** Body of PATCH /me/profile after validation: `undefined` = keep, `null` = clear. */
+export interface ProfilePatch {
+  fullName?: string;
+  avatarUrl?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  homeBranchId?: string | null;
+}

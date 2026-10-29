@@ -1,6 +1,6 @@
 import { db } from '../../db/database';
 import { sql } from '../../db/sql';
-import type { MemberProfile, MemberStatus, MemberSummary, StatusChannel } from './member.types';
+import type { MemberProfile, ProfilePatch, MemberStatus, MemberSummary, StatusChannel } from './member.types';
 
 export class MemberRepository {
   /** Inserts the user, the MEMBER role and the gamification profile in one go. */
@@ -110,25 +110,45 @@ export class MemberRepository {
     return sql.exec(`UPDATE members SET last_activity_at = $2, updated_at = now() WHERE user_id = $1`, [memberId, at]);
   }
 
-  updateUser(userId: string, patch: { fullName?: string; avatarUrl?: string | null; email?: string | null; phone?: string | null; dateOfBirth?: string | null; gender?: string | null }) {
+  /** Partial update: `undefined` keeps the column, an explicit `null` clears it. */
+  updateUser(userId: string, patch: ProfilePatch & { resetEmailVerified?: boolean; resetPhoneVerified?: boolean }) {
+    const has = (v: unknown) => v !== undefined;
     return sql.exec(
       `UPDATE users SET full_name = COALESCE($2, full_name), avatar_url = CASE WHEN $3::boolean THEN $4 ELSE avatar_url END,
               email = CASE WHEN $5::boolean THEN $6 ELSE email END, phone = CASE WHEN $7::boolean THEN $8 ELSE phone END,
-              date_of_birth = COALESCE($9::date, date_of_birth), gender = COALESCE($10, gender), updated_at = now()
+              date_of_birth = CASE WHEN $9::boolean THEN $10::date ELSE date_of_birth END,
+              gender = CASE WHEN $11::boolean THEN $12 ELSE gender END,
+              email_verified_at = CASE WHEN $13::boolean THEN NULL ELSE email_verified_at END,
+              phone_verified_at = CASE WHEN $14::boolean THEN NULL ELSE phone_verified_at END,
+              branch_id = CASE WHEN $15::boolean THEN $16::uuid ELSE branch_id END, updated_at = now()
         WHERE id = $1`,
       [
         userId,
         patch.fullName ?? null,
-        patch.avatarUrl !== undefined,
+        has(patch.avatarUrl),
         patch.avatarUrl ?? null,
-        patch.email !== undefined,
+        has(patch.email),
         patch.email ?? null,
-        patch.phone !== undefined,
+        has(patch.phone),
         patch.phone ?? null,
+        has(patch.dateOfBirth),
         patch.dateOfBirth ?? null,
+        has(patch.gender),
         patch.gender ?? null,
+        patch.resetEmailVerified === true,
+        patch.resetPhoneVerified === true,
+        has(patch.homeBranchId),
+        patch.homeBranchId ?? null,
       ],
     );
+  }
+
+  setHomeBranch(memberId: string, branchId: string | null): Promise<number> {
+    return sql.exec(`UPDATE members SET home_branch_id = $2, updated_at = now() WHERE user_id = $1`, [memberId, branchId]);
+  }
+
+  async isActiveBranch(branchId: string): Promise<boolean> {
+    return ((await sql.scalar<number>(`SELECT count(*) FROM branches WHERE id = $1 AND is_active`, [branchId])) ?? 0) > 0;
   }
 
   /**

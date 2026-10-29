@@ -18,7 +18,7 @@ const query = paginationQuery.extend({
 /** Read-only audit trail for admins (ADM-11). */
 export function auditRoutes(): Router {
   const r = Router();
-  r.use('/admin', requireAuth, requireRoles(...RoleGroup.ADMINS));
+  r.use('/admin/audit-logs', requireAuth, requireRoles(...RoleGroup.ADMINS));
   r.get('/admin/audit-logs', validate({ query }), handle(async (req) => {
     const q = req.query as unknown as z.infer<typeof query>;
     const page = toPage(q);

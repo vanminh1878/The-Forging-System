@@ -31,6 +31,10 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
       res.status(409).json({ error: { code: 'DUPLICATE', message: 'Duplicate record', details: pg.constraint } });
       return;
     }
+    if (pg.code === '23503') {
+      res.status(400).json({ error: { code: 'INVALID_REFERENCE', message: 'Dữ liệu tham chiếu không tồn tại.', details: pg.constraint } });
+      return;
+    }
     if (pg.code === '23514' || pg.code === 'P0001') {
       res.status(422).json({ error: { code: 'CONSTRAINT_VIOLATION', message: pg.message ?? 'Constraint violation' } });
       return;

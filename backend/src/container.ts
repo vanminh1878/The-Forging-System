@@ -29,6 +29,15 @@ import { LocalDiskStorage } from './modules/uploads/storage.service';
 import type { StorageService } from './modules/uploads/storage.service';
 import { uploadRoutes } from './modules/uploads/upload.routes';
 import { DomainEvents, eventBus } from './common/events/event-bus';
+import { BranchRepository } from './modules/branches/branch.repository';
+import { branchRoutes } from './modules/branches/branch.routes';
+import { BranchService } from './modules/branches/branch.service';
+import { ClassRepository } from './modules/classes/class.repository';
+import { classRoutes } from './modules/classes/class.routes';
+import { ClassService } from './modules/classes/class.service';
+import { MembershipRepository } from './modules/memberships/membership.repository';
+import { membershipRoutes } from './modules/memberships/membership.routes';
+import { MembershipService } from './modules/memberships/membership.service';
 // [imports:feature-modules] (one line per module, keep alphabetical)
 
 /** Everything the HTTP layer and the scheduled jobs need, wired once at startup. */
@@ -42,6 +51,9 @@ export interface Container {
     members: MemberService;
     auth: AuthService;
     directory: UserDirectory;
+    branches: BranchService;
+    classes: ClassService;
+    memberships: MembershipService;
     // [services:feature-modules] (declare as `name: Type;` and assign in the module block below)
   };
   storage: StorageService;
@@ -91,6 +103,12 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   // Each module registers itself here by adding ONE block: instantiate its repositories/services,
   // register event listeners, and push its router. Never reach into another module's repository;
   // depend on its exported port or listen to its domain events (src/shared/events.ts).
+  const branches = new BranchService(new BranchRepository(), audit);
+  services.branches = branches;
+  const classes = new ClassService(new ClassRepository(), audit);
+  services.classes = classes;
+  const memberships = new MembershipService(new MembershipRepository(), settings, notifications, audit);
+  services.memberships = memberships;
   // [modules:feature-modules]
 
   // ---- routers ----
@@ -104,6 +122,9 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     settingsRoutes(settings),
     auditRoutes(),
     uploadRoutes(storage),
+    branchRoutes(branches),
+    classRoutes(classes),
+    membershipRoutes(memberships),
     // [routers:feature-modules]
   ];
 
