@@ -21,7 +21,10 @@ class ArmoryReward {
       this.imageUrl,
       this.minRankName,
       this.perMemberLimit,
-      this.limitPeriod});
+      this.limitPeriod,
+      this.pickupDays,
+      this.saleStartsAt,
+      this.saleEndsAt});
   final String id;
   final String name;
   final int marksCost;
@@ -32,6 +35,9 @@ class ArmoryReward {
   final String? minRankName;
   final int? perMemberLimit;
   final String? limitPeriod;
+  final int? pickupDays;
+  final DateTime? saleStartsAt;
+  final DateTime? saleEndsAt;
 }
 
 class RewardPage {

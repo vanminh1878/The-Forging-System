@@ -29,7 +29,10 @@ class FakeCatalog implements ArmoryCatalogRepository {
               id: '1',
               name: tierCode == null ? 'Bình nước' : 'Găng tay',
               marksCost: 120,
-              stock: tierCode == null ? 2 : 0),
+              stock: tierCode == null ? 2 : 0,
+              minRankName: 'THE INITIATED',
+              perMemberLimit: 1,
+              limitPeriod: 'MONTH'),
         ]);
   }
 }
@@ -90,6 +93,25 @@ void main() {
     expect(repo.queries.last, (tier: 'GEAR', page: 1));
     expect(find.text('Găng tay'), findsOneWidget);
     expect(find.text('HẾT HÀNG'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('opens the selected reward and its supplied conditions',
+      (tester) async {
+    final repo = FakeCatalog();
+    await pumpHvp(tester, const Scaffold(body: ArmoryCatalogScreen()),
+        overrides: [
+          currentUserIdProvider.overrideWithValue('member'),
+          armoryCatalogRepositoryProvider.overrideWithValue(repo),
+        ]);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bình nước'));
+    await tester.pumpAndSettle();
+    expect(find.text('CHI TIẾT PHẦN QUÀ'), findsOneWidget);
+    expect(find.text('ĐIỀU KIỆN ĐỔI'), findsOneWidget);
+    expect(find.text('THE INITIATED'), findsOneWidget);
+    expect(find.text('1 / tháng'), findsOneWidget);
+    expect(find.text('Chưa có mô tả.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

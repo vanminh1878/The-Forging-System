@@ -7,9 +7,11 @@ import '../../../core/design/hvp_icons.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/catalog.dart';
 import 'catalog_providers.dart';
+import 'reward_detail.dart';
 
 class ArmoryCatalogScreen extends ConsumerStatefulWidget {
   const ArmoryCatalogScreen({super.key});
@@ -120,9 +122,13 @@ class _RewardCard extends StatelessWidget {
   final ArmoryReward reward;
   @override
   Widget build(BuildContext context) => HvpCard(
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
+      semanticLabel: 'Xem chi tiết ${reward.name}',
+      onTap: () => showHvpSheet<void>(context,
+          title: 'Chi tiết phần quà',
+          builder: (_) => RewardDetail(reward: reward)),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
             Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
