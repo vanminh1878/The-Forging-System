@@ -35,6 +35,19 @@ class ScheduleQueryNotifier extends Notifier<ScheduleQuery> {
             : shiftMonths(state.anchorDate, delta),
       );
 
+  /// null = all branches. Kept when paging or switching view.
+  void setBranch(String? id) => state = id == null
+      ? state.copyWith(clearBranch: true)
+      : state.copyWith(branchId: id);
+
+  /// null = all statuses.
+  void setStatus(SessionStatus? status) => state = status == null
+      ? state.copyWith(clearStatus: true)
+      : state.copyWith(status: status);
+
+  void clearFilters() =>
+      state = state.copyWith(clearBranch: true, clearStatus: true);
+
   void setView(ScheduleView view) => state = state.copyWith(view: view);
 
   void goToday() =>

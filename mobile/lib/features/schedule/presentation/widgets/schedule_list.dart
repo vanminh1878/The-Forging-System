@@ -18,6 +18,8 @@ class ScheduleList extends StatelessWidget {
     this.onClearDay,
     this.clearDayLabel,
     this.onTapItem,
+    this.emptyTitle = 'Không có buổi nào.',
+    this.onEmptyAction,
   });
 
   final String heading;
@@ -28,6 +30,10 @@ class ScheduleList extends StatelessWidget {
   final VoidCallback? onClearDay;
   final String? clearDayLabel;
   final ValueChanged<ScheduleItem>? onTapItem;
+
+  /// Empty-state text; [onEmptyAction] adds a "Bỏ lọc" button (filtered empty).
+  final String emptyTitle;
+  final VoidCallback? onEmptyAction;
 
   @override
   Widget build(BuildContext context) {
@@ -51,10 +57,14 @@ class ScheduleList extends StatelessWidget {
             ),
           const SizedBox(height: 8),
           if (items.isEmpty)
-            const SizedBox(
+            SizedBox(
               height: 300,
               child: EmptyState(
-                  icon: HvpIcons.calendar, title: 'Không có buổi nào.'),
+                icon: HvpIcons.calendar,
+                title: emptyTitle,
+                actionLabel: onEmptyAction == null ? null : 'Bỏ lọc',
+                onAction: onEmptyAction,
+              ),
             )
           else
             for (final item in items) ...<Widget>[
