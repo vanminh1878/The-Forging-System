@@ -12,4 +12,8 @@ class ScheduleRepositoryImpl implements ScheduleRepository {
   @override
   Future<ScheduleResult> getSchedule(ScheduleQuery query) async =>
       scheduleResultFromEnvelope(await _api.schedule(query));
+
+  @override
+  Future<SessionDetail> getSession(String sessionId) async =>
+      sessionDetailFromJson((await _api.session(sessionId)).dataMap);
 }

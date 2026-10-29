@@ -6,6 +6,7 @@ import '../../core/widgets/hvp_button.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/fighter_record/presentation/screens/fighter_record_screen.dart';
 import '../../features/schedule/presentation/screens/schedule_tab.dart';
+import '../../features/schedule/presentation/screens/session_detail_screen.dart';
 import '../route_paths.dart';
 import '../shell/profile_tab.dart';
 import '../shell/shell_tab.dart';
@@ -126,6 +127,10 @@ List<RouteBase> studentRoutes() => <RouteBase>[
           icon: HvpIcons.list,
           standalone: true,
         ),
+      ),
+      GoRoute(
+        path: StudentPaths.sessionPattern,
+        builder: (context, state) => SessionDetailScreen(sessionId: state.pathParameters['id'] ?? ''),
       ),
       GoRoute(
         path: StudentPaths.lessonPattern,

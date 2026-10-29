@@ -9,6 +9,8 @@ class ScheduleApi {
 
   final ApiClient _api;
 
+  Future<ApiEnvelope> session(String id) => _api.get('/me/sessions/$id');
+
   Future<ApiEnvelope> schedule(ScheduleQuery q) => _api.get(
         '/me/schedule',
         query: <String, dynamic>{

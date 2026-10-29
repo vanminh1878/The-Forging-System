@@ -37,7 +37,17 @@ class FakeScheduleRepository implements ScheduleRepository {
   Future<ScheduleResult> Function(ScheduleQuery query) onSchedule =
       (_) async => const ScheduleResult(items: <ScheduleItem>[]);
 
+  Future<SessionDetail> Function(String id) onSession =
+      (id) async => SessionDetail(item: sampleItem(id));
+
   final List<ScheduleQuery> queries = <ScheduleQuery>[];
+  final List<String> sessionIds = <String>[];
+
+  @override
+  Future<SessionDetail> getSession(String sessionId) {
+    sessionIds.add(sessionId);
+    return onSession(sessionId);
+  }
 
   @override
   Future<ScheduleResult> getSchedule(ScheduleQuery query) {
