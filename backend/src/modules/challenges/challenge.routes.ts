@@ -35,5 +35,10 @@ export function challengeRoutes(service: ChallengeService): Router {
   for (const path of ['/me/challenges', '/me/challenges/open', '/challenges', '/challenges/open']) {
     r.get(path, requireAuth, requireRoles(Role.MEMBER), validate({ query: openChallengeQuery }), openChallenges);
   }
+
+  const joinChallenge = handle(async (req) => created(await service.join(authOf(req).userId, req.params.challengeId)));
+  for (const path of ['/me/challenges/:challengeId/join', '/challenges/:challengeId/join']) {
+    r.post(path, requireAuth, requireRoles(Role.MEMBER), validate({ params: challengeIdParam }), joinChallenge);
+  }
   return r;
 }

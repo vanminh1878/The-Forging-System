@@ -19,6 +19,23 @@ export interface OpenChallengeView extends ChallengeView {
   joinedAt: Date | null;
 }
 
+export interface ChallengeParticipationView {
+  id: string;
+  challengeId: string;
+  memberId: string;
+  status: 'JOINED' | 'AWAITING_COACH' | 'REWARDED' | 'EXPIRED';
+  progressValue: number;
+  evidenceUrl: string | null;
+  evidenceAt: Date | null;
+  joinedAt: Date;
+  completedAt: Date | null;
+  confirmedBy: string | null;
+  confirmedAt: Date | null;
+  isLimited: boolean;
+  rewardedAt: Date | null;
+  updatedAt: Date;
+}
+
 export type ChallengeWrite = Omit<CreateChallengeInput, 'startsAt' | 'endsAt'> & { startsAt: Date; endsAt: Date };
 const columns = `id, code, title, description, challenge_type, context, target, reward_dp,
   reward_marks, starts_at, ends_at, status, created_by, created_at, updated_at`;
@@ -89,6 +106,18 @@ export class ChallengeRepository {
       AND ($3::text IS NULL OR title ILIKE $3 OR code ILIKE $3)`;
     const total = await sql.scalar<number>(`SELECT count(*)::int FROM challenges WHERE ${countWhere}`, countParams);
     return { items, total: total ?? 0 };
+  }
+
+  async findParticipation(challengeId: string, memberId: string): Promise<ChallengeParticipationView | null> {
+    const columns = `id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, updated_at`;
+    return sql.one<ChallengeParticipationView>(`SELECT ${columns} FROM challenge_participations WHERE challenge_id=$1 AND member_id=$2`, [challengeId, memberId]);
+  }
+
+  async insertParticipation(challengeId: string, memberId: string): Promise<ChallengeParticipationView> {
+    const row = await sql.one<ChallengeParticipationView>(`INSERT INTO challenge_participations (tenant_id, challenge_id, member_id)
+      VALUES ($1,$2,$3) RETURNING id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, updated_at`,
+      [db.currentTenantId(), challengeId, memberId]);
+    return row!;
   }
 
   private values(input: ChallengeWrite): unknown[] {

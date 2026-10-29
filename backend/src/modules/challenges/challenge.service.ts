@@ -1,7 +1,7 @@
 import { badRequest, conflict, notFound } from '../../common/errors/app-error';
 import { clock } from '../../common/utils/clock';
 import type { AuditService } from '../audit/audit.service';
-import type { ChallengeRepository, ChallengeView, ChallengeWrite, OpenChallengeView } from './challenge.repository';
+import type { ChallengeParticipationView, ChallengeRepository, ChallengeView, ChallengeWrite, OpenChallengeView } from './challenge.repository';
 import type { ChallengeEnabledInput, ChallengeFilter, CreateChallengeInput, OpenChallengeFilter, UpdateChallengeInput } from './challenge.validation';
 
 const ruleFields = ['challengeType', 'context', 'target', 'rewardDp', 'rewardMarks', 'startsAt', 'endsAt'] as const;
@@ -20,6 +20,27 @@ export class ChallengeService {
   async listOpenForMember(memberId: string, filter: OpenChallengeFilter, limit: number, offset: number): Promise<{ items: OpenChallengeView[]; total: number }> {
     const challengeType = filter.challengeType ?? filter.period ?? null;
     return this.repo.listOpenForMember(memberId, challengeType, filter.context ?? null, filter.q ?? null, clock.now(), limit, offset);
+  }
+
+  async join(memberId: string, challengeId: string): Promise<ChallengeParticipationView> {
+    const challenge = await this.repo.find(challengeId, true);
+    if (!challenge) throw notFound('Challenge');
+    if (challenge.status !== 'OPEN') throw conflict('Thu thach chua mo hoac da dong.', 'CHALLENGE_NOT_OPEN');
+    const now = clock.now();
+    if (now < challenge.startsAt || now >= challenge.endsAt) {
+      throw conflict('Thu thach khong trong thoi gian tham gia.', 'CHALLENGE_CLOSED');
+    }
+    const existing = await this.repo.findParticipation(challengeId, memberId);
+    if (existing) throw conflict('Ban da tham gia thu thach nay.', 'CHALLENGE_ALREADY_JOINED');
+    const participation = await this.repo.insertParticipation(challengeId, memberId);
+    await this.audit.record({
+      actorId: memberId,
+      action: 'CHALLENGE_JOINED',
+      entityType: 'CHALLENGE',
+      entityId: challengeId,
+      after: participation,
+    });
+    return participation;
   }
 
   async create(input: CreateChallengeInput, actorId: string): Promise<ChallengeView> {
