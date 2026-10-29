@@ -54,6 +54,28 @@ export class RankService implements RankPort {
     return this.repo.listRanks().then(sortRanks);
   }
 
+  async getRank(id: string): Promise<RankDef> {
+    const rank = await this.repo.findRank(id);
+    if (!rank) throw notFound('Rank');
+    return rank;
+  }
+
+  async updateRankConfig(id: string, input: { minActiveMonths?: number; approvalRole?: 'COACH' | 'HEAD_COACH' | 'ADMIN' | null }, actorId: string, reason: string): Promise<RankDef> {
+    const before = await this.repo.findRank(id);
+    if (!before) throw notFound('Rank');
+    const after = await this.repo.updateRank(id, input);
+    await this.audit.record({
+      actorId,
+      action: 'RANK_CONFIG_UPDATED',
+      entityType: 'RANK',
+      entityId: id,
+      before,
+      after,
+      reason,
+    });
+    return after;
+  }
+
   /** Sets rank I + the INITIAL history row for a freshly created member. */
   async initializeMember(memberId: string): Promise<void> {
     const ranks = sortRanks(await this.repo.listRanks());

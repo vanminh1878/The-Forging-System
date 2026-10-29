@@ -200,6 +200,35 @@ export class RankRepository {
     );
   }
 
+  async findRank(id: string): Promise<RankDef | null> {
+    const rows = await sql.many<Omit<RankDef, 'requiredCourseIds'> & { requiredCourseIds: string[] | null }>(
+      `SELECT r.id, r.rank_order, r.code, r.name_en, r.name_vi, r.dp_threshold, r.min_active_months,
+              r.requires_trial, r.approval_role, r.is_honorary,
+              COALESCE(array_agg(rc.course_id) FILTER (WHERE rc.course_id IS NOT NULL), '{}') AS required_course_ids
+         FROM ranks r LEFT JOIN rank_required_courses rc ON rc.rank_id = r.id
+        WHERE r.id = $1
+        GROUP BY r.id`,
+      [id],
+    );
+    const row = rows[0];
+    return row ? { ...row, requiredCourseIds: row.requiredCourseIds ?? [] } : null;
+  }
+
+  async updateRank(id: string, input: { minActiveMonths?: number; approvalRole?: 'COACH' | 'HEAD_COACH' | 'ADMIN' | null }): Promise<RankDef> {
+    const before = await this.findRank(id);
+    if (!before) throw new Error('Rank not found');
+    const minActiveMonths = input.minActiveMonths ?? before.minActiveMonths;
+    const approvalRole = input.approvalRole === undefined ? before.approvalRole : input.approvalRole;
+    const row = await sql.one<Omit<RankDef, 'requiredCourseIds'> & { requiredCourseIds: string[] | null }>(
+      `UPDATE ranks SET min_active_months=$2, approval_role=$3, updated_at=now()
+         WHERE id=$1
+       RETURNING id, rank_order, code, name_en, name_vi, dp_threshold, min_active_months, requires_trial, approval_role, is_honorary,
+         (SELECT COALESCE(array_agg(course_id) FILTER (WHERE course_id IS NOT NULL), '{}') FROM rank_required_courses WHERE rank_id=$1) AS required_course_ids`,
+      [id, minActiveMonths, approvalRole],
+    );
+    return { ...row!, requiredCourseIds: row!.requiredCourseIds ?? [] };
+  }
+
   async courseNames(ids: string[]): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();
     const rows = await sql.many<{ id: string; name: string }>(`SELECT id, name FROM courses WHERE id = ANY($1::uuid[])`, [ids]);

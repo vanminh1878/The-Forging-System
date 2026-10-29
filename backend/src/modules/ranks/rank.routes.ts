@@ -9,7 +9,15 @@ import type { RankService } from './rank.service';
 
 const decisionBody = z.object({ result: z.enum(['PASS', 'FAIL']), note: z.string().trim().max(500).optional() });
 const idParam = z.object({ id: z.string().uuid() });
+const rankIdParam = z.object({ rankId: z.string().uuid() });
 const queueQuery = z.object({ status: z.enum(['OPEN', 'ALL']).default('OPEN') });
+const rankConfigBody = z.object({
+  minActiveMonths: z.number().int().min(0).max(120).optional(),
+  approvalRole: z.enum(['COACH', 'HEAD_COACH', 'ADMIN']).nullable().optional(),
+  reason: z.string().trim().min(3).max(500),
+}).strict().refine((body) => body.minActiveMonths !== undefined || body.approvalRole !== undefined, {
+  message: 'Can it nhat mot truong cau hinh hang de cap nhat.',
+});
 
 /** Rank progression: learner views (/me/...) and the examiner queue (/rank-trials). */
 export function rankRoutes(service: RankService, directory: UserDirectory): Router {
@@ -52,5 +60,13 @@ export function rankRoutes(service: RankService, directory: UserDirectory): Rout
       return ok(out);
     }),
   );
+  // ---- admin rank configuration ----
+  r.get('/admin/ranks', requireRoles(...RoleGroup.ADMINS), handle(async () => ok(await service.listRanks())));
+  r.get('/admin/ranks/:rankId', requireRoles(...RoleGroup.ADMINS), validate({ params: rankIdParam }), handle(async (req) => ok(await service.getRank(req.params.rankId))));
+  r.patch('/admin/ranks/:rankId', requireRoles(...RoleGroup.ADMINS), validate({ params: rankIdParam, body: rankConfigBody }), handle(async (req) => {
+    const { reason, ...input } = req.body;
+    return ok(await service.updateRankConfig(req.params.rankId, input, authOf(req).userId, reason));
+  }));
+
   return r;
 }
