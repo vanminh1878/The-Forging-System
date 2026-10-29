@@ -35,3 +35,18 @@ export interface ClassInput {
   capacity: number | null;
   isActive: boolean;
 }
+
+export interface SessionRow {
+  id: string;
+  classId: string | null;
+  title: string | null;
+  startsAt: Date;
+  endsAt: Date;
+  /** Local (tenant timezone) calendar date, YYYY-MM-DD. */
+  date: string;
+  status: string;
+  isExam: boolean;
+  capacity: number | null;
+  coach: { id: string; fullName: string };
+  attendeeCount: number;
+}
