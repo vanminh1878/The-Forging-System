@@ -6,10 +6,20 @@ import { db } from '../../db/database';
 import type { AuditService } from '../audit/audit.service';
 import type { MarksWalletPort } from '../points/points.service';
 import type { RedeemableReward, RedemptionRepository } from './redemption.repository';
-import type { CreateRedemptionInput } from './redemption.validation';
+import type { CreateRedemptionInput, RedemptionHistoryFilter } from './redemption.validation';
 
 export class RedemptionService {
   constructor(private readonly repo: RedemptionRepository, private readonly audit: AuditService, private readonly points: MarksWalletPort) {}
+
+  history(memberId: string, filter: RedemptionHistoryFilter, limit: number, offset: number) {
+    return this.repo.history(memberId, filter, limit, offset);
+  }
+
+  async detail(memberId: string, redemptionId: string) {
+    const order = await this.repo.detail(memberId, redemptionId);
+    if (!order) throw notFound('Redemption');
+    return order;
+  }
 
   async create(memberId: string, input: CreateRedemptionInput) {
     // All order writers lock the member first, then the pickup branch and reward.
