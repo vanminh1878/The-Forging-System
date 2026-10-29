@@ -38,6 +38,13 @@ import { ClassService } from './modules/classes/class.service';
 import { MembershipRepository } from './modules/memberships/membership.repository';
 import { membershipRoutes } from './modules/memberships/membership.routes';
 import { MembershipService } from './modules/memberships/membership.service';
+import { BatchRepository } from './modules/batch/batch.repository';
+import { batchRoutes } from './modules/batch/batch.routes';
+import { BatchService } from './modules/batch/batch.service';
+import { jobs, registerJob } from './jobs/registry';
+import { ScheduleRepository } from './modules/schedule/schedule.repository';
+import { scheduleRoutes } from './modules/schedule/schedule.routes';
+import { ScheduleService } from './modules/schedule/schedule.service';
 // [imports:feature-modules] (one line per module, keep alphabetical)
 
 /** Everything the HTTP layer and the scheduled jobs need, wired once at startup. */
@@ -54,6 +61,8 @@ export interface Container {
     branches: BranchService;
     classes: ClassService;
     memberships: MembershipService;
+    batch: BatchService;
+    schedule: ScheduleService;
     // [services:feature-modules] (declare as `name: Type;` and assign in the module block below)
   };
   storage: StorageService;
@@ -105,10 +114,20 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   // depend on its exported port or listen to its domain events (src/shared/events.ts).
   const branches = new BranchService(new BranchRepository(), audit);
   services.branches = branches;
-  const classes = new ClassService(new ClassRepository(), audit);
+  const classes = new ClassService(new ClassRepository(), audit, settings);
   services.classes = classes;
-  const memberships = new MembershipService(new MembershipRepository(), settings, notifications, audit);
+  const memberships = new MembershipService(new MembershipRepository(), settings, notifications, audit, services.members);
   services.memberships = memberships;
+  registerJob({
+    key: 'sessions',
+    name: 'Sinh buổi tập từ lịch lớp',
+    cron: '10 0 * * *',
+    run: ({ now }) => classes.generateSessions(now),
+  });
+  const batch = new BatchService(new BatchRepository(), audit, jobs);
+  services.batch = batch;
+  const schedule = new ScheduleService(new ScheduleRepository());
+  services.schedule = schedule;
   // [modules:feature-modules]
 
   // ---- routers ----
@@ -125,6 +144,8 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     branchRoutes(branches),
     classRoutes(classes),
     membershipRoutes(memberships),
+    batchRoutes(batch),
+    scheduleRoutes(schedule),
     // [routers:feature-modules]
   ];
 

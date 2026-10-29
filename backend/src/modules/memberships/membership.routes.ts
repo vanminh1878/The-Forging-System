@@ -12,6 +12,18 @@ const requestBody = z.object({
   packageTypeId: z.string().uuid(),
   note: z.string().trim().max(500).optional(),
 });
+const activateBody = z.object({
+  packageTypeId: z.string().uuid(),
+  paymentEvidenceUrl: z.string().trim().max(1000).optional(),
+  branchId: z.string().uuid().optional(),
+  note: z.string().trim().max(500).optional(),
+});
+const approveBody = z.object({
+  paymentEvidenceUrl: z.string().trim().max(1000).optional(),
+  packageTypeId: z.string().uuid().optional(),
+  note: z.string().trim().max(500).optional(),
+});
+const idParam = z.object({ id: z.string().uuid() });
 const inboxQuery = paginationQuery.extend({
   status: z.enum(['PENDING', 'COMPLETED', 'CANCELLED']).optional(),
   q: z.string().trim().max(100).optional(),
@@ -44,10 +56,28 @@ export function membershipRoutes(service: MembershipService): Router {
     '/members/:memberId/membership',
     requireRoles(...RoleGroup.FRONT_DESK),
     validate({ params: memberParam }),
-    handle(async (req) => ok(await service.getMembershipOverview(req.params.memberId))),
+    handle(async (req) => ok(await service.getMembershipOverview(req.params.memberId, true))),
+  );
+  r.post(
+    '/members/:memberId/memberships',
+    requireRoles(...RoleGroup.FRONT_DESK),
+    validate({ params: memberParam, body: activateBody }),
+    handle(async (req) => {
+      const a = authOf(req);
+      return created(await service.activateManually(req.params.memberId, a.userId, a.roles, req.body));
+    }),
+  );
+  r.post(
+    '/renewal-requests/:id/approve',
+    requireRoles(...RoleGroup.FRONT_DESK),
+    validate({ params: idParam, body: approveBody }),
+    handle(async (req) => {
+      const a = authOf(req);
+      return ok(await service.approveRenewal(req.params.id, a.userId, a.roles, req.body));
+    }),
   );
 
-  // Renewal requests: learner sends and reads history; front desk reads the inbox (approve/cancel: MEM-04/06).
+  // Renewal requests: learner sends and reads history; front desk reads the inbox (approve: MEM-04, cancel: MEM-06).
   r.post(
     '/me/renewal-requests',
     requireRoles(Role.MEMBER),

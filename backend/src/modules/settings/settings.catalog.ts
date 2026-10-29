@@ -12,6 +12,7 @@ export type ConfigGroup =
   | 'MEMBERSHIP'
   | 'NOTIFICATION'
   | 'CHECKIN'
+  | 'CLASS'
   | 'SECURITY';
 
 export type ConfigValueType = 'INT' | 'DECIMAL' | 'BOOL' | 'TEXT' | 'TIME' | 'JSON';
@@ -75,6 +76,9 @@ export const CONFIG_CATALOG: ConfigDefinition[] = [
   // ---- Armory ----
   def('armory.pending_pickup_expiry_days', 'ARMORY', 'INT', 14, 'Days after which an unclaimed redemption expires', { min: 1 }),
   def('armory.low_stock_threshold', 'ARMORY', 'INT', 3, 'Stock at or below this number is flagged as low in the inventory screen', { min: 0 }),
+
+  // ---- Classes ----
+  def('classes.session_horizon_days', 'CLASS', 'INT', 28, 'Sessions are generated from class schedules this many days ahead', { min: 7, max: 90 }),
 
   // ---- Check-in ----
   def('checkin.code_ttl_seconds', 'CHECKIN', 'INT', 60, 'Lifetime of a rotating branch check-in code', { min: 10 }),

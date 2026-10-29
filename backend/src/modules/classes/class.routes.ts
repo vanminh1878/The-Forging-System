@@ -50,6 +50,8 @@ const enrollBody = z.object({
 });
 const unenrollBody = z.object({ reason: z.string().trim().min(1).max(500).optional() }).default({});
 
+const sessionsQuery = z.object({ from: date.optional(), to: date.optional() });
+
 export function classRoutes(service: ClassService): Router {
   const r = Router();
   r.use(requireAuth);
@@ -70,6 +72,15 @@ export function classRoutes(service: ClassService): Router {
     requireRoles(...RoleGroup.STAFF),
     validate({ params: idParam }),
     handle(async (req) => ok(await service.get(req.params.id))),
+  );
+  r.get(
+    '/admin/classes/:id/sessions',
+    requireRoles(...RoleGroup.STAFF),
+    validate({ params: idParam, query: sessionsQuery }),
+    handle(async (req) => {
+      const { from, to } = req.query as unknown as z.infer<typeof sessionsQuery>;
+      return ok(await service.listSessions(req.params.id, from, to));
+    }),
   );
   r.post(
     '/admin/classes',

@@ -178,10 +178,61 @@ Body tuỳ chọn: `{ "reason": "string 1-500" }`. Trả 200 `{ "data": { "ended
 
 Ghi audit `ROSTER_UPDATED` kèm `reason`.
 
+## Sinh buổi tập từ lịch lớp (CLS-02)
+
+Từ `weekdays`, `startTime`, `durationMinutes`, `defaultCoachId` của lớp, hệ thống tạo các buổi (`sessions`) từ **hôm nay** tới **hôm nay + `classes.session_horizon_days`** ngày (mặc định 28, cấu hình 7–90 trong cài đặt hệ thống).
+
+- Job `sessions` chạy hằng ngày 00:10 (giờ `APP_TIMEZONE`); admin chạy tay bằng `POST /admin/batch-jobs/sessions/run` (xem [batch.md](batch.md)). Chạy lặp lại không tạo buổi trùng (khoá duy nhất theo lớp + giờ bắt đầu, bỏ qua buổi đã huỷ).
+- Buổi được tạo với `coach` = `defaultCoachId`, `branch`, loại buổi, sĩ số theo lớp, tiêu đề = tên lớp. Giờ lưu UTC: 18:30 giờ địa phương = `11:30Z`.
+- Lớp **chưa có coach mặc định** bị bỏ qua (job ghi dòng "Lớp {tên} chưa có coach mặc định — bỏ qua."). Lớp ngừng hoạt động không sinh buổi.
+- Giờ bắt đầu đã qua trong hôm nay không được tạo; buổi đã qua không bị đụng tới.
+- Tạo lớp mới: sinh buổi ngay. Sửa lớp (đổi `weekdays`, `startTime`, `durationMinutes`, `defaultCoachId`, `isActive`): trong cùng giao dịch, các buổi tương lai `SCHEDULED` không còn khớp lịch mới sẽ **xoá** (chưa ai điểm danh) hoặc chuyển `CANCELLED` (đã có điểm danh; phát sự kiện `SESSION_CANCELLED`). Đổi coach mặc định thì coach của các buổi tương lai còn lại đổi theo. Sau đó sinh buổi còn thiếu. Ghi audit `CLASS_SESSIONS_SYNCED` (`generated`, `deleted`, `cancelled`, `recoached`).
+- Ngày nghỉ lễ chưa có: muốn bỏ một buổi lẻ thì huỷ buổi đó (tính năng huỷ buổi làm ở task sau).
+
+## GET `/admin/classes/:id/sessions`
+
+Danh sách buổi của lớp (phục vụ lịch lớp CLS-06/09). Quyền: **S**.
+
+| Query  | Kiểu         | Mặc định          | Ghi chú                     |
+| ------ | ------------ | ----------------- | --------------------------- |
+| `from` | `YYYY-MM-DD` | hôm nay           | Ngày địa phương, gồm cả ngày này |
+| `to`   | `YYYY-MM-DD` | `from` + 28 ngày  | Gồm cả ngày này; tối đa cách `from` 92 ngày |
+
+```json
+{
+  "data": [
+    {
+      "id": "7a1c...",
+      "classId": "0b8f6a52-...",
+      "title": "Boxing tối",
+      "startsAt": "2026-03-02T11:30:00.000Z",
+      "endsAt": "2026-03-02T12:30:00.000Z",
+      "date": "2026-03-02",
+      "status": "SCHEDULED",
+      "isExam": false,
+      "capacity": 15,
+      "coach": { "id": "a1c0...", "fullName": "Coach A" },
+      "attendeeCount": 0
+    }
+  ]
+}
+```
+
+`status`: `SCHEDULED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`. Sắp xếp theo `startsAt`. `attendeeCount` là số dòng điểm danh của buổi.
+
+| HTTP | code               | message                                |
+| ---- | ------------------ | -------------------------------------- |
+| 400  | `VALIDATION_ERROR` | Dữ liệu không hợp lệ (ngày sai định dạng) |
+| 400  | `INVALID_RANGE`    | Ngày kết thúc phải sau ngày bắt đầu    |
+| 400  | `RANGE_TOO_LARGE`  | Khoảng thời gian tối đa 92 ngày        |
+| 401  | `UNAUTHORIZED`     | Yêu cầu đăng nhập                      |
+| 403  | `FORBIDDEN`        | Không đủ quyền (học viên)              |
+| 404  | `NOT_FOUND`        | Lớp học not found                      |
+
 ## Ghi chú FE
 
 - Màn danh sách lớp (CLS-06): bảng/thẻ với tên, thứ trong tuần (map 1..7 sang T2..CN), giờ `startTime` + `durationMinutes`, `enrolledCount/capacity` (hiện "∞" nếu `capacity = null`). Bộ lọc chi nhánh, loại buổi, trạng thái. Trạng thái: loading, rỗng ("Chưa có lớp học"), lỗi (thử lại).
 - Form tạo/sửa chỉ hiện cho **admin**: chọn chi nhánh từ `GET /branches?includeInactive=false`, chọn nhiều thứ, giờ bắt đầu, thời lượng, sĩ số (tuỳ chọn), HLV (tuỳ chọn). Toast thành công: "Đã tạo lớp" / "Đã cập nhật lớp".
 - Chi tiết lớp: hiện roster; nút "Thêm học viên" và "Cho rời lớp" chỉ hiện cho lễ tân và admin. Coach chỉ xem.
 - Hiển thị theo `code`: `ALREADY_ENROLLED` ("Học viên đã có trong lớp"), `CLASS_FULL` ("Lớp đã đủ sĩ số"), `MEMBER_INACTIVE` ("Tài khoản học viên đã ngừng hoạt động"). Xác nhận trước khi cho rời lớp, có ô lý do tuỳ chọn.
-- Việc sinh buổi tập từ lịch lớp (CLS-02) chưa có trong phần này.
+- Buổi tập được hệ thống tự sinh từ lịch lớp (xem mục "Sinh buổi tập" bên dưới); FE không tạo buổi cho lớp. Sau khi admin sửa lịch/coach/trạng thái lớp, nên tải lại danh sách buổi.
