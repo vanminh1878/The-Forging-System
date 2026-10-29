@@ -116,7 +116,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   services.branches = branches;
   const classes = new ClassService(new ClassRepository(), audit, settings);
   services.classes = classes;
-  const memberships = new MembershipService(new MembershipRepository(), settings, notifications, audit, services.members);
+  const memberships = new MembershipService(new MembershipRepository(), settings, notifications, audit, services.members, points);
   services.memberships = memberships;
   registerJob({
     key: 'sessions',
