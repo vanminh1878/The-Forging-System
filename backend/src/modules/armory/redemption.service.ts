@@ -4,12 +4,63 @@ import { clock } from '../../common/utils/clock';
 import { addMonthsToDate, localDate, monthStartOf, startOfLocalDay } from '../../common/utils/time';
 import { db } from '../../db/database';
 import type { AuditService } from '../audit/audit.service';
-import type { MarksWalletPort } from '../points/points.service';
-import type { RedeemableReward, RedemptionRepository } from './redemption.repository';
-import type { CreateRedemptionInput } from './redemption.validation';
+import { Role } from '../../shared/roles';
+import type { AuthContext } from '../../common/http/request-context';
+import type { MarksWalletPort, PointsPort } from '../points/points.service';
+import type { RedeemableReward, RedemptionRepository, RedemptionState } from './redemption.repository';
+import type { CreateRedemptionInput, RedemptionDecision } from './redemption.validation';
 
 export class RedemptionService {
-  constructor(private readonly repo: RedemptionRepository, private readonly audit: AuditService, private readonly points: MarksWalletPort) {}
+  constructor(private readonly repo: RedemptionRepository, private readonly audit: AuditService, private readonly points: MarksWalletPort & PointsPort) {}
+
+  async cancel(memberId: string, id: string, reason?: string) {
+    const order = await this.lockOrder(id, memberId);
+    if (order.status === 'CANCELLED') return { redemption: order, duplicate: true };
+    return this.close(order, 'CANCELLED', memberId, reason ?? null, null);
+  }
+
+  async decide(id: string, input: RedemptionDecision, actor: AuthContext) {
+    const order = await this.lockOrder(id);
+    const isAdmin = actor.roles.includes(Role.ADMIN) || actor.roles.includes(Role.SUPER_ADMIN);
+    if (!isAdmin && actor.branchId !== order.pickupBranchId) {
+      throw forbidden('Lễ tân chỉ xử lý đơn tại chi nhánh nhận.', 'PICKUP_BRANCH_MISMATCH');
+    }
+    if (order.status === input.status) return { redemption: order, duplicate: true };
+    return this.close(order, input.status, actor.userId, input.reason ?? null,
+      input.status === 'DELIVERED' ? input.deliveryEvidenceUrl ?? null : null);
+  }
+
+  /** Internal system hook; caller must check the expiry deadline before invoking it. */
+  async expire(id: string, reason: string) {
+    const order = await this.lockOrder(id);
+    if (order.status === 'EXPIRED') return { redemption: order, duplicate: true };
+    return this.close(order, 'EXPIRED', null, reason, null);
+  }
+
+  private async lockOrder(id: string, ownerId?: string): Promise<RedemptionState> {
+    const memberId = await this.repo.memberForOrder(id);
+    if (!memberId || (ownerId && ownerId !== memberId)) throw notFound('Redemption');
+    // Consistent lock order with ARM-02 and ARM-04: member → order → reward.
+    if (!await this.repo.lockMember(memberId)) throw notFound('Member');
+    const order = await this.repo.lockOrder(id);
+    if (!order || order.memberId !== memberId) throw notFound('Redemption');
+    return order;
+  }
+
+  private async close(order: RedemptionState, status: 'DELIVERED' | 'REJECTED' | 'CANCELLED' | 'EXPIRED',
+    actorId: string | null, reason: string | null, evidence: string | null) {
+    if (order.status !== 'PENDING_PICKUP') throw conflict('Đơn đã kết thúc, không thể đổi trạng thái.', 'REDEMPTION_ALREADY_FINAL');
+    if (status === 'DELIVERED') {
+      await this.points.award({ memberId: order.memberId, source: 'ARMORY_REDEEM', marks: -order.marksCost,
+        redemptionId: order.id, note: 'Giao quà Armory', by: actorId });
+    }
+    const updated = await this.repo.transition(order.id, status, actorId, reason, evidence);
+    if (!updated) throw conflict('Đơn đã được xử lý.', 'REDEMPTION_ALREADY_FINAL');
+    if (status !== 'DELIVERED') await this.repo.restoreStock(order, actorId, reason ?? status);
+    await this.audit.record({ actorId, action: `REDEMPTION_${status}`, entityType: 'REDEMPTION', entityId: order.id,
+      before: { status: order.status, marksCost: order.marksCost }, after: { status, marksCost: updated.marksCost }, reason });
+    return { redemption: updated, duplicate: false };
+  }
 
   async create(memberId: string, input: CreateRedemptionInput) {
     // All order writers lock the member first, then the pickup branch and reward.

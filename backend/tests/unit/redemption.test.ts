@@ -33,7 +33,7 @@ describe('ARM-02 redemption rules', () => {
   const repo = { lockMember: vi.fn(), findByKey: vi.fn(), pickupBranchExists: vi.fn(), lockReward: vi.fn(),
     memberRewardCount: vi.fn(), create: vi.fn(), consumeStock: vi.fn(), inventoryOut: vi.fn() };
   const audit = { record: vi.fn() };
-  const points = { wallet: vi.fn(), assertMarksAvailable: vi.fn() };
+  const points = { wallet: vi.fn(), assertMarksAvailable: vi.fn(), award: vi.fn() };
   const service = new RedemptionService(repo as unknown as RedemptionRepository, audit as unknown as AuditService, points);
   let reward: RedeemableReward;
   const previous = { id: 'order', rewardId: input.rewardId, pickupBranchId: input.pickupBranchId, status: 'PENDING_PICKUP', marksCost: 120 };

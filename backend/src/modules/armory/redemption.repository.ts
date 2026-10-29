@@ -31,9 +31,40 @@ export interface RedemptionView {
   requestedAt: Date;
 }
 
+export interface RedemptionState extends RedemptionView {
+  memberId: string;
+  reason: string | null;
+  decidedBy: string | null;
+  decidedAt: Date | null;
+  deliveryEvidenceUrl: string | null;
+}
+
 const orderColumns = 'id,redemption_code,reward_id,pickup_branch_id,marks_cost,status,requested_at';
 
 export class RedemptionRepository {
+  /** Read only to discover the member to lock; tenant isolation is enforced by RLS. */
+  memberForOrder(id: string) {
+    return sql.scalar<string>('SELECT member_id FROM redemptions WHERE id=$1', [id]);
+  }
+
+  lockOrder(id: string): Promise<RedemptionState | null> {
+    return sql.one<RedemptionState>(`SELECT ${orderColumns},member_id,reason,decided_by,decided_at,delivery_evidence_url
+      FROM redemptions WHERE id=$1 FOR UPDATE`, [id]);
+  }
+
+  async transition(id: string, status: string, actorId: string | null, reason: string | null, evidence: string | null) {
+    return sql.one<RedemptionState>(`UPDATE redemptions SET status=$2,decided_by=$3,decided_at=now(),reason=$4,
+      delivery_evidence_url=$5,updated_at=now() WHERE id=$1 AND status='PENDING_PICKUP'
+      RETURNING ${orderColumns},member_id,reason,decided_by,decided_at,delivery_evidence_url`, [id, status, actorId, reason, evidence]);
+  }
+
+  async restoreStock(order: RedemptionState, actorId: string | null, reason: string) {
+    const updated = await sql.exec('UPDATE rewards SET stock=stock+1,updated_at=now() WHERE id=$1', [order.rewardId]);
+    if (updated !== 1) throw new Error('Cannot restore stock for redemption');
+    await sql.exec(`INSERT INTO inventory_movements (tenant_id,reward_id,movement_type,quantity,redemption_id,actor_id,reason)
+      VALUES ($1,$2,'IN',1,$3,$4,$5)`, [db.currentTenantId(), order.rewardId, order.id, actorId, reason]);
+  }
+
   lockMember(id: string) {
     return sql.one<RedeemingMember>(`SELECT m.user_id AS id,m.status,u.account_status,k.rank_order
       FROM members m JOIN users u ON u.id=m.user_id AND u.tenant_id=m.tenant_id
