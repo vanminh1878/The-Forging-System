@@ -288,4 +288,30 @@ export class MembershipRepository {
       [input.id, input.by, input.now, input.evidenceUrl, input.membershipId, input.note],
     );
   }
+
+  async cancelRenewal(input: { id: string; by: string; now: Date; reason: string }): Promise<void> {
+    await sql.exec(
+      `UPDATE renewal_requests
+          SET status = 'CANCELLED', handled_by = $2, handled_at = $3, reason = $4, updated_at = $3
+        WHERE id = $1`,
+      [input.id, input.by, input.now, input.reason],
+    );
+  }
+
+  /** Locks a membership so concurrent cancel / activate cannot interleave. */
+  lockMembership(id: string): Promise<{ memberId: string; status: string; packageName: string } | null> {
+    return sql.one(
+      `SELECT ms.member_id, ms.status, pt.name AS package_name
+         FROM memberships ms JOIN package_types pt ON pt.id = ms.package_type_id
+        WHERE ms.id = $1 FOR UPDATE OF ms`,
+      [id],
+    );
+  }
+
+  async cancelMembership(input: { id: string; by: string; now: Date; reason: string }): Promise<void> {
+    await sql.exec(
+      `UPDATE memberships SET status = 'CANCELLED', cancelled_by = $2, cancel_reason = $4, updated_at = $3 WHERE id = $1`,
+      [input.id, input.by, input.now, input.reason],
+    );
+  }
 }
