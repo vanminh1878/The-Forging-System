@@ -123,3 +123,25 @@ class StaffBranch {
   final String id;
   final String name;
 }
+
+class CreateStaffInput {
+  const CreateStaffInput({
+    required this.fullName,
+    required this.role,
+    required this.branchId,
+    this.phone,
+    this.email,
+  });
+
+  final String fullName;
+  final StaffRole role;
+  final String branchId;
+  final String? phone;
+  final String? email;
+}
+
+class CreatedStaff {
+  const CreatedStaff({required this.staff, required this.temporaryPassword});
+  final StaffMember staff;
+  final String temporaryPassword;
+}

@@ -11,6 +11,7 @@ import '../../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
 import '../../domain/staff_models.dart';
 import '../staff_providers.dart';
+import '../widgets/create_staff_sheet.dart';
 import '../widgets/staff_filter_sheet.dart';
 import '../widgets/staff_member_card.dart';
 
@@ -76,6 +77,12 @@ class _StaffDirectoryScreenState extends ConsumerState<StaffDirectoryScreen> {
                 children: <Widget>[
                   Row(children: <Widget>[
                     Expanded(child: Text('NHÂN SỰ', style: context.txt.titleL)),
+                    IconButton(
+                        tooltip: 'Tạo nhân sự',
+                        icon: const Icon(HvpIcons.plus),
+                        onPressed: () => showHvpSheet<void>(context,
+                            title: 'Tạo nhân sự',
+                            builder: (_) => const CreateStaffSheet())),
                     IconButton(
                         tooltip: 'Làm mới danh sách',
                         icon: const Icon(HvpIcons.retry),
