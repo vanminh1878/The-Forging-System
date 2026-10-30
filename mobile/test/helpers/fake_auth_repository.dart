@@ -15,7 +15,8 @@ class FakeAuthRepository implements AuthRepository {
   int logoutCalls = 0;
 
   @override
-  Future<AuthUser> login({required String identifier, required String password}) async {
+  Future<AuthUser> login(
+      {required String identifier, required String password}) async {
     loginIdentifiers.add(identifier);
     final error = loginError;
     if (error != null) throw error;
@@ -23,7 +24,8 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<AuthUser> register(RegisterInput input) async => loginUser ?? makeUser(AppRole.student);
+  Future<AuthUser> register(RegisterInput input) async =>
+      loginUser ?? makeUser(AppRole.student);
 
   @override
   Future<AuthUser?> restoreSession() async => restored;
@@ -34,11 +36,21 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<PasswordResetTicket> requestPasswordReset(String phone) async =>
-      const PasswordResetTicket(requestId: 'req-1', maskedDestination: '091****678');
+  Future<void> changePassword({
+    required String currentPassword,
+    required String password,
+    required String passwordConfirm,
+  }) async {}
 
   @override
-  Future<String> verifyResetPin({required String requestId, required String pin}) async => 'reset-token';
+  Future<PasswordResetTicket> requestPasswordReset(String phone) async =>
+      const PasswordResetTicket(
+          requestId: 'req-1', maskedDestination: '091****678');
+
+  @override
+  Future<String> verifyResetPin(
+          {required String requestId, required String pin}) async =>
+      'reset-token';
 
   @override
   Future<void> resetPassword({

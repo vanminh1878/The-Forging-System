@@ -18,7 +18,8 @@ class RegisterInput {
 
 /// Result of step 1 of the password reset (`/auth/password/forgot`).
 class PasswordResetTicket {
-  const PasswordResetTicket({required this.requestId, required this.maskedDestination, this.devPin});
+  const PasswordResetTicket(
+      {required this.requestId, required this.maskedDestination, this.devPin});
 
   final String requestId;
   final String maskedDestination;
@@ -29,7 +30,8 @@ class PasswordResetTicket {
 
 abstract class AuthRepository {
   /// [identifier] is an email or a phone number.
-  Future<AuthUser> login({required String identifier, required String password});
+  Future<AuthUser> login(
+      {required String identifier, required String password});
 
   Future<AuthUser> register(RegisterInput input);
 
@@ -40,10 +42,16 @@ abstract class AuthRepository {
   /// Revokes the refresh token (best effort) and clears local credentials.
   Future<void> logout();
 
+  Future<void> changePassword(
+      {required String currentPassword,
+      required String password,
+      required String passwordConfirm});
+
   Future<PasswordResetTicket> requestPasswordReset(String phone);
 
   /// Returns the short-lived reset token.
-  Future<String> verifyResetPin({required String requestId, required String pin});
+  Future<String> verifyResetPin(
+      {required String requestId, required String pin});
 
   Future<void> resetPassword({
     required String requestId,

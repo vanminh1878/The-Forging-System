@@ -4,8 +4,12 @@ import '../../../../core/error/error_mapper.dart';
 import '../../../../core/state/submit_notifier.dart';
 import 'auth_providers.dart';
 
-final loginSubmitProvider = NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
-final registerSubmitProvider = NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
+final loginSubmitProvider =
+    NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
+final registerSubmitProvider =
+    NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
+final changePasswordSubmitProvider =
+    NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
 
 enum ForgotStep { phone, pin, reset, done }
 
@@ -65,7 +69,8 @@ class ForgotPasswordController extends Notifier<ForgotState> {
   Future<void> requestPin(String phone) async {
     state = state.copyWith(submitting: true, clearError: true);
     try {
-      final ticket = await ref.read(authRepositoryProvider).requestPasswordReset(phone);
+      final ticket =
+          await ref.read(authRepositoryProvider).requestPasswordReset(phone);
       state = ForgotState(
         step: ForgotStep.pin,
         phone: phone,
@@ -83,8 +88,11 @@ class ForgotPasswordController extends Notifier<ForgotState> {
     if (requestId == null) return;
     state = state.copyWith(submitting: true, clearError: true);
     try {
-      final token = await ref.read(authRepositoryProvider).verifyResetPin(requestId: requestId, pin: pin);
-      state = state.copyWith(step: ForgotStep.reset, resetToken: token, submitting: false);
+      final token = await ref
+          .read(authRepositoryProvider)
+          .verifyResetPin(requestId: requestId, pin: pin);
+      state = state.copyWith(
+          step: ForgotStep.reset, resetToken: token, submitting: false);
     } catch (e) {
       state = state.copyWith(submitting: false, error: errorMessage(e));
     }
@@ -109,4 +117,6 @@ class ForgotPasswordController extends Notifier<ForgotState> {
   }
 }
 
-final forgotPasswordProvider = NotifierProvider<ForgotPasswordController, ForgotState>(ForgotPasswordController.new);
+final forgotPasswordProvider =
+    NotifierProvider<ForgotPasswordController, ForgotState>(
+        ForgotPasswordController.new);
