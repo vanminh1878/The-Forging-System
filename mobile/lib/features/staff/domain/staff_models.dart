@@ -123,3 +123,15 @@ class StaffBranch {
   final String id;
   final String name;
 }
+
+class UpdateStaffInput {
+  const UpdateStaffInput({
+    required this.role,
+    required this.branchId,
+    required this.reason,
+  });
+
+  final StaffRole role;
+  final String branchId;
+  final String reason;
+}

@@ -57,4 +57,26 @@ class StaffRepositoryImpl implements StaffRepository {
     }
     return branches.values.toList()..sort((a, b) => a.name.compareTo(b.name));
   }
+
+  @override
+  Future<StaffMember> update(String staffId, UpdateStaffInput input) async {
+    final response =
+        await _api.patch('/admin/staff/$staffId', body: <String, dynamic>{
+      'role': input.role.wire,
+      'branchId': input.branchId,
+      'reason': input.reason.trim(),
+    });
+    return staffMemberFromJson(response.dataMap);
+  }
+
+  @override
+  Future<StaffMember> setStatus(String staffId,
+      {required StaffStatus status, required String reason}) async {
+    final response =
+        await _api.post('/admin/staff/$staffId/status', body: <String, dynamic>{
+      'status': status.wire,
+      'reason': reason.trim(),
+    });
+    return staffMemberFromJson(response.dataMap);
+  }
 }

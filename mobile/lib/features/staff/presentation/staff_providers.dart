@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/network_providers.dart';
+import '../../../core/state/submit_notifier.dart';
 import '../../auth/presentation/providers/auth_controller.dart';
 import '../data/staff_repository_impl.dart';
 import '../domain/staff_models.dart';
@@ -21,3 +22,9 @@ final staffBranchesProvider =
   ref.watch(currentUserIdProvider);
   return ref.watch(staffRepositoryProvider).branches();
 });
+
+final staffUpdateSubmitProvider =
+    NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
+
+final staffStatusSubmitProvider =
+    NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);

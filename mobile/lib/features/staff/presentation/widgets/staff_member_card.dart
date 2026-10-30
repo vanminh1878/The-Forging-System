@@ -7,6 +7,7 @@ import '../../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../../core/widgets/hvp_card.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../domain/staff_models.dart';
+import 'staff_manage_sheet.dart';
 
 class StaffMemberCard extends StatelessWidget {
   const StaffMemberCard({super.key, required this.member});
@@ -18,7 +19,7 @@ class StaffMemberCard extends StatelessWidget {
         cut: 8,
         onTap: () => showHvpSheet<void>(context,
             title: 'Hồ sơ nhân sự',
-            builder: (_) => _StaffDetails(member: member)),
+            builder: (_) => StaffManageSheet(member: member)),
         child: Row(children: <Widget>[
           HvpAvatar(name: member.fullName, size: 38),
           const SizedBox(width: 12),
@@ -49,49 +50,3 @@ ChipTone _tone(String status) => switch (status) {
       'DISABLED' => ChipTone.danger,
       _ => ChipTone.neutral,
     };
-
-class _StaffDetails extends StatelessWidget {
-  const _StaffDetails({required this.member});
-  final StaffMember member;
-
-  @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Row(children: <Widget>[
-                HvpAvatar(name: member.fullName),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: Text(member.fullName,
-                        style: context.txt.titleM
-                            .copyWith(color: context.hvp.gold))),
-              ]),
-              const SizedBox(height: 20),
-              _line(context, 'Vai trò', member.roleLabel),
-              _line(context, 'Chi nhánh', member.branchName ?? 'Chưa gán'),
-              _line(context, 'Trạng thái',
-                  StaffStatus.labelOf(member.accountStatus)),
-              _line(context, 'Điện thoại', member.phone ?? 'Chưa cập nhật'),
-              _line(context, 'Email', member.email ?? 'Chưa cập nhật'),
-              _line(
-                  context,
-                  'Mật khẩu tạm',
-                  member.mustChangePassword
-                      ? 'Cần đổi ở lần đăng nhập đầu'
-                      : 'Không yêu cầu đổi'),
-            ]),
-      );
-
-  Widget _line(BuildContext context, String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(label.toUpperCase(), style: context.txt.label),
-              const SizedBox(height: 4),
-              SelectableText(value, style: context.txt.body),
-            ]),
-      );
-}
