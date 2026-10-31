@@ -24,6 +24,11 @@ export class AuthController {
 
   me = async (req: Request): Promise<HandlerResult> => ok(await this.service.me(authOf(req).userId));
 
+  changePassword = async (req: Request): Promise<HandlerResult> => {
+    await this.service.changePassword(authOf(req).userId, req.body);
+    return noContent();
+  };
+
   forgotPassword = async (req: Request): Promise<HandlerResult> => ok(await this.service.requestPasswordReset(req.body.phone));
   verifyPin = async (req: Request): Promise<HandlerResult> => ok(await this.service.verifyPin(req.body.requestId, req.body.pin));
 

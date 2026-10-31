@@ -110,3 +110,6 @@ docker/    Khởi tạo PostgreSQL (role runtime hvp_app, DB test)
 
 Đây là **base project**: nền tảng đã chạy được và có test (đăng nhập, thành viên, sổ điểm DP/Marks,
 hạng, thông báo, cấu hình, audit, upload) cùng khung để thêm các module nghiệp vụ còn lại.
+
+API nhân sự STF-01–04 (danh sách/bộ lọc, tạo tài khoản, vai trò/chi nhánh, vô hiệu hóa,
+reset mật khẩu và bắt buộc đổi mật khẩu tạm): xem [docs/STAFF_API.md](docs/STAFF_API.md).

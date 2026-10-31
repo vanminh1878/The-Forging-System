@@ -2,6 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import { forbidden, unauthorized } from '../errors/app-error';
 import { verifyAccessToken } from '../utils/jwt';
 import type { RoleCode } from '../../shared/roles';
+import { db } from '../../db/database';
+import { AuthRepository } from '../../modules/auth/auth.repository';
 
 /** Verifies the Bearer access token and attaches the principal to req.ctx. */
 export function requireAuth(req: Request, _res: Response, next: NextFunction): void {
@@ -16,8 +18,17 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction): v
       next(forbidden('Token does not belong to this tenant', 'TENANT_MISMATCH'));
       return;
     }
-    req.ctx.auth = { userId: claims.sub, roles: claims.roles, branchId: claims.bid ?? null };
-    next();
+    db.tenantTx(req.ctx.tenantId, async () => {
+      const repo = new AuthRepository();
+      const user = await repo.findUserById(claims.sub);
+      if (!user || user.accountStatus !== 'ACTIVE') throw forbidden('Tài khoản không hoạt động.', 'ACCOUNT_DISABLED');
+      if (user.authVersion !== (claims.ver ?? 0)) throw unauthorized('Phiên đăng nhập đã hết hạn.', 'TOKEN_INVALID');
+      const allowedDuringPasswordChange = ['/me', '/logout', '/password/change'];
+      if (user.mustChangePassword && !(req.baseUrl.endsWith('/auth') && allowedDuringPasswordChange.includes(req.path))) {
+        throw forbidden('Bạn phải đổi mật khẩu tạm trước khi tiếp tục.', 'PASSWORD_CHANGE_REQUIRED');
+      }
+      req.ctx.auth = { userId: user.id, roles: await repo.rolesOf(user.id), branchId: user.branchId };
+    }).then(() => next()).catch(next);
   } catch {
     next(unauthorized('Invalid or expired token', 'TOKEN_INVALID'));
   }

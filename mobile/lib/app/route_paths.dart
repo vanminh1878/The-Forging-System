@@ -7,6 +7,7 @@ abstract final class AppPaths {
   static const String login = '/login';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
+  static const String changePassword = '/change-password';
 
   /// Screens reachable without a session.
   static const List<String> public = <String>[login, register, forgotPassword];

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import { z } from 'zod';
 import { handle } from '../../common/http/handler';
 import { requireAuth } from '../../common/middlewares/auth.middleware';
 import { validate } from '../../common/middlewares/validate.middleware';
@@ -17,6 +18,11 @@ export function authRoutes(c: AuthController): Router {
   r.post('/refresh', limiter, validate({ body: refreshBody }), handle(c.refresh));
   r.post('/logout', requireAuth, validate({ body: logoutBody }), handle(c.logout));
   r.get('/me', requireAuth, handle(c.me));
+  r.post('/password/change', requireAuth, limiter, validate({ body: z.object({
+    currentPassword: z.string().min(1).max(200),
+    password: z.string().min(8).max(72),
+    passwordConfirm: z.string().min(8).max(72),
+  }).strict() }), handle(c.changePassword));
 
   r.post('/password/forgot', limiter, validate({ body: forgotBody }), handle(c.forgotPassword));
   r.post('/password/verify-pin', limiter, validate({ body: verifyPinBody }), handle(c.verifyPin));
