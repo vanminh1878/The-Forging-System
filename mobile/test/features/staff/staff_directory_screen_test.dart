@@ -40,6 +40,16 @@ class FakeStaffRepository implements StaffRepository {
   @override
   Future<List<StaffBranch>> branches() async =>
       const <StaffBranch>[StaffBranch('q7', 'HVP Quận 7')];
+
+  @override
+  Future<CreatedStaff> create(CreateStaffInput input) async => CreatedStaff(
+      staff: StaffMember(
+          id: 'created',
+          fullName: input.fullName,
+          roles: <String>[input.role.wire],
+          accountStatus: 'ACTIVE',
+          branchId: input.branchId),
+      temporaryPassword: 'TemporaryPassword1');
 }
 
 Future<void> showDirectory(
