@@ -46,7 +46,15 @@ export const challengeSearchQuery = paginationQuery.extend({
   context: challengeContext.optional(),
 });
 
+export const openChallengeQuery = paginationQuery.extend({
+  q: z.string().trim().max(100).optional(),
+  challengeType: challengeType.optional(),
+  period: challengeType.optional(),
+  context: challengeContext.optional(),
+});
+
 export type CreateChallengeInput = z.infer<typeof createChallengeBody>;
 export type UpdateChallengeInput = z.infer<typeof updateChallengeBody>;
 export type ChallengeEnabledInput = z.infer<typeof challengeEnabledBody>;
 export type ChallengeFilter = Pick<z.infer<typeof challengeSearchQuery>, 'q' | 'status' | 'challengeType' | 'context'>;
+export type OpenChallengeFilter = Pick<z.infer<typeof openChallengeQuery>, 'q' | 'challengeType' | 'period' | 'context'>;

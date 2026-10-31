@@ -4,9 +4,9 @@ import { authOf, created, handle, ok } from '../../common/http/handler';
 import { pageMeta, toPage } from '../../common/http/pagination';
 import { requireAuth, requireRoles } from '../../common/middlewares/auth.middleware';
 import { validate } from '../../common/middlewares/validate.middleware';
-import { RoleGroup } from '../../shared/roles';
+import { Role, RoleGroup } from '../../shared/roles';
 import type { ChallengeService } from './challenge.service';
-import { challengeEnabledBody, challengeIdParam, challengeSearchQuery, createChallengeBody, updateChallengeBody } from './challenge.validation';
+import { challengeEnabledBody, challengeIdParam, challengeSearchQuery, createChallengeBody, openChallengeQuery, updateChallengeBody } from './challenge.validation';
 
 export function challengeRoutes(service: ChallengeService): Router {
   const r = Router();
@@ -25,5 +25,20 @@ export function challengeRoutes(service: ChallengeService): Router {
   r.patch('/admin/challenges/:challengeId/status', validate({ params: challengeIdParam, body: challengeEnabledBody }), handle(async (req) =>
     ok(await service.setEnabled(req.params.challengeId, req.body, authOf(req).userId)),
   ));
+
+  const openChallenges = handle(async (req) => {
+    const filter = req.query as unknown as z.infer<typeof openChallengeQuery>;
+    const page = toPage(filter);
+    const result = await service.listOpenForMember(authOf(req).userId, filter, page.limit, page.offset);
+    return ok(result.items, pageMeta(page, result.total));
+  });
+  for (const path of ['/me/challenges', '/me/challenges/open', '/challenges', '/challenges/open']) {
+    r.get(path, requireAuth, requireRoles(Role.MEMBER), validate({ query: openChallengeQuery }), openChallenges);
+  }
+
+  const joinChallenge = handle(async (req) => created(await service.join(authOf(req).userId, req.params.challengeId)));
+  for (const path of ['/me/challenges/:challengeId/join', '/challenges/:challengeId/join']) {
+    r.post(path, requireAuth, requireRoles(Role.MEMBER), validate({ params: challengeIdParam }), joinChallenge);
+  }
   return r;
 }
