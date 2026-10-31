@@ -1,5 +1,6 @@
 import { db } from '../../db/database';
 import { sql } from '../../db/sql';
+import type { RedemptionHistoryFilter } from './redemption.validation';
 
 export interface RedeemingMember {
   id: string;
@@ -31,9 +32,40 @@ export interface RedemptionView {
   requestedAt: Date;
 }
 
+export interface RedemptionHistoryView extends RedemptionView {
+  rewardName: string;
+  rewardSku: string;
+  rewardImageUrl: string | null;
+  pickupBranchName: string;
+  decidedAt: Date | null;
+  reason: string | null;
+}
+
 const orderColumns = 'id,redemption_code,reward_id,pickup_branch_id,marks_cost,status,requested_at';
 
 export class RedemptionRepository {
+  async history(memberId: string, filter: RedemptionHistoryFilter, limit: number, offset: number) {
+    const where = `d.member_id=$1 AND ($2::text IS NULL OR d.status=$2)`;
+    const params = [memberId, filter.status ?? null];
+    const items = await sql.many<RedemptionHistoryView>(`SELECT d.id,d.redemption_code,d.reward_id,d.pickup_branch_id,
+      d.marks_cost,d.status,d.requested_at,d.decided_at,d.reason,
+      r.name AS reward_name,r.sku AS reward_sku,r.image_url AS reward_image_url,b.name AS pickup_branch_name
+      FROM redemptions d JOIN rewards r ON r.id=d.reward_id AND r.tenant_id=d.tenant_id
+      JOIN branches b ON b.id=d.pickup_branch_id AND b.tenant_id=d.tenant_id
+      WHERE ${where} ORDER BY d.requested_at DESC,d.id DESC LIMIT $3 OFFSET $4`, [...params, limit, offset]);
+    const total = await sql.scalar<number>(`SELECT count(*)::int FROM redemptions d WHERE ${where}`, params);
+    return { items, total: total ?? 0 };
+  }
+
+  detail(memberId: string, redemptionId: string): Promise<RedemptionHistoryView | null> {
+    return sql.one<RedemptionHistoryView>(`SELECT d.id,d.redemption_code,d.reward_id,d.pickup_branch_id,
+      d.marks_cost,d.status,d.requested_at,d.decided_at,d.reason,
+      r.name AS reward_name,r.sku AS reward_sku,r.image_url AS reward_image_url,b.name AS pickup_branch_name
+      FROM redemptions d JOIN rewards r ON r.id=d.reward_id AND r.tenant_id=d.tenant_id
+      JOIN branches b ON b.id=d.pickup_branch_id AND b.tenant_id=d.tenant_id
+      WHERE d.member_id=$1 AND d.id=$2`, [memberId, redemptionId]);
+  }
+
   lockMember(id: string) {
     return sql.one<RedeemingMember>(`SELECT m.user_id AS id,m.status,u.account_status,k.rank_order
       FROM members m JOIN users u ON u.id=m.user_id AND u.tenant_id=m.tenant_id
