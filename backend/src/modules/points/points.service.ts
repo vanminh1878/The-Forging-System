@@ -38,7 +38,7 @@ export interface PointsPort {
   award(input: AwardInput): Promise<AwardResult>;
 }
 
-/** Armory must check/lock spendable Marks before writing a PENDING_PICKUP order in the same transaction. */
+/** Armory uses this while holding the tenant transaction used to create its pending redemption. */
 export interface MarksWalletPort {
   wallet(memberId: string): Promise<MarksWallet>;
   assertMarksAvailable(memberId: string, amount: number): Promise<MarksWallet>;
@@ -64,21 +64,35 @@ export class PointsService implements PointsPort, MarksWalletPort {
   ) {}
 
   async award(input: AwardInput): Promise<AwardResult> {
-    const dp = input.dp ?? 0, marks = input.marks ?? 0;
+    const dp = input.dp ?? 0;
+    const marks = input.marks ?? 0;
     const armoryDebit = input.source === 'ARMORY_REDEEM';
-    const manualDebit = input.source === 'MANUAL_ADJUSTMENT' && (dp < 0 || marks < 0);
-    if (![dp, marks].every((value) => Number.isInteger(value) && Math.abs(value) <= 2_147_483_647)) {
-      throw badRequest('Point amounts must be valid integers', undefined, 'INVALID_POINT_AMOUNT');
+    const signedManualTransfer = input.source === 'MANUAL_ADJUSTMENT' && (dp < 0 || marks < 0);
+    if (![dp, marks].every((amount) => Number.isInteger(amount) && Math.abs(amount) <= 2_147_483_647)) {
+      throw badRequest('Point amounts must be valid integers.', undefined, 'INVALID_POINT_AMOUNT');
     }
-    if (armoryDebit ? dp !== 0 || marks >= 0 || !input.redemptionId : !manualDebit && (dp < 0 || marks < 0)) {
-      throw badRequest('Negative activity awards are not allowed; Armory debits require a redemption, negative Marks and zero DP.', undefined, 'INVALID_AWARD');
+    if (
+      armoryDebit
+        ? dp !== 0 || marks >= 0 || !input.redemptionId
+        : !signedManualTransfer && (dp < 0 || marks < 0)
+    ) {
+      throw badRequest(
+        'Negative awards are restricted to an Armory redemption debit.',
+        undefined,
+        'INVALID_AWARD',
+      );
     }
-    // Account merging already uses signed MANUAL_ADJUSTMENT transfers through this port.
-    if (manualDebit && (!input.by || !input.reason?.trim())) throw badRequest('Manual debits require an actor and reason.');
-    const rawKey = input.idempotencyKey ?? (armoryDebit ? `armory:redeem:${input.redemptionId}` : undefined);
-    const key = rawKey ? `${db.currentTenantId()}:${rawKey}` : undefined;
-    if (key) {
-      const existing = await this.repo.findByIdempotencyKey(key);
+    if (signedManualTransfer && (!input.by || !input.reason?.trim())) {
+      throw badRequest('Signed manual transfers require an actor and reason.', undefined, 'INVALID_AWARD');
+    }
+    // A redemption has exactly one debit irrespective of a client retry key.
+    const idempotencyKey = armoryDebit
+      ? `${db.currentTenantId()}:armory:redeem:${input.redemptionId}`
+      : input.idempotencyKey
+        ? `${db.currentTenantId()}:${input.idempotencyKey}`
+        : undefined;
+    if (idempotencyKey) {
+      const existing = await this.repo.findByIdempotencyKey(idempotencyKey);
       if (existing) return this.duplicateAward(existing, input);
     }
 
@@ -86,21 +100,27 @@ export class PointsService implements PointsPort, MarksWalletPort {
     const balances = await this.repo.lockMember(input.memberId);
     if (!balances) throw notFound('Member');
 
-    // A request may have waited for a concurrent award. Check again before testing balance.
-    if (key) {
-      const existing = await this.repo.findByIdempotencyKey(key);
+    // Recheck after waiting for the member lock; another retry may have posted while we waited.
+    if (idempotencyKey) {
+      const existing = await this.repo.findByIdempotencyKey(idempotencyKey);
       if (existing) return this.duplicateAward(existing, input);
     }
-    if (manualDebit) {
+
+    let heldByOtherRedemptions = 0;
+    if (signedManualTransfer) {
       if (balances.dpBalance + dp < 0 || balances.marksBalance + marks < 0) {
-        throw unprocessable('The adjustment would make a balance negative', 'NEGATIVE_BALANCE');
+        throw unprocessable('The transfer would make a balance negative.', 'NEGATIVE_BALANCE');
       }
-      if (marks < 0 && balances.marksBalance + marks < await this.repo.heldMarks(input.memberId)) {
-        throw unprocessable('Marks đang giữ cho đơn khác không thể bị trừ.', 'INSUFFICIENT_AVAILABLE_MARKS');
+      if (marks < 0 && balances.marksBalance + marks < (await this.repo.heldMarks(input.memberId))) {
+        throw unprocessable(
+          'The transfer would consume Marks held for pending redemptions.',
+          'INSUFFICIENT_AVAILABLE_MARKS',
+        );
       }
     }
-    let heldForOtherOrders = 0;
+
     if (armoryDebit) {
+      // Serialize the order as well as the member. ARM-05 calls this before changing PENDING_PICKUP to DELIVERED.
       const existing = await this.repo.findRedemptionDebit(input.redemptionId!);
       if (existing) return this.duplicateAward(existing, input);
       const redemption = await this.repo.redemptionForDebit(input.redemptionId!);
@@ -108,15 +128,42 @@ export class PointsService implements PointsPort, MarksWalletPort {
       if (!['PENDING_PICKUP', 'DELIVERED'].includes(redemption.status)) {
         throw conflict('Only a pending or delivered redemption can be debited.', 'REDEMPTION_NOT_PAYABLE');
       }
-      if (redemption.marksCost !== -marks) throw badRequest('Debit must match the redemption Marks snapshot.', undefined, 'REDEMPTION_AMOUNT_MISMATCH');
-      heldForOtherOrders = await this.repo.heldMarks(input.memberId, redemption.id);
-      if (balances.marksBalance + marks < heldForOtherOrders) {
-        throw unprocessable('Marks are insufficient or reserved for other redemptions.', 'INSUFFICIENT_AVAILABLE_MARKS');
+      if (redemption.marksCost !== -marks)
+        throw badRequest(
+          'Debit must equal the redemption Marks snapshot.',
+          undefined,
+          'REDEMPTION_AMOUNT_MISMATCH',
+        );
+      heldByOtherRedemptions = await this.repo.heldMarks(input.memberId, redemption.id);
+      if (balances.marksBalance + marks < heldByOtherRedemptions) {
+        throw unprocessable(
+          'Marks balance cannot cover this debit and other pending holds.',
+          'INSUFFICIENT_AVAILABLE_MARKS',
+        );
       }
     }
 
     const now = clock.now();
-    const capped = armoryDebit ? { dp: 0, marks, capped: false } : await this.capAward(input, now);
+    let capped: ReturnType<typeof applyMonthlyCap>;
+    if (armoryDebit || signedManualTransfer) {
+      capped = { dp, marks, capped: false };
+    } else {
+      const monthStart = startOfLocalDay(monthStartOf(localDate(now)));
+      const [usage, dpCap, marksCap] = await Promise.all([
+        this.repo.monthlyUsage(input.memberId, monthStart),
+        this.settings.getNumber('points.dp_monthly_cap'),
+        this.settings.getNumber('points.marks_monthly_cap'),
+      ]);
+      capped = applyMonthlyCap({
+        source: input.source,
+        dp,
+        marks,
+        usedDpThisMonth: usage.dp,
+        usedMarksThisMonth: usage.marks,
+        dpCap,
+        marksCap,
+      });
+    }
 
     const tx = await this.repo.insert({
       memberId: input.memberId,
@@ -125,7 +172,7 @@ export class PointsService implements PointsPort, MarksWalletPort {
       marksAmount: capped.marks,
       isCapped: capped.capped,
       note: capped.capped ? `${input.note} · CAPPED theo hạn mức tháng` : input.note,
-      idempotencyKey: key,
+      idempotencyKey,
       attendanceId: input.attendanceId,
       challengeParticipationId: input.challengeParticipationId,
       rankTrialRequestId: input.rankTrialRequestId,
@@ -137,15 +184,20 @@ export class PointsService implements PointsPort, MarksWalletPort {
     });
     if (!tx) {
       // Lost an idempotency race: another request inserted the same key first.
-      const existing = await this.repo.findByIdempotencyKey(key!);
+      const existing = await this.repo.findByIdempotencyKey(idempotencyKey!);
       return this.duplicateAward(existing!, input);
     }
 
-    if (armoryDebit) {
-      await this.audit.record({ actorId: input.by ?? null, action: 'ARMORY_MARKS_DEBITED', entityType: 'POINT_TRANSACTION', entityId: tx.id,
-        before: { marksBalance: balances.marksBalance, marksHeldForOtherOrders: heldForOtherOrders },
-        after: { marksBalance: balances.marksBalance + marks, redemptionId: input.redemptionId }, reason: input.reason ?? input.note });
-    }
+    if (armoryDebit)
+      await this.audit.record({
+        actorId: input.by ?? null,
+        action: 'ARMORY_MARKS_DEBITED',
+        entityType: 'POINT_TRANSACTION',
+        entityId: tx.id,
+        before: { marksBalance: balances.marksBalance, heldByOtherRedemptions },
+        after: { marksBalance: balances.marksBalance + marks, redemptionId: input.redemptionId },
+        reason: input.reason ?? input.note,
+      });
 
     if (tx.dpAmount !== 0 || tx.marksAmount !== 0) {
       const event: PointsAwardedEvent = {
@@ -165,29 +217,27 @@ export class PointsService implements PointsPort, MarksWalletPort {
     return wallet;
   }
 
-  /** The caller creates the order before committing, while the member lock is held. */
+  /** Called before the Armory module inserts its PENDING_PICKUP row; keep the transaction open. */
   async assertMarksAvailable(memberId: string, amount: number): Promise<MarksWallet> {
-    if (!Number.isInteger(amount) || amount <= 0 || amount > 2_147_483_647) throw badRequest('Marks hold amount must be a positive integer.');
-    if (!await this.repo.lockMember(memberId)) throw notFound('Member');
+    if (!Number.isInteger(amount) || amount <= 0 || amount > 2_147_483_647)
+      throw badRequest('Hold amount must be a positive integer.');
+    if (!(await this.repo.lockMember(memberId))) throw notFound('Member');
     const wallet = await this.wallet(memberId);
-    if (!wallet.canRedeem) throw forbidden('Tài khoản inactive không thể tạo yêu cầu đổi quà.', 'MEMBER_INACTIVE');
-    if (wallet.marksAvailable < amount) throw unprocessable('Marks khả dụng không đủ.', 'INSUFFICIENT_AVAILABLE_MARKS');
+    if (!wallet.canRedeem)
+      throw forbidden('INACTIVE members cannot create new Armory redemptions.', 'MEMBER_INACTIVE');
+    if (wallet.marksAvailable < amount)
+      throw unprocessable('Marks available are insufficient.', 'INSUFFICIENT_AVAILABLE_MARKS');
     return wallet;
   }
 
-  private async capAward(input: AwardInput, now: Date) {
-    const monthStart = startOfLocalDay(monthStartOf(localDate(now)));
-    const [usage, dpCap, marksCap] = await Promise.all([
-      this.repo.monthlyUsage(input.memberId, monthStart), this.settings.getNumber('points.dp_monthly_cap'), this.settings.getNumber('points.marks_monthly_cap'),
-    ]);
-    return applyMonthlyCap({ source: input.source, dp: input.dp ?? 0, marks: input.marks ?? 0,
-      usedDpThisMonth: usage.dp, usedMarksThisMonth: usage.marks, dpCap, marksCap });
-  }
-
   private duplicateAward(existing: PointTransaction, input: AwardInput): AwardResult {
-    if (existing.memberId !== input.memberId || existing.source !== input.source ||
-      (input.source === 'ARMORY_REDEEM' && (existing.redemptionId !== input.redemptionId || existing.marksAmount !== input.marks))) {
-      throw conflict('Idempotency key or redemption belongs to a different transaction.', 'IDEMPOTENCY_CONFLICT');
+    if (
+      existing.memberId !== input.memberId ||
+      existing.source !== input.source ||
+      (input.source === 'ARMORY_REDEEM' &&
+        (existing.redemptionId !== input.redemptionId || existing.marksAmount !== input.marks))
+    ) {
+      throw conflict('Idempotency key is already used by another point transaction.', 'IDEMPOTENCY_CONFLICT');
     }
     return { transaction: existing, duplicate: true };
   }
@@ -213,8 +263,11 @@ export class PointsService implements PointsPort, MarksWalletPort {
     if (balances.dpBalance + input.dpDelta < 0 || balances.marksBalance + marksDelta < 0) {
       throw unprocessable('The adjustment would make a balance negative', 'NEGATIVE_BALANCE');
     }
-    if (marksDelta < 0 && balances.marksBalance + marksDelta < await this.repo.heldMarks(input.memberId)) {
-      throw unprocessable('Marks đang giữ cho đơn khác không thể bị trừ.', 'INSUFFICIENT_AVAILABLE_MARKS');
+    if (marksDelta < 0 && balances.marksBalance + marksDelta < (await this.repo.heldMarks(input.memberId))) {
+      throw unprocessable(
+        'The adjustment would consume Marks held for pending redemptions.',
+        'INSUFFICIENT_AVAILABLE_MARKS',
+      );
     }
     if (!input.confirmed && Math.abs(input.dpDelta) > MANUAL_ADJUST_CONFIRM_THRESHOLD) {
       throw unprocessable(
@@ -261,8 +314,14 @@ export class PointsService implements PointsPort, MarksWalletPort {
     if (balances.dpBalance - original.dpAmount < 0 || balances.marksBalance - original.marksAmount < 0) {
       throw unprocessable('Reversing would make a balance negative', 'NEGATIVE_BALANCE');
     }
-    if (original.marksAmount > 0 && balances.marksBalance - original.marksAmount < await this.repo.heldMarks(original.memberId)) {
-      throw unprocessable('Đảo giao dịch sẽ ảnh hưởng Marks đang giữ.', 'INSUFFICIENT_AVAILABLE_MARKS');
+    if (
+      original.marksAmount > 0 &&
+      balances.marksBalance - original.marksAmount < (await this.repo.heldMarks(original.memberId))
+    ) {
+      throw unprocessable(
+        'Reversal would consume Marks held for pending redemptions.',
+        'INSUFFICIENT_AVAILABLE_MARKS',
+      );
     }
     const tx = await this.repo.insert({
       memberId: original.memberId,
