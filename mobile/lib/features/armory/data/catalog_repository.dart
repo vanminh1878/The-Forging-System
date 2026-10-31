@@ -45,7 +45,11 @@ class ArmoryCatalogRepositoryImpl implements ArmoryCatalogRepository {
               perMemberLimit: j['perMemberLimit'] == null
                   ? null
                   : intOf(j, 'perMemberLimit'),
-              limitPeriod: strOrNull(j, 'limitPeriod'));
+              limitPeriod: strOrNull(j, 'limitPeriod'),
+              pickupDays:
+                  j['pickupDays'] == null ? null : intOf(j, 'pickupDays'),
+              saleStartsAt: dateOrNull(j, 'saleStartsAt'),
+              saleEndsAt: dateOrNull(j, 'saleEndsAt'));
         }).toList(growable: false));
   }
 }
