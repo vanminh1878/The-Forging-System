@@ -11,6 +11,9 @@ import { AuthController } from './modules/auth/auth.controller';
 import { AuthRepository } from './modules/auth/auth.repository';
 import { authRoutes } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
+import { ChallengeRepository } from './modules/challenges/challenge.repository';
+import { challengeRoutes } from './modules/challenges/challenge.routes';
+import { ChallengeService } from './modules/challenges/challenge.service';
 import { createOtpSender } from './modules/auth/otp.sender';
 import type { OtpSender } from './modules/auth/otp.sender';
 import { MemberRepository } from './modules/members/member.repository';
@@ -75,6 +78,7 @@ export interface Container {
     staff: StaffService;
     armory: ArmoryService;
     redemptions: RedemptionService;
+    challenges: ChallengeService;
     // [services:feature-modules] (declare as `name: Type;` and assign in the module block below)
   };
   storage: StorageService;
@@ -124,6 +128,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   const staff = new StaffService(new StaffRepository(), audit, settings);
   const armory = new ArmoryService(new ArmoryRepository());
   const redemptions = new RedemptionService(new RedemptionRepository(), audit, points);
+  const challenges = new ChallengeService(new ChallengeRepository(), audit);
 
   const services = {
     audit,
@@ -137,6 +142,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     staff,
     armory,
     redemptions,
+    challenges,
   } as Container['services'];
 
   // ---- 4. feature modules ----
@@ -175,6 +181,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     staffRoutes(staff),
     armoryRoutes(armory),
     redemptionRoutes(redemptions),
+    challengeRoutes(challenges),
     rankRoutes(ranks, directory),
     pointsRoutes(points),
     notificationRoutes(notifications),
