@@ -6,6 +6,7 @@ import '../../core/widgets/hvp_button.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/armory/presentation/armory_catalog_screen.dart';
 import '../../features/fighter_record/presentation/screens/fighter_record_screen.dart';
+import '../../features/schedule/presentation/screens/schedule_tab.dart';
 import '../route_paths.dart';
 import '../shell/profile_tab.dart';
 import '../shell/shell_tab.dart';
@@ -42,11 +43,7 @@ List<RouteBase> studentRoutes() => <RouteBase>[
             label: 'Lịch tập',
             icon: HvpIcons.calendar,
             activeIcon: HvpIcons.calendarFill,
-            builder: (_) => const ComingSoonPage(
-              title: 'Lịch tập',
-              owner: 'feature: schedule',
-              icon: HvpIcons.calendar,
-            ),
+            builder: (_) => const ScheduleTab(),
           ),
           ShellTab(
             path: StudentPaths.checkin,
