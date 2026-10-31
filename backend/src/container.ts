@@ -151,7 +151,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   // depend on its exported port or listen to its domain events (src/shared/events.ts).
   const branches = new BranchService(new BranchRepository(), audit);
   services.branches = branches;
-  const classes = new ClassService(new ClassRepository(), audit, settings);
+  const classes = new ClassService(new ClassRepository(), audit, settings, notifications);
   services.classes = classes;
   const memberships = new MembershipService(
     new MembershipRepository(),

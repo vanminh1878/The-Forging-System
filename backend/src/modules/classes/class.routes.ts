@@ -50,6 +50,31 @@ const enrollBody = z.object({
 });
 const unenrollBody = z.object({ reason: z.string().trim().min(1).max(500).optional() }).default({});
 
+const isoInstant = z.string().datetime({ offset: true }).transform((v) => new Date(v));
+const uuid = z.string().uuid();
+const sessionBody = z.object({
+  sessionTypeCode: z.string().min(1).max(30),
+  branchId: uuid,
+  startsAt: isoInstant,
+  durationMinutes: z.number().int().min(15).max(480),
+  title: z.string().trim().min(1).max(200),
+  coachId: uuid.optional(),
+  classId: uuid.optional(),
+  lessonPlanId: uuid.optional(),
+  isExam: z.boolean().optional(),
+  capacity: z.number().int().min(1).max(1000).optional(),
+  maxDpOverride: z.number().int().min(0).max(10000).optional(),
+  notes: z.string().trim().max(1000).optional(),
+  memberIds: z.array(uuid).max(50).optional(),
+});
+const examBody = z.object({
+  date: date.refine((v) => new Date(`${v}T00:00:00Z`).toISOString().startsWith(v), 'invalid calendar date'),
+  title: z.string().trim().min(1).max(200).optional(),
+  lessonPlanId: uuid.optional(),
+});
+// The reason is checked in the service so that a missing one answers CANCEL_REASON_REQUIRED.
+const cancelBody = z.object({ reason: z.string().max(500).optional() }).default({});
+
 const sessionsQuery = z.object({ from: date.optional(), to: date.optional() });
 
 export function classRoutes(service: ClassService): Router {
@@ -108,6 +133,24 @@ export function classRoutes(service: ClassService): Router {
       await service.unenroll(req.params.id, req.params.memberId, authOf(req).userId, req.body.reason);
       return ok({ ended: true });
     }),
+  );
+  r.post(
+    '/sessions',
+    requireRoles(...RoleGroup.COACHING_STAFF),
+    validate({ body: sessionBody }),
+    handle(async (req) => created(await service.createSession(req.body, authOf(req)))),
+  );
+  r.post(
+    '/classes/:id/exam-sessions',
+    requireRoles(...RoleGroup.COACHING_STAFF),
+    validate({ params: idParam, body: examBody }),
+    handle(async (req) => created(await service.createExamSession(req.params.id, req.body, authOf(req)))),
+  );
+  r.post(
+    '/sessions/:id/cancel',
+    requireRoles(...RoleGroup.COACHING_STAFF),
+    validate({ params: idParam, body: cancelBody }),
+    handle(async (req) => ok(await service.cancelSession(req.params.id, req.body.reason, authOf(req)))),
   );
   return r;
 }

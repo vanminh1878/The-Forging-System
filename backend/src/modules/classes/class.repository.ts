@@ -1,10 +1,14 @@
 import { db } from '../../db/database';
 import { sql } from '../../db/sql';
 import { RoleGroup } from '../../shared/roles';
-import type { ClassInput, ClassRow, RosterEntry, SessionRow } from './class.types';
+import type { ClassInput, ClassRow, RosterEntry, SessionInput, SessionRecord, SessionRow, SessionTypeRow } from './class.types';
 
 const COLUMNS = `id, branch_id, name, session_type_code, course_id, default_coach_id, weekdays::int[] AS weekdays,
   to_char(start_time, 'HH24:MI') AS start_time, duration_minutes, capacity, is_active`;
+
+const SESSION_COLUMNS = `id, class_id, branch_id, session_type_code, coach_id, lesson_plan_id, title, starts_at, ends_at,
+  max_dp_override, is_exam, capacity, status, notes`;
+const SESSION_SELECT = `SELECT ${SESSION_COLUMNS} FROM sessions`;
 
 export interface ClassFilter {
   branchId?: string;
@@ -135,12 +139,13 @@ export class ClassRepository {
     );
   }
 
-  /** Inserts the given start instants for a class; existing (class, start) pairs are skipped. Returns the number created. */
+  /** Inserts the given start instants for a class; existing (class, start) pairs are skipped, and so are cancelled ones (a cancelled session is never regenerated). Returns the number created. */
   insertSessions(cls: ClassRow, coachId: string, startsAt: Date[]): Promise<number> {
     return sql.exec(
       `INSERT INTO sessions (tenant_id, class_id, branch_id, session_type_code, coach_id, title, starts_at, ends_at, capacity)
        SELECT $1, $2, $3, $4, $5, $6, s, s + make_interval(mins => $7::int), $8
          FROM unnest($9::timestamptz[]) AS s
+        WHERE NOT EXISTS (SELECT 1 FROM sessions x WHERE x.class_id = $2 AND x.starts_at = s AND x.status = 'CANCELLED')
        ON CONFLICT DO NOTHING`,
       [db.currentTenantId(), cls.id, cls.branchId, cls.sessionTypeCode, coachId, cls.name, cls.durationMinutes, cls.capacity, startsAt],
     );
@@ -183,5 +188,87 @@ export class ClassRepository {
     ).then((rows) =>
       rows.map(({ coachId, coachName, ...r }) => ({ ...r, coach: { id: coachId, fullName: coachName } }) as Omit<SessionRow, 'date'>),
     );
+  }
+
+  // ---- one-off / exam / cancelled sessions (CLS-03) ----
+
+  sessionType(code: string): Promise<SessionTypeRow | null> {
+    return sql.one(`SELECT code, max_dp, max_dp_upper FROM session_types WHERE code = $1 AND is_active`, [code]);
+  }
+
+  async lessonPlanExists(id: string): Promise<boolean> {
+    return !!(await sql.scalar(`SELECT 1 FROM lesson_plans WHERE id = $1`, [id]));
+  }
+
+  /** How many of the ids are members. */
+  async countMembers(ids: string[]): Promise<number> {
+    return (await sql.scalar<number>(`SELECT COUNT(*)::int FROM members WHERE user_id = ANY($1::uuid[])`, [ids])) ?? 0;
+  }
+
+  /** The coach already has a non-cancelled session overlapping [from, to). */
+  async coachBusy(coachId: string, from: Date, to: Date): Promise<boolean> {
+    return !!(await sql.scalar(
+      `SELECT 1 FROM sessions WHERE coach_id = $1 AND status <> 'CANCELLED' AND starts_at < $3 AND ends_at > $2 LIMIT 1`,
+      [coachId, from, to],
+    ));
+  }
+
+  /** The non-cancelled session of the class that starts exactly at the instant, if any. */
+  classSessionAt(classId: string, startsAt: Date): Promise<SessionRecord | null> {
+    return sql.one(`${SESSION_SELECT} WHERE class_id = $1 AND starts_at = $2 AND status <> 'CANCELLED'`, [classId, startsAt]);
+  }
+
+  findSession(id: string, lock = false): Promise<SessionRecord | null> {
+    return sql.one(`${SESSION_SELECT} WHERE id = $1${lock ? ' FOR UPDATE' : ''}`, [id]);
+  }
+
+  async insertSession(i: SessionInput): Promise<SessionRecord> {
+    const row = await sql.one<SessionRecord>(
+      `INSERT INTO sessions (tenant_id, class_id, branch_id, session_type_code, coach_id, lesson_plan_id, title, starts_at, ends_at,
+                             max_dp_override, is_exam, capacity, notes, created_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       RETURNING ${SESSION_COLUMNS}`,
+      [db.currentTenantId(), i.classId, i.branchId, i.sessionTypeCode, i.coachId, i.lessonPlanId, i.title, i.startsAt, i.endsAt,
+       i.maxDpOverride, i.isExam, i.capacity, i.notes, i.createdBy],
+    );
+    return row as SessionRecord;
+  }
+
+  addAttendances(sessionId: string, memberIds: string[]): Promise<number> {
+    return sql.exec(
+      `INSERT INTO attendances (tenant_id, session_id, member_id)
+       SELECT $1, $2, m FROM unnest($3::uuid[]) AS m ON CONFLICT (session_id, member_id) DO NOTHING`,
+      [db.currentTenantId(), sessionId, memberIds],
+    );
+  }
+
+  markExam(id: string, title: string, lessonPlanId: string | null): Promise<SessionRecord | null> {
+    return sql.one(
+      `UPDATE sessions SET is_exam = true, title = $2, lesson_plan_id = COALESCE($3, lesson_plan_id), updated_at = now()
+        WHERE id = $1 RETURNING ${SESSION_COLUMNS}`,
+      [id, title, lessonPlanId],
+    );
+  }
+
+  cancelSession(id: string): Promise<number> {
+    return sql.exec(`UPDATE sessions SET status = 'CANCELLED', updated_at = now() WHERE id = $1`, [id]);
+  }
+
+  /** ACTIVE members who have an attendance row for the session or are enrolled in its class on its local date. */
+  sessionRecipients(sessionId: string, tz: string): Promise<string[]> {
+    return sql
+      .many<{ memberId: string }>(
+        `SELECT DISTINCT m.user_id AS member_id
+           FROM sessions s
+           JOIN members m ON m.status = 'ACTIVE'
+          WHERE s.id = $1
+            AND (EXISTS (SELECT 1 FROM attendances a WHERE a.session_id = s.id AND a.member_id = m.user_id)
+              OR EXISTS (SELECT 1 FROM class_enrollments e
+                          WHERE e.class_id = s.class_id AND e.member_id = m.user_id AND e.status <> 'CANCELLED'
+                            AND (s.starts_at AT TIME ZONE $2)::date >= e.start_date
+                            AND (e.end_date IS NULL OR (s.starts_at AT TIME ZONE $2)::date <= e.end_date)))`,
+        [sessionId, tz],
+      )
+      .then((rows) => rows.map((r) => r.memberId));
   }
 }
