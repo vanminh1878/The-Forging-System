@@ -50,6 +50,15 @@ class FakeStaffRepository implements StaffRepository {
           accountStatus: 'ACTIVE',
           branchId: input.branchId),
       temporaryPassword: 'TemporaryPassword1');
+
+  @override
+  Future<StaffMember> update(String staffId, UpdateStaffInput input) async =>
+      member;
+
+  @override
+  Future<StaffMember> setStatus(String staffId,
+          {required StaffStatus status, required String reason}) async =>
+      member;
 }
 
 Future<void> showDirectory(
