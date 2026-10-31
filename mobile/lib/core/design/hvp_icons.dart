@@ -97,6 +97,8 @@ abstract final class HvpIcons {
   static const IconData wrench = Icons.build;
   static const IconData receipt = Icons.receipt_long;
   static const IconData barbell = Icons.fitness_center;
+  static const IconData search = Icons.search;
+  static const IconData filter = Icons.tune;
 
   /// One icon per rank order (1..7).
   static IconData rank(int order) {

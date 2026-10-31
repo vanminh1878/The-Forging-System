@@ -5,6 +5,7 @@ import '../../core/widgets/coming_soon_page.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/branch_admin/presentation/screens/admin_settings_page.dart';
 import '../../features/branch_admin/presentation/screens/branch_list_screen.dart';
+import '../../features/staff/presentation/screens/staff_directory_screen.dart';
 import '../route_paths.dart';
 import '../shell/shell_tab.dart';
 
@@ -30,11 +31,7 @@ List<RouteBase> adminRoutes() => <RouteBase>[
             label: 'Thành viên',
             icon: HvpIcons.users,
             activeIcon: HvpIcons.usersFill,
-            builder: (_) => const ComingSoonPage(
-              title: 'Thành viên',
-              owner: 'feature: admin_members',
-              icon: HvpIcons.users,
-            ),
+            builder: (_) => const StaffDirectoryScreen(),
           ),
           ShellTab(
             path: AdminPaths.training,

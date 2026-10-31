@@ -25,6 +25,7 @@ export interface AuthUserView {
   roles: RoleCode[];
   appRole: AppRole;
   branchId: string | null;
+  mustChangePassword: boolean;
 }
 
 export interface AuthTokens {
@@ -120,6 +121,22 @@ export class AuthService {
     return this.toView(user, await this.repo.rolesOf(userId));
   }
 
+  /** Temporary-password sessions can only inspect themselves, logout, or change password. */
+  async changePassword(userId: string, input: { currentPassword: string; password: string; passwordConfirm: string }): Promise<void> {
+    // Serialize against administrator password resets for this account.
+    await db.current().query('SELECT id FROM users WHERE id=$1 FOR UPDATE', [userId]);
+    const user = await this.repo.findUserById(userId);
+    if (!user || !await verifyPassword(input.currentPassword, user.passwordHash)) throw unauthorized('Mật khẩu hiện tại không đúng.', 'INVALID_CREDENTIALS');
+    const min = await this.settings.getNumber('security.password_min_length');
+    if (!isStrongPassword(input.password, min) || input.password !== input.passwordConfirm) {
+      throw unprocessable(`Mật khẩu cần tối thiểu ${min} ký tự, gồm chữ và số, và phải khớp xác nhận.`, 'WEAK_PASSWORD');
+    }
+    if (input.currentPassword === input.password) throw badRequest('Mật khẩu mới phải khác mật khẩu hiện tại.');
+    await this.repo.setPassword(userId, await hashPassword(input.password));
+    await this.repo.revokeAllForUser(userId);
+    await this.repo.logEvent({ userId, event: 'PASSWORD_RESET' });
+  }
+
   // ---------- password reset (phone + PIN) ----------
 
   async requestPasswordReset(phoneInput: string): Promise<{ requestId: string; maskedDestination: string; devPin?: string }> {
@@ -211,6 +228,7 @@ export class AuthService {
       roles,
       appRole: primaryAppRole(roles),
       branchId: user.branchId,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 
@@ -218,7 +236,7 @@ export class AuthService {
     const user = await this.repo.findUserById(userId);
     if (!user) throw unauthorized();
     const roles = await this.repo.rolesOf(userId);
-    const accessToken = signAccessToken({ sub: userId, tid: db.currentTenantId(), roles, bid: user.branchId });
+    const accessToken = signAccessToken({ sub: userId, tid: db.currentTenantId(), roles, bid: user.branchId, ver: user.authVersion });
     const refreshToken = randomToken(32);
     await this.repo.insertRefreshToken({
       userId,

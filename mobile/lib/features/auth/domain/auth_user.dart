@@ -35,6 +35,7 @@ class AuthUser {
     this.avatarUrl,
     this.roles = const <String>[],
     this.branchId,
+    this.mustChangePassword = false,
   });
 
   factory AuthUser.fromJson(JsonMap j) => AuthUser(
@@ -46,6 +47,7 @@ class AuthUser {
         roles: stringList(j['roles']),
         appRole: AppRole.parse(strOrNull(j, 'appRole')),
         branchId: strOrNull(j, 'branchId'),
+        mustChangePassword: j['mustChangePassword'] == true,
       );
 
   final String id;
@@ -56,8 +58,14 @@ class AuthUser {
   final List<String> roles;
   final AppRole appRole;
   final String? branchId;
+  final bool mustChangePassword;
 
-  AuthUser copyWith({String? fullName, String? avatarUrl, String? email, String? phone}) => AuthUser(
+  AuthUser copyWith(
+          {String? fullName,
+          String? avatarUrl,
+          String? email,
+          String? phone}) =>
+      AuthUser(
         id: id,
         fullName: fullName ?? this.fullName,
         email: email ?? this.email,
@@ -66,5 +74,6 @@ class AuthUser {
         roles: roles,
         appRole: appRole,
         branchId: branchId,
+        mustChangePassword: mustChangePassword,
       );
 }

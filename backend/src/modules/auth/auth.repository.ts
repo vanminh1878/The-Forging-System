@@ -11,6 +11,8 @@ export interface UserAuthRow {
   accountStatus: 'ACTIVE' | 'LOCKED' | 'DISABLED';
   branchId: string | null;
   avatarUrl: string | null;
+  mustChangePassword: boolean;
+  authVersion: number;
 }
 
 export interface RefreshTokenRow {
@@ -63,7 +65,7 @@ export class AuthRepository {
   }
 
   setPassword(userId: string, passwordHash: string): Promise<number> {
-    return sql.exec(`UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`, [userId, passwordHash]);
+    return sql.exec(`UPDATE users SET password_hash = $2, must_change_password = false, auth_version = auth_version + 1, updated_at = now() WHERE id = $1`, [userId, passwordHash]);
   }
 
   // ---------- refresh tokens ----------
