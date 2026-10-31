@@ -1,4 +1,7 @@
 import { Router } from 'express';
+import { ArmoryRepository } from './modules/armory/armory.repository';
+import { armoryRoutes } from './modules/armory/armory.routes';
+import { ArmoryService } from './modules/armory/armory.service';
 import { AuditService } from './modules/audit/audit.service';
 import { auditRoutes } from './modules/audit/audit.routes';
 import { AuthController } from './modules/auth/auth.controller';
@@ -63,6 +66,7 @@ export interface Container {
     memberships: MembershipService;
     batch: BatchService;
     schedule: ScheduleService;
+    armory: ArmoryService;
     // [services:feature-modules] (declare as `name: Type;` and assign in the module block below)
   };
   storage: StorageService;
@@ -105,8 +109,9 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   const members = new MemberService(new MemberRepository(), ranks, points, notifications, audit, settings);
   const auth = new AuthService(new AuthRepository(), members, overrides.otp ?? createOtpSender(), settings);
   const directory = new UserDirectory();
+  const armory = new ArmoryService(new ArmoryRepository());
 
-  const services = { audit, settings, notifications, points, ranks, members, auth, directory } as Container['services'];
+  const services = { audit, settings, notifications, points, ranks, members, auth, directory, armory } as Container['services'];
 
   // ---- 4. feature modules ----
   // Each module registers itself here by adding ONE block: instantiate its repositories/services,
@@ -135,6 +140,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     // Auth routes live under /auth, everything else declares absolute paths.
     Router().use('/auth', authRoutes(new AuthController(auth))),
     memberRoutes(members),
+    armoryRoutes(armory),
     rankRoutes(ranks, directory),
     pointsRoutes(points),
     notificationRoutes(notifications),
