@@ -25,3 +25,9 @@ final staffBranchesProvider =
 
 final createStaffSubmitProvider =
     NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
+
+final staffUpdateSubmitProvider =
+    NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
+
+final staffStatusSubmitProvider =
+    NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
