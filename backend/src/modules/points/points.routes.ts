@@ -9,7 +9,20 @@ import type { PointsService } from './points.service';
 
 const ledgerQuery = paginationQuery.extend({
   source: z
-    .enum(['OPENING', 'SESSION', 'ATTITUDE', 'ACADEMY', 'STREAK_MILESTONE', 'CHALLENGE', 'RANK_TRIAL', 'EARLY_RENEWAL', 'COMEBACK', 'ARMORY_REDEEM', 'MANUAL_ADJUSTMENT', 'REVERSAL'])
+    .enum([
+      'OPENING',
+      'SESSION',
+      'ATTITUDE',
+      'ACADEMY',
+      'STREAK_MILESTONE',
+      'CHALLENGE',
+      'RANK_TRIAL',
+      'EARLY_RENEWAL',
+      'COMEBACK',
+      'ARMORY_REDEEM',
+      'MANUAL_ADJUSTMENT',
+      'REVERSAL',
+    ])
     .optional(),
 });
 const memberParam = z.object({ memberId: z.string().uuid() });
@@ -34,11 +47,26 @@ export function pointsRoutes(service: PointsService): Router {
     handle(async (req) => {
       const q = req.query as unknown as z.infer<typeof ledgerQuery>;
       const page = toPage(q);
-      const { items, total } = await service.listForMember(authOf(req).userId, { source: q.source }, page.limit, page.offset);
+      const { items, total } = await service.listForMember(
+        authOf(req).userId,
+        { source: q.source },
+        page.limit,
+        page.offset,
+      );
       return ok(items, pageMeta(page, total));
     }),
   );
-  r.get('/me/points/monthly', requireRoles(Role.MEMBER), handle(async (req) => ok(await service.monthlyStatus(authOf(req).userId))));
+  r.get(
+    '/me/points/monthly',
+    requireRoles(Role.MEMBER),
+    handle(async (req) => ok(await service.monthlyStatus(authOf(req).userId))),
+  );
+  // ARM-04: available Marks are the balance less the sum of PENDING_PICKUP holds.
+  r.get(
+    '/me/armory/wallet',
+    requireRoles(Role.MEMBER),
+    handle(async (req) => ok(await service.wallet(authOf(req).userId))),
+  );
 
   // Staff: any member's ledger.
   r.get(
@@ -48,7 +76,12 @@ export function pointsRoutes(service: PointsService): Router {
     handle(async (req) => {
       const q = req.query as unknown as z.infer<typeof ledgerQuery>;
       const page = toPage(q);
-      const { items, total } = await service.listForMember(req.params.memberId, { source: q.source }, page.limit, page.offset);
+      const { items, total } = await service.listForMember(
+        req.params.memberId,
+        { source: q.source },
+        page.limit,
+        page.offset,
+      );
       return ok(items, pageMeta(page, total));
     }),
   );
@@ -59,7 +92,9 @@ export function pointsRoutes(service: PointsService): Router {
     requireRoles(...RoleGroup.ADMINS),
     validate({ params: memberParam, body: adjustBody }),
     handle(async (req) =>
-      created(await service.manualAdjust({ memberId: req.params.memberId, ...req.body, by: authOf(req).userId })),
+      created(
+        await service.manualAdjust({ memberId: req.params.memberId, ...req.body, by: authOf(req).userId }),
+      ),
     ),
   );
   r.post(
@@ -67,7 +102,13 @@ export function pointsRoutes(service: PointsService): Router {
     requireRoles(...RoleGroup.ADMINS),
     validate({ params: txParam, body: reverseBody }),
     handle(async (req) =>
-      created(await service.reverse({ transactionId: req.params.transactionId, reason: req.body.reason, by: authOf(req).userId })),
+      created(
+        await service.reverse({
+          transactionId: req.params.transactionId,
+          reason: req.body.reason,
+          by: authOf(req).userId,
+        }),
+      ),
     ),
   );
   return r;

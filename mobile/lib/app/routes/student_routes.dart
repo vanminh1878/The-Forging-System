@@ -4,6 +4,7 @@ import '../../core/design/hvp_icons.dart';
 import '../../core/widgets/coming_soon_page.dart';
 import '../../core/widgets/hvp_button.dart';
 import '../../features/auth/domain/auth_user.dart';
+import '../../features/armory/presentation/armory_catalog_screen.dart';
 import '../../features/fighter_record/presentation/screens/fighter_record_screen.dart';
 import '../route_paths.dart';
 import '../shell/profile_tab.dart';
@@ -64,12 +65,7 @@ List<RouteBase> studentRoutes() => <RouteBase>[
             label: 'Armory',
             icon: HvpIcons.armory,
             activeIcon: HvpIcons.armoryFill,
-            builder: (_) => const ComingSoonPage(
-              title: 'Armory',
-              owner: 'feature: armory',
-              icon: HvpIcons.armory,
-              description: 'Đổi Marks lấy quà tặng.',
-            ),
+            builder: (_) => const ArmoryCatalogScreen(),
           ),
           ShellTab(
             path: StudentPaths.profile,
