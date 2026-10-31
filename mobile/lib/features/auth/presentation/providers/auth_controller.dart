@@ -47,7 +47,8 @@ class AuthController extends Notifier<AuthState> {
   AuthState build() {
     ref.listen<int>(sessionExpiredProvider, (previous, next) {
       if (previous != next && state.isSignedIn) {
-        state = const AuthState.signedOut(notice: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+        state = const AuthState.signedOut(
+            notice: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
       }
     });
     Future<void>.microtask(restore);
@@ -70,7 +71,8 @@ class AuthController extends Notifier<AuthState> {
   }
 
   /// Throws `ApiException` on failure so forms can show the message.
-  Future<void> login({required String identifier, required String password}) async {
+  Future<void> login(
+      {required String identifier, required String password}) async {
     final user = await _repo.login(identifier: identifier, password: password);
     _enter(user);
   }
@@ -90,6 +92,19 @@ class AuthController extends Notifier<AuthState> {
     state = const AuthState.signedOut();
   }
 
+  Future<void> changeTemporaryPassword(
+      {required String currentPassword,
+      required String password,
+      required String passwordConfirm}) async {
+    await _repo.changePassword(
+        currentPassword: currentPassword,
+        password: password,
+        passwordConfirm: passwordConfirm);
+    await _repo.logout();
+    state = const AuthState.signedOut(
+        notice: 'Đổi mật khẩu thành công. Vui lòng đăng nhập lại.');
+  }
+
   /// Keeps the cached name/avatar in sync after a profile edit.
   void updateUser(AuthUser Function(AuthUser current) change) {
     final current = state.user;
@@ -104,11 +119,15 @@ class AuthController extends Notifier<AuthState> {
   }
 }
 
-final authControllerProvider = NotifierProvider<AuthController, AuthState>(AuthController.new);
+final authControllerProvider =
+    NotifierProvider<AuthController, AuthState>(AuthController.new);
 
-final currentUserProvider = Provider<AuthUser?>((ref) => ref.watch(authControllerProvider).user);
+final currentUserProvider =
+    Provider<AuthUser?>((ref) => ref.watch(authControllerProvider).user);
 
 /// Watch this from user-scoped providers so they rebuild on sign-in/sign-out.
-final currentUserIdProvider = Provider<String?>((ref) => ref.watch(authControllerProvider.select((s) => s.user?.id)));
+final currentUserIdProvider = Provider<String?>(
+    (ref) => ref.watch(authControllerProvider.select((s) => s.user?.id)));
 
-final appRoleProvider = Provider<AppRole?>((ref) => ref.watch(authControllerProvider.select((s) => s.user?.appRole)));
+final appRoleProvider = Provider<AppRole?>(
+    (ref) => ref.watch(authControllerProvider.select((s) => s.user?.appRole)));

@@ -18,6 +18,14 @@ String? redirectFor(AuthState auth, String location) {
       if (AppPaths.public.contains(location)) return null;
       return AppPaths.login;
     case AuthStatus.signedIn:
+      if (auth.user?.mustChangePassword == true) {
+        return location == AppPaths.changePassword
+            ? null
+            : AppPaths.changePassword;
+      }
+      if (location == AppPaths.changePassword) {
+        return AppPaths.homeOf(auth.user?.appRole ?? AppRole.student);
+      }
       final role = auth.user?.appRole ?? AppRole.student;
       final home = AppPaths.homeOf(role);
       final base = role.basePath;
