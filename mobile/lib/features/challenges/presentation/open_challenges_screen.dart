@@ -57,6 +57,13 @@ class _OpenChallengesScreenState extends ConsumerState<OpenChallengesScreen> {
                   style: context.txt.bodySmall,
                 ),
                 const SizedBox(height: 12),
+                HvpButton.secondary(
+                  label: 'Xem tiến độ thử thách của tôi',
+                  icon: HvpIcons.flag,
+                  expand: true,
+                  onPressed: () => context.push(StudentPaths.currentChallenges),
+                ),
+                const SizedBox(height: 12),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -220,10 +227,24 @@ class _ChallengeCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text(
-              'Kết thúc: ${formatDateTime(challenge.endsAt)}',
-              style: context.txt.caption,
-            ),
+             Text(
+               'Kết thúc: ${formatDateTime(challenge.endsAt)}',
+               style: context.txt.caption,
+             ),
+            if (challenge.participationId != null) ...<Widget>[
+              const SizedBox(height: 12),
+              Text(
+                'Tiến độ: ${formatInt(challenge.progressValue ?? 0)} / ${formatInt(challenge.target)}',
+                style: context.txt.bodySmall,
+              ),
+              const SizedBox(height: 10),
+              HvpButton.secondary(
+                label: 'Xem tiến độ',
+                icon: HvpIcons.flag,
+                small: true,
+                onPressed: () => context.push(StudentPaths.currentChallenges),
+              ),
+            ],
             if (challenge.participationId == null) ...<Widget>[
               const SizedBox(height: 14),
               HvpButton.gold(
@@ -256,6 +277,7 @@ class _ChallengeCard extends StatelessWidget {
       };
 
   String _statusLabel(String? value) => switch (value) {
+        'PENDING_COACH' => 'Chờ duyệt tham gia',
         'JOINED' => 'Đã tham gia',
         'AWAITING_COACH' => 'Chờ xác nhận',
         'REWARDED' => 'Đã nhận thưởng',
@@ -264,6 +286,7 @@ class _ChallengeCard extends StatelessWidget {
       };
 
   ChipTone _statusTone(String? value) => switch (value) {
+        'PENDING_COACH' => ChipTone.warning,
         'REWARDED' => ChipTone.success,
         'AWAITING_COACH' => ChipTone.warning,
         'EXPIRED' => ChipTone.danger,
