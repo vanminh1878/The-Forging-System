@@ -71,6 +71,7 @@ void main() {
     final repo = await show(tester);
     await tester.tap(find.widgetWithText(HvpButton, '+ THÊM HỌC VIÊN VÀO LỚP'));
     await tester.pumpAndSettle();
+    expect(find.text('Trần Thị B'), findsOneWidget); // listed before typing
     await tester.enterText(find.byType(TextField).last, 'Trần');
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();

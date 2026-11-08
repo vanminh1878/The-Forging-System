@@ -91,7 +91,11 @@ void main() {
     await _openForm(tester, desk);
     await _fill(tester, phone: '091234567', name: '');
     expect(find.text('Vui lòng nhập họ tên.'), findsOneWidget);
-    expect(desk.calls('GET /members'), isEmpty);
+    expect(
+        desk
+            .calls('GET /members')
+            .where((o) => o.queryParameters.containsKey('q')),
+        isEmpty); // the phone lookup did not run
 
     await _fill(tester, phone: '091234567', name: 'Lê Mới');
     expect(find.text('Số điện thoại này đã được đăng ký.'), findsOneWidget);

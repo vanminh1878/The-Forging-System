@@ -21,7 +21,8 @@ class ReceptionCheckinTab extends ConsumerStatefulWidget {
   const ReceptionCheckinTab({super.key});
 
   @override
-  ConsumerState<ReceptionCheckinTab> createState() => _ReceptionCheckinTabState();
+  ConsumerState<ReceptionCheckinTab> createState() =>
+      _ReceptionCheckinTabState();
 }
 
 class _ReceptionCheckinTabState extends ConsumerState<ReceptionCheckinTab> {
@@ -41,7 +42,9 @@ class _ReceptionCheckinTabState extends ConsumerState<ReceptionCheckinTab> {
   void _typed(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), () {
-      if (mounted && value.trim() != _query) setState(() => _query = value.trim());
+      if (mounted && value.trim() != _query) {
+        setState(() => _query = value.trim());
+      }
     });
   }
 
@@ -53,7 +56,6 @@ class _ReceptionCheckinTabState extends ConsumerState<ReceptionCheckinTab> {
   @override
   Widget build(BuildContext context) {
     final t = context.txt;
-    final searching = _query.length >= memberSearchMinLength;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -64,7 +66,8 @@ class _ReceptionCheckinTabState extends ConsumerState<ReceptionCheckinTab> {
             children: <Widget>[
               Text('Check-in hỗ trợ', style: t.titleL),
               const SizedBox(height: 4),
-              Text('Giúp học viên không tự check-in được. Cần ảnh minh chứng.', style: t.bodySmall),
+              Text('Giúp học viên không tự check-in được. Cần ảnh minh chứng.',
+                  style: t.bodySmall),
               const SizedBox(height: 12),
               HvpButton.secondary(
                 label: 'Hiển thị mã QR quầy',
@@ -87,50 +90,51 @@ class _ReceptionCheckinTabState extends ConsumerState<ReceptionCheckinTab> {
           ),
         ),
         Expanded(
-          child: !searching
-              ? const EmptyState(
-                  icon: HvpIcons.search,
-                  title: 'Tìm học viên',
-                  message: 'Nhập ít nhất 2 ký tự: tên, số điện thoại hoặc mã học viên.',
-                )
-              : AsyncBody<MemberSearchResult>(
-                  value: ref.watch(memberSearchProvider(_query)),
-                  onRetry: () => ref.invalidate(memberSearchProvider(_query)),
-                  builder: (context, result) {
-                    if (result.items.isEmpty) {
-                      return const EmptyState(
+          child: AsyncBody<MemberSearchResult>(
+            value: ref.watch(memberSearchProvider(_query)),
+            onRetry: () => ref.invalidate(memberSearchProvider(_query)),
+            builder: (context, result) {
+              if (result.items.isEmpty) {
+                return _query.isEmpty
+                    ? const EmptyState(
+                        icon: HvpIcons.users, title: 'Chưa có học viên')
+                    : const EmptyState(
                         icon: HvpIcons.users,
                         title: 'Không tìm thấy học viên',
-                        message: 'Kiểm tra lại tên, số điện thoại hoặc mã học viên.',
+                        message:
+                            'Kiểm tra lại tên, số điện thoại hoặc mã học viên.',
                       );
-                    }
-                    return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, HvpLayout.navClearance),
-                      itemCount: result.items.length + 1,
-                      itemBuilder: (context, i) {
-                        if (i == 0) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 10),
-                            child: Text(
-                              result.hasMoreThanShown
-                                  ? 'Hiển thị ${result.items.length} trên ${result.total} học viên. Gõ thêm để thu hẹp.'
-                                  : '${result.total} học viên',
-                              style: t.caption,
-                            ),
-                          );
-                        }
-                        final member = result.items[i - 1];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: MemberCard(
-                            member: member,
-                            onTap: () => context.push(ReceptionPaths.memberToday(member.id), extra: member),
-                          ),
-                        );
-                      },
+              }
+              return ListView.builder(
+                padding: const EdgeInsets.fromLTRB(
+                    16, 4, 16, HvpLayout.navClearance),
+                itemCount: result.items.length + 1,
+                itemBuilder: (context, i) {
+                  if (i == 0) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        result.hasMoreThanShown
+                            ? 'Hiển thị ${result.items.length} trên ${result.total} học viên. Gõ thêm để thu hẹp.'
+                            : '${result.total} học viên',
+                        style: t.caption,
+                      ),
                     );
-                  },
-                ),
+                  }
+                  final member = result.items[i - 1];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: MemberCard(
+                      member: member,
+                      onTap: () => context.push(
+                          ReceptionPaths.memberToday(member.id),
+                          extra: member),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ],
     );

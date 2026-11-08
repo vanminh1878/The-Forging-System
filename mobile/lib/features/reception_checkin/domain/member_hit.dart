@@ -42,8 +42,6 @@ class MemberSearchResult {
 
 abstract interface class MemberSearchRepository {
   /// Learners matching [query] in name, phone, email or member code, by name.
+  /// An empty [query] matches everyone.
   Future<MemberSearchResult> search(String query);
 }
-
-/// Shortest text worth searching: one letter would match half the academy.
-const int memberSearchMinLength = 2;
