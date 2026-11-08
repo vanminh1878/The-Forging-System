@@ -9,6 +9,8 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/hvp_button.dart';
+import '../../../core/widgets/inline_banner.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/open_challenge.dart';
 import 'open_challenge_providers.dart';
@@ -29,6 +31,7 @@ class _OpenChallengesScreenState extends ConsumerState<OpenChallengesScreen> {
   Widget build(BuildContext context) {
     final query = (type: _type, page: _page);
     final challenges = ref.watch(openChallengesProvider(query));
+    final joining = ref.watch(joinChallengeActionProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Thử thách'),
@@ -69,7 +72,7 @@ class _OpenChallengesScreenState extends ConsumerState<OpenChallengesScreen> {
               ],
             ),
           ),
-          Expanded(
+           Expanded(
             child: AsyncBody<OpenChallengePage>(
               value: challenges,
               onRetry: () => ref.invalidate(openChallengesProvider(query)),
@@ -94,8 +97,26 @@ class _OpenChallengesScreenState extends ConsumerState<OpenChallengesScreen> {
                         message:
                             'Hiện không có thử thách đang mở trong nhóm này.',
                       ),
+                    if (joining.error != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: InlineBanner(message: joining.error!),
+                      ),
                     for (final challenge in result.items) ...<Widget>[
-                      _ChallengeCard(challenge: challenge),
+                      _ChallengeCard(
+                        challenge: challenge,
+                        submitting: joining.submitting,
+                        onJoin: () async {
+                          final ok = await ref
+                              .read(joinChallengeActionProvider.notifier)
+                              .run(() => ref
+                                  .read(openChallengeRepositoryProvider)
+                                  .join(challenge.id));
+                          if (ok) {
+                            ref.invalidate(openChallengesProvider(query));
+                          }
+                        },
+                      ),
                       const SizedBox(height: 10),
                     ],
                     if (result.totalPages > 1)
@@ -140,8 +161,14 @@ class _OpenChallengesScreenState extends ConsumerState<OpenChallengesScreen> {
 }
 
 class _ChallengeCard extends StatelessWidget {
-  const _ChallengeCard({required this.challenge});
+  const _ChallengeCard({
+    required this.challenge,
+    required this.submitting,
+    required this.onJoin,
+  });
   final OpenChallenge challenge;
+  final bool submitting;
+  final VoidCallback onJoin;
 
   @override
   Widget build(BuildContext context) => HvpCard(
@@ -197,6 +224,16 @@ class _ChallengeCard extends StatelessWidget {
               'Kết thúc: ${formatDateTime(challenge.endsAt)}',
               style: context.txt.caption,
             ),
+            if (challenge.participationId == null) ...<Widget>[
+              const SizedBox(height: 14),
+              HvpButton.gold(
+                label: 'Tham gia thử thách',
+                icon: HvpIcons.plus,
+                small: true,
+                loading: submitting,
+                onPressed: submitting ? null : onJoin,
+              ),
+            ],
           ],
         ),
       );

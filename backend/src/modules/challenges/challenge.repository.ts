@@ -14,7 +14,7 @@ export interface ChallengeView extends Omit<CreateChallengeInput, 'startsAt' | '
 
 export interface OpenChallengeView extends ChallengeView {
   participationId: string | null;
-  participationStatus: 'JOINED' | 'AWAITING_COACH' | 'REWARDED' | 'EXPIRED' | null;
+  participationStatus: 'PENDING_COACH' | 'JOINED' | 'AWAITING_COACH' | 'REWARDED' | 'EXPIRED' | null;
   progressValue: number | null;
   joinedAt: Date | null;
   evidenceUrl: string | null;
@@ -24,7 +24,7 @@ export interface ChallengeParticipationView {
   id: string;
   challengeId: string;
   memberId: string;
-  status: 'JOINED' | 'AWAITING_COACH' | 'REWARDED' | 'EXPIRED';
+  status: 'PENDING_COACH' | 'JOINED' | 'AWAITING_COACH' | 'REWARDED' | 'EXPIRED';
   progressValue: number;
   evidenceUrl: string | null;
   evidenceAt: Date | null;
@@ -185,8 +185,8 @@ export class ChallengeRepository {
 
   async insertParticipation(challengeId: string, memberId: string): Promise<ChallengeParticipationView> {
     const row = await sql.one<ChallengeParticipationView>(
-      `INSERT INTO challenge_participations (tenant_id, challenge_id, member_id)
-      VALUES ($1,$2,$3) RETURNING id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, updated_at`,
+      `INSERT INTO challenge_participations (tenant_id, challenge_id, member_id, status)
+      VALUES ($1,$2,$3,'PENDING_COACH') RETURNING id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, updated_at`,
       [db.currentTenantId(), challengeId, memberId],
     );
     return row!;
@@ -251,13 +251,23 @@ export class ChallengeRepository {
     }));
   }
 
-  async attachEvidence(id: string, evidenceUrl: string, at: Date): Promise<ChallengeParticipationView> {
+  async submitCompletionEvidence(id: string, evidenceUrl: string, at: Date): Promise<ChallengeParticipationView> {
     const row = await sql.one<ChallengeParticipationView>(
       `UPDATE challenge_participations
-      SET evidence_url=$2,evidence_at=$3,updated_at=now() WHERE id=$1
+      SET evidence_url=$2,evidence_at=$3,status='AWAITING_COACH',completed_at=$3,updated_at=now() WHERE id=$1
       RETURNING id,challenge_id,member_id,status,progress_value,evidence_url,evidence_at,joined_at,completed_at,
         confirmed_by,confirmed_at,is_limited,rewarded_at,updated_at`,
       [id, evidenceUrl, at],
+    );
+    return row!;
+  }
+
+  async approveJoin(id: string, actorId: string, at: Date): Promise<ChallengeParticipationView> {
+    const row = await sql.one<ChallengeParticipationView>(
+      `UPDATE challenge_participations SET status='JOINED',confirmed_by=$2,confirmed_at=$3,updated_at=now()
+       WHERE id=$1 RETURNING id,challenge_id,member_id,status,progress_value,evidence_url,evidence_at,joined_at,
+         completed_at,confirmed_by,confirmed_at,is_limited,rewarded_at,updated_at`,
+      [id, actorId, at],
     );
     return row!;
   }

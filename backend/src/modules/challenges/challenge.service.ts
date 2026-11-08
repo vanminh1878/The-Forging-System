@@ -5,6 +5,8 @@ import { env } from '../../config/env';
 import type { AuditService } from '../audit/audit.service';
 import type { PointsPort } from '../points/points.service';
 import type { SettingsService } from '../settings/settings.service';
+import type { NotifierPort } from '../notifications/notification.service';
+import { NotificationEvent } from '../notifications/notification.events';
 import type { AttendanceConfirmedEvent } from '../../shared/events';
 import type {
   ChallengeParticipationView,
@@ -39,6 +41,7 @@ export class ChallengeService {
     private readonly audit: AuditService,
     private readonly points?: PointsPort,
     private readonly settings?: SettingsService,
+    private readonly notifier?: NotifierPort,
   ) {}
 
   search(filter: ChallengeFilter, limit: number, offset: number) {
@@ -91,7 +94,49 @@ export class ChallengeService {
       entityId: challengeId,
       after: participation,
     });
+    await this.notifier?.notifyMember({
+      userId: memberId,
+      event: NotificationEvent.CHALLENGE_JOINED,
+      title: 'ĐÃ GỬI ĐĂNG KÝ THỬ THÁCH',
+      body: `Bạn đã đăng ký “${challenge.title}”. Chờ Coach duyệt tham gia.`,
+      dedupeKey: `challenge:joined:${participation.id}`,
+      payload: { challengeId: challenge.id, participationId: participation.id },
+    });
+    await this.notifier?.notifyStaff(
+      'COACH',
+      NotificationEvent.CHALLENGE_EVIDENCE,
+      'ĐĂNG KÝ THỬ THÁCH MỚI',
+      `Có học viên đăng ký “${challenge.title}”. Mở tab Challenge để duyệt tham gia.`,
+    );
     return participation;
+  }
+
+  /** Coach accepts a member's Challenge registration before the member can submit completion evidence. */
+  async approveJoin(participationId: string, actorId: string): Promise<ChallengeParticipationView> {
+    const before = await this.repo.findParticipationById(participationId, true);
+    if (!before) throw notFound('Challenge participation');
+    if (before.status !== 'PENDING_COACH') {
+      throw conflict('Đăng ký thử thách không còn chờ Coach duyệt.', 'CHALLENGE_NOT_PENDING_JOIN');
+    }
+    const after = await this.repo.approveJoin(before.id, actorId, clock.now());
+    const challenge = await this.repo.find(before.challengeId);
+    await this.audit.record({
+      actorId,
+      action: 'CHALLENGE_JOIN_APPROVED',
+      entityType: 'CHALLENGE_PARTICIPATION',
+      entityId: after.id,
+      before,
+      after,
+    });
+    await this.notifier?.notifyMember({
+      userId: after.memberId,
+      event: NotificationEvent.CHALLENGE_JOIN_APPROVED,
+      title: 'ĐĂNG KÝ THỬ THÁCH ĐÃ ĐƯỢC DUYỆT',
+      body: `Coach đã duyệt “${challenge?.title ?? 'thử thách'}”. Khi hoàn thành, hãy gửi yêu cầu hoàn thành kèm bằng chứng.`,
+      dedupeKey: `challenge:join-approved:${after.id}`,
+      payload: { challengeId: after.challengeId, participationId: after.id },
+    });
+    return after;
   }
 
   /** CHL-05: advances joined challenges after a coach confirms attendance. */
@@ -118,10 +163,21 @@ export class ChallengeService {
         entityId: participation.id,
         after: { ...participation, target, source: 'ATTENDANCE_CONFIRMED', attendanceId: event.attendanceId },
       });
+      if (participation.status === 'AWAITING_COACH' && this.notifier) {
+        const challenge = await this.repo.find(participation.challengeId);
+        await this.notifier.notifyMember({
+          userId: participation.memberId,
+          event: NotificationEvent.CHALLENGE_COMPLETED,
+          title: 'HOÀN THÀNH THỬ THÁCH',
+          body: `Bạn đã hoàn thành “${challenge?.title ?? 'thử thách'}”. Hãy nộp bằng chứng để Coach duyệt phần thưởng.`,
+          dedupeKey: `challenge:completed:${participation.id}`,
+          payload: { challengeId: participation.challengeId, participationId: participation.id },
+        });
+      }
     }
   }
 
-  /** CHL-06: member attaches proof after reaching the challenge target. */
+  /** Member requests completion by attaching proof after Coach approved their registration. */
   async submitEvidence(
     memberId: string,
     challengeId: string,
@@ -129,15 +185,15 @@ export class ChallengeService {
   ): Promise<ChallengeParticipationView> {
     const participation = await this.repo.findParticipation(challengeId, memberId, true);
     if (!participation) throw notFound('Challenge participation');
-    if (participation.status !== 'AWAITING_COACH') {
+    if (participation.status !== 'JOINED') {
       throw conflict(
-        'Chỉ nộp bằng chứng khi thử thách đang chờ Coach duyệt.',
-        'CHALLENGE_NOT_AWAITING_REVIEW',
+        'Chỉ gửi yêu cầu hoàn thành sau khi Coach duyệt đăng ký thử thách.',
+        'CHALLENGE_NOT_JOINED',
       );
     }
     const evidenceUrl = this.requireEvidence(input.evidenceUrl);
     if (participation.evidenceUrl === evidenceUrl) return participation;
-    const after = await this.repo.attachEvidence(participation.id, evidenceUrl, clock.now());
+    const after = await this.repo.submitCompletionEvidence(participation.id, evidenceUrl, clock.now());
     await this.audit.record({
       actorId: memberId,
       action: 'CHALLENGE_EVIDENCE_SUBMITTED',
@@ -146,6 +202,13 @@ export class ChallengeService {
       before: participation,
       after,
     });
+    const challenge = await this.repo.find(participation.challengeId);
+    await this.notifier?.notifyStaff(
+      'COACH',
+      NotificationEvent.CHALLENGE_EVIDENCE,
+      'BẰNG CHỨNG CHALLENGE MỚI',
+      `Có bằng chứng mới cho “${challenge?.title ?? 'Challenge'}”. Mở tab Challenge để duyệt và phát thưởng.`,
+    );
     return after;
   }
 
@@ -187,6 +250,16 @@ export class ChallengeService {
       });
     }
     const after = await this.repo.approveParticipation(participation.id, actorId, now, isLimited);
+    await this.notifier?.notifyMember({
+      userId: participation.memberId,
+      event: NotificationEvent.CHALLENGE_REWARDED,
+      title: isLimited ? 'THỬ THÁCH ĐÃ ĐƯỢC DUYỆT' : 'PHẦN THƯỞNG THỬ THÁCH ĐÃ VỀ',
+      body: isLimited
+        ? `Coach đã duyệt “${challenge.title}”. Bạn đã đạt giới hạn phần thưởng Challenge trong tháng này.`
+        : `Coach đã duyệt “${challenge.title}”. Bạn nhận ${challenge.rewardDp} DP và ${challenge.rewardMarks} Marks.`,
+      dedupeKey: `challenge:rewarded:${participation.id}`,
+      payload: { challengeId: challenge.id, participationId: participation.id },
+    });
     await this.audit.record({
       actorId,
       action: isLimited ? 'CHALLENGE_APPROVED_LIMITED' : 'CHALLENGE_APPROVED',

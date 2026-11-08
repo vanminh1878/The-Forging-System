@@ -57,7 +57,7 @@ export const challengeEvidenceBody = z
   .strict();
 export const staffParticipationQuery = paginationQuery
   .extend({
-    status: z.enum(['JOINED', 'AWAITING_COACH', 'REWARDED', 'EXPIRED']).optional(),
+    status: z.enum(['PENDING_COACH', 'JOINED', 'AWAITING_COACH', 'REWARDED', 'EXPIRED']).optional(),
     evidence: z.enum(['SUBMITTED', 'PENDING']).optional(),
     q: z.string().trim().min(1).max(100).optional(),
   })

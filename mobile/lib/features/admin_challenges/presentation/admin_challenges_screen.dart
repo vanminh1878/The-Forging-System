@@ -8,6 +8,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_text_field.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/admin_challenge.dart';
@@ -25,17 +26,20 @@ class _AdminChallengesScreenState extends ConsumerState<AdminChallengesScreen> {
   int _page = 1;
   ({String query, String? status, int page}) get _filter => (query: _query, status: _status, page: _page);
   void _setStatus(String? status) => setState(() { _status = status; _page = 1; });
+  Future<void> _create() async {
+    await context.push(AdminPaths.challengeCreate);
+    if (mounted) ref.invalidate(adminChallengeListProvider(_filter));
+  }
 
   @override
   Widget build(BuildContext context) {
     final filter = _filter;
-    return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async { await context.push(AdminPaths.challengeCreate); ref.invalidate(adminChallengeListProvider(filter)); },
-        icon: const Icon(HvpIcons.plus), label: const Text('Tạo Challenge'),
-      ),
-      body: Column(children: <Widget>[
-        Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: HvpTextField(
+    return Scaffold(body: Column(children: <Widget>[
+        Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: Row(children: <Widget>[
+          Expanded(child: Text('Thử thách', style: context.txt.titleL)),
+          HvpButton.gold(label: 'Tạo Challenge', icon: HvpIcons.plus, small: true, onPressed: _create),
+        ])),
+        Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0), child: HvpTextField(
           label: 'Tìm Challenge', hint: 'Tên hoặc mã Challenge', prefixIcon: HvpIcons.search,
           onSubmitted: (value) => setState(() { _query = value.trim(); _page = 1; }),
         )),
@@ -46,7 +50,7 @@ class _AdminChallengesScreenState extends ConsumerState<AdminChallengesScreen> {
           value: ref.watch(adminChallengeListProvider(filter)), onRetry: () => ref.invalidate(adminChallengeListProvider(filter)),
           builder: (_, data) => RefreshIndicator(
             onRefresh: () async { ref.invalidate(adminChallengeListProvider(filter)); await ref.read(adminChallengeListProvider(filter).future); },
-            child: data.items.isEmpty ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const <Widget>[SizedBox(height: 360, child: EmptyState(icon: HvpIcons.flag, title: 'Chưa có Challenge', message: 'Tạo Challenge đầu tiên cho học viên.'))])
+            child: data.items.isEmpty ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: <Widget>[SizedBox(height: 360, child: EmptyState(icon: HvpIcons.flag, title: 'Chưa có Challenge', message: 'Tạo Challenge đầu tiên cho học viên.', actionLabel: 'Tạo Challenge', onAction: _create))])
               : ListView(padding: const EdgeInsets.fromLTRB(16, 4, 16, 96), children: <Widget>[
                   Text('${data.total} Challenge · Trang ${data.page}/${data.totalPages}', style: context.txt.caption), const SizedBox(height: 8),
                   for (final item in data.items) Padding(padding: const EdgeInsets.only(bottom: 10), child: _ChallengeCard(item: item, onTap: () async { await context.push(AdminPaths.challengeEdit(item.id)); ref.invalidate(adminChallengeListProvider(filter)); })),
@@ -57,8 +61,7 @@ class _AdminChallengesScreenState extends ConsumerState<AdminChallengesScreen> {
                 ]),
           ),
         )),
-      ]),
-    );
+      ]));
   }
   Widget _chip(String? value, String label) => Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(label), selected: _status == value, onSelected: (_) => _setStatus(value)));
 }

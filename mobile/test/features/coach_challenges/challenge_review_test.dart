@@ -15,7 +15,11 @@ class _FakeChallengeReviews implements ChallengeReviewRepository {
   int approved = 0;
 
   @override
-  Future<List<ChallengeReview>> waiting() async => <ChallengeReview>[
+  Future<ChallengeReviewPage> list({String? status, String? evidence, String? query, int page = 1}) async => ChallengeReviewPage(
+    page: page,
+    totalPages: 1,
+    total: 1,
+    items: <ChallengeReview>[
         const ChallengeReview(
           participationId: 'participation-1',
           challengeTitle: 'Bao cát bền bỉ',
@@ -23,16 +27,21 @@ class _FakeChallengeReviews implements ChallengeReviewRepository {
           memberCode: 'HVP0001',
           progressValue: 5,
           target: 5,
+          status: 'AWAITING_COACH',
           evidenceUrl: null,
         ),
-      ];
+      ],
+  );
 
   @override
   Future<void> approve(String participationId) async => approved++;
+
+  @override
+  Future<void> approveJoin(String participationId) async => approved++;
 }
 
 void main() {
-  test('CHL-06 lists only submitted evidence awaiting the coach', () async {
+  test('CHL-06 lists filtered Challenge participations for the coach', () async {
     final dio = createApiDio(
       config: const AppConfig(apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
       tokens: MemoryTokenStore(const StoredTokens(
@@ -47,24 +56,29 @@ void main() {
           'memberCode': 'HVP0001',
           'progressValue': 5,
           'target': 5,
+          'status': 'AWAITING_COACH',
           'evidenceUrl': 'http://test.local/files/proof.jpg',
         },
-      ]),
+      ], meta: <String, dynamic>{'page': 2, 'limit': 20, 'total': 21, 'totalPages': 2}),
     );
     dio.httpClientAdapter = adapter;
 
-    final items = await ChallengeReviewRepositoryImpl(ApiClient(dio)).waiting();
+    final result = await ChallengeReviewRepositoryImpl(ApiClient(dio)).list(
+      status: 'AWAITING_COACH', evidence: 'SUBMITTED', query: 'HVP0001', page: 2,
+    );
 
     expect(adapter.requests.single.path, '/staff/challenges/participations');
     expect(adapter.requests.single.queryParameters, <String, dynamic>{
       'status': 'AWAITING_COACH',
       'evidence': 'SUBMITTED',
-      'page': 1,
-      'limit': 100,
+        'q': 'HVP0001',
+        'page': 2,
+        'limit': 20,
     });
-    expect(items.single.challengeTitle, 'Bao cát bền bỉ');
-    expect(items.single.memberFullName, 'Nguyễn Văn A');
-    expect(items.single.evidenceUrl, 'http://test.local/files/proof.jpg');
+    expect(result.totalPages, 2);
+    expect(result.items.single.challengeTitle, 'Bao cát bền bỉ');
+    expect(result.items.single.memberFullName, 'Nguyễn Văn A');
+    expect(result.items.single.evidenceUrl, 'http://test.local/files/proof.jpg');
   });
 
   test('CHL-06 approves the participation by id', () async {

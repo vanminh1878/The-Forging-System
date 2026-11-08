@@ -103,6 +103,13 @@ export function challengeRoutes(service: ChallengeService): Router {
     }),
   );
   r.post(
+    '/staff/challenges/participations/:participationId/approve-join',
+    requireAuth,
+    requireRoles(...RoleGroup.COACHING_STAFF),
+    validate({ params: participationIdParam }),
+    handle(async (req) => ok(await service.approveJoin(req.params.participationId, authOf(req).userId))),
+  );
+  r.post(
     '/staff/challenges/participations/:participationId/approve',
     requireAuth,
     requireRoles(...RoleGroup.COACHING_STAFF),

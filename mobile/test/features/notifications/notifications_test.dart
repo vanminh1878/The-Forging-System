@@ -231,6 +231,10 @@ void main() {
       expect(t('STREAK_WARNING')?.path, StudentPaths.streak);
       expect(t('INACTIVE_7D')?.path, StudentPaths.streak);
       expect(t('CHALLENGE')?.path, StudentPaths.challenges);
+      expect(t('CHALLENGE_JOINED')?.path, StudentPaths.currentChallenges);
+      expect(t('CHALLENGE_JOIN_APPROVED')?.path, StudentPaths.currentChallenges);
+      expect(t('CHALLENGE_COMPLETED')?.path, StudentPaths.currentChallenges);
+      expect(t('CHALLENGE_REWARDED')?.path, StudentPaths.currentChallenges);
       expect(t('RENEWAL_COMPLETED')?.path, StudentPaths.membership);
       expect(t('MEMBERSHIP_EXPIRE')?.path, StudentPaths.membership);
       expect(t('BOOK_COMPLETED')?.path, StudentPaths.courses);

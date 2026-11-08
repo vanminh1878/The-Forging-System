@@ -14,14 +14,34 @@ import '../domain/challenge_review.dart';
 import 'challenge_review_providers.dart';
 
 /// Coach "Challenge" tab: review evidence the learner submitted and release the reward.
-class ChallengeReviewTab extends ConsumerWidget {
+class ChallengeReviewTab extends ConsumerStatefulWidget {
   const ChallengeReviewTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final queue = ref.watch(challengeReviewQueueProvider);
+  ConsumerState<ChallengeReviewTab> createState() => _ChallengeReviewTabState();
+}
+
+class _ChallengeReviewTabState extends ConsumerState<ChallengeReviewTab> {
+  String _query = '';
+  String? _status;
+  String? _evidence;
+  int _page = 1;
+
+  ({String? status, String? evidence, String query, int page}) get _filter => (
+    status: _status, evidence: _evidence, query: _query, page: _page,
+  );
+
+  void _setStatus(String? value) => setState(() { _status = value; _page = 1; });
+  void _setEvidence(String? value) => setState(() { _evidence = value; _page = 1; });
+
+  @override
+  Widget build(BuildContext context) {
+    final filter = _filter;
+    final queue = ref.watch(challengeReviewQueueProvider(filter));
     final action = ref.watch(challengeReviewActionProvider);
-    return Column(
+    return Material(
+      color: Colors.transparent,
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Padding(
@@ -32,11 +52,53 @@ class ChallengeReviewTab extends ConsumerWidget {
               Text('Duyệt Challenge', style: context.txt.titleL),
               const SizedBox(height: 4),
               Text(
-                'Kiểm tra bằng chứng học viên nộp và phát thưởng khi đạt mục tiêu.',
+                'Tìm, lọc participation; duyệt bằng chứng hợp lệ để phát thưởng.',
                 style: context.txt.bodySmall,
               ),
             ],
           ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          child: TextField(
+            decoration: const InputDecoration(
+              hintText: 'Tìm học viên, mã học viên hoặc Challenge',
+              prefixIcon: Icon(HvpIcons.search),
+            ),
+            textInputAction: TextInputAction.search,
+            onSubmitted: (value) => setState(() { _query = value.trim(); _page = 1; }),
+          ),
+        ),
+        SizedBox(
+          height: 48,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            children: <Widget>[
+              _chip(null, 'Tất cả'),
+              _chip('PENDING_COACH', 'Chờ duyệt tham gia'),
+              _chip('JOINED', 'Đã tham gia'),
+              _chip('AWAITING_COACH', 'Chờ duyệt'),
+              _chip('REWARDED', 'Đã thưởng'),
+              _chip('EXPIRED', 'Hết hạn'),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Row(children: <Widget>[
+            Text('Bằng chứng:', style: context.txt.bodySmall),
+            const SizedBox(width: 8),
+            DropdownButton<String?>(
+              value: _evidence,
+              items: const <DropdownMenuItem<String?>>[
+                DropdownMenuItem(value: null, child: Text('Tất cả')),
+                DropdownMenuItem(value: 'SUBMITTED', child: Text('Đã nộp')),
+                DropdownMenuItem(value: 'PENDING', child: Text('Chưa nộp')),
+              ],
+              onChanged: _setEvidence,
+            ),
+          ]),
         ),
         if (action.error != null)
           Padding(
@@ -44,44 +106,62 @@ class ChallengeReviewTab extends ConsumerWidget {
             child: InlineBanner(message: action.error!),
           ),
         Expanded(
-          child: AsyncBody<List<ChallengeReview>>(
+          child: AsyncBody<ChallengeReviewPage>(
             value: queue,
-            onRetry: () => ref.invalidate(challengeReviewQueueProvider),
-            builder: (context, items) {
-              if (items.isEmpty) {
+            onRetry: () => ref.invalidate(challengeReviewQueueProvider(filter)),
+            builder: (context, result) {
+              if (result.items.isEmpty) {
                 return const EmptyState(
                   icon: HvpIcons.flag,
-                  title: 'Không có bài nộp chờ duyệt',
-                  message: 'Bài nộp của học viên sẽ xuất hiện tại đây khi họ đạt mục tiêu.',
+                  title: 'Không có participation phù hợp',
+                  message: 'Thử đổi bộ lọc hoặc tìm kiếm khác.',
                 );
               }
               return RefreshIndicator(
                 onRefresh: () async {
-                  ref.invalidate(challengeReviewQueueProvider);
-                  await ref.read(challengeReviewQueueProvider.future);
+                  ref.invalidate(challengeReviewQueueProvider(filter));
+                  await ref.read(challengeReviewQueueProvider(filter).future);
                 },
-                child: ListView.separated(
+                child: ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, HvpLayout.navClearance),
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (_, index) =>
-                      _ReviewCard(item: items[index], submitting: action.submitting),
+                  children: <Widget>[
+                    Text('${result.total} participation · Trang ${result.page}/${result.totalPages}', style: context.txt.caption),
+                    const SizedBox(height: 8),
+                    for (final item in result.items) ...<Widget>[
+                      _ReviewCard(item: item, submitting: action.submitting, filter: filter),
+                      const SizedBox(height: 12),
+                    ],
+                    if (result.totalPages > 1) Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: <Widget>[
+                        TextButton.icon(onPressed: result.page > 1 ? () => setState(() => _page = result.page - 1) : null, icon: const Icon(HvpIcons.caretLeft), label: const Text('Trang trước')),
+                        TextButton.icon(onPressed: result.page < result.totalPages ? () => setState(() => _page = result.page + 1) : null, icon: const Icon(HvpIcons.caretRight), label: const Text('Trang sau')),
+                      ],
+                    ),
+                  ],
                 ),
               );
             },
           ),
         ),
       ],
+      ),
     );
   }
+
+  Widget _chip(String? value, String label) => Padding(
+    padding: const EdgeInsets.only(right: 8),
+    child: ChoiceChip(label: Text(label), selected: _status == value, onSelected: (_) => _setStatus(value)),
+  );
 }
 
 class _ReviewCard extends ConsumerWidget {
-  const _ReviewCard({required this.item, required this.submitting});
+  const _ReviewCard({required this.item, required this.submitting, required this.filter});
 
   final ChallengeReview item;
   final bool submitting;
+  final ({String? status, String? evidence, String query, int page}) filter;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -94,7 +174,9 @@ class _ReviewCard extends ConsumerWidget {
           const SizedBox(height: 4),
           Text('${item.memberFullName} · ${item.memberCode}', style: context.txt.bodySmall),
           const SizedBox(height: 8),
-          Text('Tiến độ: ${item.progressValue} / ${item.target}', style: context.txt.bodySmall),
+           Text('Tiến độ: ${item.progressValue} / ${item.target}', style: context.txt.bodySmall),
+           const SizedBox(height: 4),
+           Text('Trạng thái: ${_statusLabel(item.status)}', style: context.txt.bodySmall),
           if (url != null) ...<Widget>[
             const SizedBox(height: 12),
             ClipRRect(
@@ -117,12 +199,18 @@ class _ReviewCard extends ConsumerWidget {
             Text('Học viên chưa nộp ảnh minh chứng.', style: context.txt.bodySmall),
           ],
           const SizedBox(height: 14),
-          HvpButton.gold(
-            label: 'Duyệt và phát thưởng',
-            small: true,
-            loading: submitting,
-            onPressed: submitting || url == null ? null : () => _approve(context, ref),
-          ),
+          if (item.status == 'PENDING_COACH') HvpButton.gold(
+              label: 'Duyệt tham gia',
+              small: true,
+              loading: submitting,
+              onPressed: submitting ? null : () => _approveJoin(context, ref),
+            ),
+          if (item.status == 'AWAITING_COACH') HvpButton.gold(
+              label: 'Duyệt và phát thưởng',
+              small: true,
+              loading: submitting,
+              onPressed: submitting || url == null ? null : () => _approve(context, ref),
+            ),
         ],
       ),
     );
@@ -140,6 +228,29 @@ class _ReviewCard extends ConsumerWidget {
     final ok = await ref.read(challengeReviewActionProvider.notifier).run(
           () => ref.read(challengeReviewRepositoryProvider).approve(item.participationId),
         );
-    if (ok) ref.invalidate(challengeReviewQueueProvider);
+    if (ok) ref.invalidate(challengeReviewQueueProvider(filter));
   }
+
+  Future<void> _approveJoin(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showConfirmSheet(
+      context,
+      title: 'Duyệt tham gia Challenge',
+      message: 'Cho phép ${item.memberFullName} thực hiện thử thách này?',
+      confirmLabel: 'Duyệt tham gia',
+    );
+    if (!confirmed) return;
+    final ok = await ref.read(challengeReviewActionProvider.notifier).run(
+      () => ref.read(challengeReviewRepositoryProvider).approveJoin(item.participationId),
+    );
+    if (ok) ref.invalidate(challengeReviewQueueProvider(filter));
+  }
+
+  String _statusLabel(String status) => switch (status) {
+    'PENDING_COACH' => 'Chờ duyệt tham gia',
+    'JOINED' => 'Đã tham gia',
+    'AWAITING_COACH' => 'Chờ duyệt',
+    'REWARDED' => 'Đã thưởng',
+    'EXPIRED' => 'Hết hạn',
+    _ => status,
+  };
 }

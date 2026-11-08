@@ -23,11 +23,12 @@ class _AdminChallengeFormScreenState extends ConsumerState<AdminChallengeFormScr
   late DateTime _startsAt = DateTime.now().add(const Duration(minutes: 5));
   late DateTime _endsAt = DateTime.now().add(const Duration(days: 1));
   bool _loaded = false;
+  String? _status;
   late final Future<AdminChallenge>? _challengeFuture = widget.challengeId == null ? null : ref.read(adminChallengeRepositoryProvider).detail(widget.challengeId!);
   bool get _editing => widget.challengeId != null;
 
   @override void dispose() { for (final controller in [_code, _title, _description, _target, _dp, _marks, _reason]) { controller.dispose(); } super.dispose(); }
-  void _load(AdminChallenge challenge) { if (_loaded) return; _loaded = true; _code.text = challenge.code ?? ''; _title.text = challenge.title; _description.text = challenge.description ?? ''; _target.text = '${challenge.target}'; _dp.text = '${challenge.rewardDp}'; _marks.text = '${challenge.rewardMarks}'; _type = challenge.challengeType; _context = challenge.context; _startsAt = challenge.startsAt.toLocal(); _endsAt = challenge.endsAt.toLocal(); }
+  void _load(AdminChallenge challenge) { if (_loaded) return; _loaded = true; _status = challenge.status; _code.text = challenge.code ?? ''; _title.text = challenge.title; _description.text = challenge.description ?? ''; _target.text = '${challenge.target}'; _dp.text = '${challenge.rewardDp}'; _marks.text = '${challenge.rewardMarks}'; _type = challenge.challengeType; _context = challenge.context; _startsAt = challenge.startsAt.toLocal(); _endsAt = challenge.endsAt.toLocal(); }
   ChallengeInput? _input() {
     if (!_formKey.currentState!.validate()) return null;
     final target = int.tryParse(_target.text); final dp = int.tryParse(_dp.text); final marks = int.tryParse(_marks.text);
@@ -39,6 +40,15 @@ class _AdminChallengeFormScreenState extends ConsumerState<AdminChallengeFormScr
     if (_editing && _reason.text.trim().length < 3) { setState(() {}); return; }
     final ok = await ref.read(adminChallengeSubmitProvider.notifier).run(() => _editing ? ref.read(adminChallengeRepositoryProvider).update(widget.challengeId!, input, _reason.text) : ref.read(adminChallengeRepositoryProvider).create(input));
     if (ok && mounted) Navigator.of(context).pop();
+  }
+  Future<void> _setEnabled(bool enabled) async {
+    if (_reason.text.trim().length < 3) { setState(() {}); return; }
+    final ok = await ref.read(adminChallengeSubmitProvider.notifier).run(
+      () => ref.read(adminChallengeRepositoryProvider).setEnabled(
+        widget.challengeId!, enabled: enabled, reason: _reason.text,
+      ),
+    );
+    if (ok && mounted) setState(() => _status = enabled ? 'OPEN' : 'CLOSED');
   }
   Future<void> _date(bool start) async {
     final current = start ? _startsAt : _endsAt;
@@ -69,7 +79,13 @@ class _AdminChallengeFormScreenState extends ConsumerState<AdminChallengeFormScr
       HvpTextField(label: 'Marks thưởng', controller: _marks, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], validator: _nonnegative), const SizedBox(height: 16),
       _dateTile('Bắt đầu', _startsAt, () => _date(true)), _dateTile('Kết thúc', _endsAt, () => _date(false)),
       if (!_endsAt.isAfter(_startsAt)) const Padding(padding: EdgeInsets.only(top: 8), child: InlineBanner(message: 'Thời điểm kết thúc phải sau thời điểm bắt đầu.')),
-      if (_editing) ...<Widget>[const SizedBox(height: 12), HvpTextField(label: 'Lý do cập nhật', controller: _reason, maxLength: 500, validator: (v) => (v?.trim().length ?? 0) < 3 ? 'Nhập lý do ít nhất 3 ký tự.' : null)],
+       if (_editing) ...<Widget>[
+         const SizedBox(height: 12),
+         HvpTextField(label: 'Lý do cập nhật / đổi trạng thái', controller: _reason, maxLength: 500, validator: (v) => (v?.trim().length ?? 0) < 3 ? 'Nhập lý do ít nhất 3 ký tự.' : null),
+         const SizedBox(height: 12),
+         if (_status == 'OPEN') HvpButton.secondary(label: 'Đóng Challenge', expand: true, loading: state.submitting, onPressed: state.submitting ? null : () => _setEnabled(false))
+         else if (_status != 'CANCELLED') HvpButton.gold(label: 'Mở Challenge', expand: true, loading: state.submitting, onPressed: state.submitting ? null : () => _setEnabled(true)),
+       ],
       if (state.error != null) ...<Widget>[const SizedBox(height: 12), InlineBanner(message: state.error!)], const SizedBox(height: 24),
       HvpButton.primary(label: _editing ? 'Lưu thay đổi' : 'Tạo Challenge', expand: true, loading: state.submitting, onPressed: _save),
     ])));

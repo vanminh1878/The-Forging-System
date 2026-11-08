@@ -47,4 +47,8 @@ class OpenChallengeRepositoryImpl implements OpenChallengeRepository {
           .toList(growable: false),
     );
   }
+
+  @override
+  Future<void> join(String challengeId) =>
+      _api.post('/me/challenges/$challengeId/join');
 }

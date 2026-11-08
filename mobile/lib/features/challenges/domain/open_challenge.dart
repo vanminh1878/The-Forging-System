@@ -46,4 +46,5 @@ class OpenChallengePage {
 
 abstract interface class OpenChallengeRepository {
   Future<OpenChallengePage> list({String? challengeType, int page = 1});
+  Future<void> join(String challengeId);
 }

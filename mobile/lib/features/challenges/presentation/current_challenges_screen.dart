@@ -66,7 +66,7 @@ Future<void> _showEvidenceSheet(BuildContext context, WidgetRef ref, CurrentChal
   ref.read(challengeEvidenceActionProvider.notifier).reset();
   await showHvpSheet<void>(
     context,
-    title: 'Nộp bằng chứng',
+    title: 'Yêu cầu hoàn thành',
     builder: (_) => _EvidenceSheet(challenge: challenge),
   );
 }
@@ -123,9 +123,9 @@ class CurrentChallengeCard extends StatelessWidget {
                 _detail(context, HvpIcons.coins,
                     '+${formatInt(challenge.rewardMarks)} Marks'),
               ]),
-              if (challenge.participationStatus == 'AWAITING_COACH') ...<Widget>[
+               if (challenge.participationStatus == 'JOINED') ...<Widget>[
                 const SizedBox(height: 14),
-                HvpButton.primary(label: 'Nộp bằng chứng', small: true, onPressed: onSubmitEvidence),
+                 HvpButton.primary(label: 'Yêu cầu hoàn thành', small: true, onPressed: onSubmitEvidence),
               ],
             ]),
       );
@@ -146,8 +146,9 @@ class CurrentChallengeCard extends StatelessWidget {
       };
 
   String _status(String value) => switch (value) {
-        'JOINED' => 'Đang thực hiện',
-        'AWAITING_COACH' => 'Chờ xác nhận',
+        'PENDING_COACH' => 'Chờ duyệt tham gia',
+        'JOINED' => 'Đã được duyệt',
+        'AWAITING_COACH' => 'Chờ xác nhận hoàn thành',
         'REWARDED' => 'Đã nhận thưởng',
         'EXPIRED' => 'Đã hết hạn',
         _ => value,
@@ -155,7 +156,7 @@ class CurrentChallengeCard extends StatelessWidget {
 
   ChipTone _tone(String value) => switch (value) {
         'REWARDED' => ChipTone.success,
-        'AWAITING_COACH' => ChipTone.warning,
+        'PENDING_COACH' || 'AWAITING_COACH' => ChipTone.warning,
         'EXPIRED' => ChipTone.danger,
         _ => ChipTone.info,
       };
@@ -193,7 +194,7 @@ class _EvidenceSheetState extends ConsumerState<_EvidenceSheet> {
         ],
         const SizedBox(height: 20),
         HvpButton.primary(
-          label: 'Gửi bằng chứng',
+          label: 'Gửi yêu cầu hoàn thành',
           expand: true,
           loading: action.submitting,
           onPressed: _url == null || action.submitting

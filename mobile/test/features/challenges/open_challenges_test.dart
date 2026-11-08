@@ -16,6 +16,9 @@ class _FakeChallenges implements OpenChallengeRepository {
   final queries = <({String? type, int page})>[];
 
   @override
+  Future<void> join(String challengeId) async {}
+
+  @override
   Future<OpenChallengePage> list({String? challengeType, int page = 1}) async {
     queries.add((type: challengeType, page: page));
     return OpenChallengePage(
@@ -102,6 +105,20 @@ void main() {
       expect(page.items.single.progressValue, 2);
     },
   );
+
+  test('CHL-09 joins an open Challenge by id', () async {
+    final dio = createApiDio(
+      config: const AppConfig(apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
+      tokens: MemoryTokenStore(const StoredTokens(accessToken: 'member-token', refreshToken: 'refresh-token')),
+    );
+    final adapter = ScriptedAdapter((_) => okEnvelope(<String, dynamic>{'id': 'participation-1'}));
+    dio.httpClientAdapter = adapter;
+
+    await OpenChallengeRepositoryImpl(ApiClient(dio)).join('challenge-1');
+
+    expect(adapter.requests.single.path, '/me/challenges/challenge-1/join');
+    expect(adapter.requests.single.method, 'POST');
+  });
 
   testWidgets('CHL-09 lists open challenges and applies the period filter', (
     tester,

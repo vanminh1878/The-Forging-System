@@ -73,6 +73,12 @@ List<RouteBase> studentRoutes() => <RouteBase>[
                           small: true,
                           onPressed: () => context.push(StudentPaths.courses),
                         ),
+                        HvpButton.gold(
+                          label: 'Thử thách',
+                          icon: HvpIcons.flag,
+                          small: true,
+                          onPressed: () => context.push(StudentPaths.challenges),
+                        ),
                       ],
                     ),
                   ),

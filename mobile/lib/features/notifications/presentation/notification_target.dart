@@ -19,6 +19,17 @@ NotificationTarget? notificationTarget(String eventType) {
   if (eventType.startsWith('MEMBERSHIP') || eventType.startsWith('RENEWAL')) {
     return const NotificationTarget(StudentPaths.membership);
   }
+  if (const <String>{
+    'CHALLENGE_JOINED',
+    'CHALLENGE_JOIN_APPROVED',
+    'CHALLENGE_COMPLETED',
+    'CHALLENGE_REWARDED',
+  }.contains(eventType)) {
+    return const NotificationTarget(StudentPaths.currentChallenges);
+  }
+  if (eventType.startsWith('CHALLENGE')) {
+    return const NotificationTarget(StudentPaths.challenges);
+  }
   switch (eventType) {
     case 'SESSION_COMPLETED':
     case 'NEAR_RANK':
@@ -27,8 +38,6 @@ NotificationTarget? notificationTarget(String eventType) {
     case 'BELOW_THRESHOLD':
     case 'ACADEMY_FAILED':
       return const NotificationTarget(StudentPaths.fighterRecord);
-    case 'CHALLENGE':
-      return const NotificationTarget(StudentPaths.challenges);
     case 'BOOK_COMPLETED':
       return const NotificationTarget(StudentPaths.courses);
     case 'EXAM':
