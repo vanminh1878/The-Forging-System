@@ -48,9 +48,13 @@ class _MembersTabState extends ConsumerState<MembersTab> {
 
   Future<void> _create() async {
     final id = await showCreateMemberSheet(context);
-    if (id != null && mounted) {
-      await context.push(ReceptionPaths.membershipMember(id));
-    }
+    if (id != null && mounted) await _open(id);
+  }
+
+  Future<void> _open(String memberId) async {
+    await context.push(ReceptionPaths.membershipMember(memberId));
+    // The detail screen can change the status or package shown in the list.
+    if (mounted) ref.invalidate(memberSearchProvider(_query));
   }
 
   @override
@@ -86,43 +90,38 @@ class _MembersTabState extends ConsumerState<MembersTab> {
           ),
         ),
         Expanded(
-          child: _query.length < memberSearchMinLength
-              ? const EmptyState(
-                  icon: HvpIcons.search,
-                  title: 'Tìm học viên',
-                  message: 'Nhập ít nhất 2 ký tự: tên hoặc số điện thoại.')
-              : AsyncBody<MemberSearchResult>(
-                  value: ref.watch(memberSearchProvider(_query)),
-                  onRetry: () => ref.invalidate(memberSearchProvider(_query)),
-                  builder: (context, result) {
-                    if (result.items.isEmpty) {
-                      return const EmptyState(
-                          icon: HvpIcons.users,
-                          title: 'Không tìm thấy học viên');
-                    }
-                    return ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(
-                          16, 4, 16, HvpLayout.navClearance),
-                      itemCount: result.items.length + 1,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, i) {
-                        if (i == 0) {
-                          return Text(
-                            result.hasMoreThanShown
-                                ? 'Hiển thị ${result.items.length} trên ${result.total} học viên. Gõ thêm để thu hẹp.'
-                                : '${result.total} học viên',
-                            style: t.caption,
-                          );
-                        }
-                        final member = result.items[i - 1];
-                        return MemberRow(
-                            member: member,
-                            onTap: () => context.push(
-                                ReceptionPaths.membershipMember(member.id)));
-                      },
+          child: AsyncBody<MemberSearchResult>(
+            value: ref.watch(memberSearchProvider(_query)),
+            onRetry: () => ref.invalidate(memberSearchProvider(_query)),
+            builder: (context, result) {
+              if (result.items.isEmpty) {
+                return EmptyState(
+                    icon: HvpIcons.users,
+                    title: _query.isEmpty
+                        ? 'Chưa có học viên'
+                        : 'Không tìm thấy học viên');
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.fromLTRB(
+                    16, 4, 16, HvpLayout.navClearance),
+                itemCount: result.items.length + 1,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, i) {
+                  if (i == 0) {
+                    return Text(
+                      result.hasMoreThanShown
+                          ? 'Hiển thị ${result.items.length} trên ${result.total} học viên. Gõ thêm để thu hẹp.'
+                          : '${result.total} học viên',
+                      style: t.caption,
                     );
-                  },
-                ),
+                  }
+                  final member = result.items[i - 1];
+                  return MemberRow(
+                      member: member, onTap: () => _open(member.id));
+                },
+              );
+            },
+          ),
         ),
       ],
     );

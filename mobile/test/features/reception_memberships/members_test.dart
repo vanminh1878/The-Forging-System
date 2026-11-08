@@ -115,11 +115,12 @@ void main() {
     });
     await pumpDeskApp(tester, desk);
     await openMembersTab(tester);
-    expect(find.text('Nhập ít nhất 2 ký tự: tên hoặc số điện thoại.'),
-        findsOneWidget);
+    expect(desk.calls('GET /members').single.queryParameters.containsKey('q'),
+        isFalse);
+    expect(find.text('Nguyễn Thị Lan'), findsOneWidget);
 
     await search(tester, 'lan');
-    expect(desk.calls('GET /members').single.queryParameters,
+    expect(desk.calls('GET /members').last.queryParameters,
         containsPair('q', 'lan'));
     expect(find.text('BOOK I · hết hạn 30/11/2026'), findsOneWidget);
     expect(find.text('HOẠT ĐỘNG'), findsOneWidget);
@@ -160,6 +161,11 @@ void main() {
     expect(find.text('01/09/2026 → 30/11/2026 · còn 20 ngày'), findsOneWidget);
     expect(find.text('01/09/2026 → 30/11/2026'), findsOneWidget);
     expect(find.text('30/36 buổi đã dùng · còn 6'), findsNWidgets(2));
+
+    final before = desk.calls('GET /members').length;
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(desk.calls('GET /members').length, before + 1);
   });
 
   testWidgets('MEM-15 detail shows the API error (404) with retry',

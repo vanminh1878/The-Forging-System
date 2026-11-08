@@ -33,9 +33,12 @@ const _lan = MemberHit(
   status: 'ACTIVE',
   packageName: 'BOOK I',
 );
-const _frozen = MemberHit(id: 'm2', memberCode: 'HVP-ZZ99', fullName: 'Lan Anh', status: 'FROZEN');
+const _frozen = MemberHit(
+    id: 'm2', memberCode: 'HVP-ZZ99', fullName: 'Lan Anh', status: 'FROZEN');
 
-CheckinSession _session(String id, String title, {CheckinState state = CheckinState.open, String? message}) => CheckinSession(
+CheckinSession _session(String id, String title,
+        {CheckinState state = CheckinState.open, String? message}) =>
+    CheckinSession(
       sessionId: id,
       title: title,
       sessionType: 'GROUP',
@@ -79,23 +82,35 @@ class FakeToday implements CheckinRepository {
   }
 
   @override
-  Future<CheckinOutcome> submit({String? payload, String? shortCode, String? sessionId}) => throw UnimplementedError();
+  Future<CheckinOutcome> submit(
+          {String? payload, String? shortCode, String? sessionId}) =>
+      throw UnimplementedError();
 
   @override
-  Future<CheckedIn> checkInFor({required String memberId, required String sessionId, required String evidenceUrl}) =>
+  Future<CheckedIn> checkInFor(
+          {required String memberId,
+          required String sessionId,
+          required String evidenceUrl}) =>
       throw UnimplementedError('the list screens never check anyone in');
 }
 
-TodayCheckin _day(List<CheckinSession> sessions, {CheckinEligibility? eligibility}) =>
-    TodayCheckin(date: '2026-11-02', eligibility: eligibility ?? const CheckinEligibility(canCheckin: true), sessions: sessions);
+TodayCheckin _day(List<CheckinSession> sessions,
+        {CheckinEligibility? eligibility}) =>
+    TodayCheckin(
+        date: '2026-11-02',
+        eligibility: eligibility ?? const CheckinEligibility(canCheckin: true),
+        sessions: sessions);
 
 /// The reception tab with the member screen and the check-in hook behind it, like the reception shell.
-Future<void> _pump(WidgetTester tester, {required FakeSearch search, required FakeToday today}) async {
+Future<void> _pump(WidgetTester tester,
+    {required FakeSearch search, required FakeToday today}) async {
   HvpFonts.useGoogleFonts = false;
   hvpEntranceEnabled = false;
   usePhoneSurface(tester);
   final router = GoRouter(routes: <RouteBase>[
-    GoRoute(path: '/', builder: (_, __) => const Scaffold(body: ReceptionCheckinTab())),
+    GoRoute(
+        path: '/',
+        builder: (_, __) => const Scaffold(body: ReceptionCheckinTab())),
     GoRoute(
       path: ReceptionPaths.memberTodayPattern,
       builder: (_, state) => MemberTodayScreen(
@@ -105,10 +120,13 @@ Future<void> _pump(WidgetTester tester, {required FakeSearch search, required Fa
     ),
     GoRoute(
       path: ReceptionPaths.assistedCheckinPattern,
-      builder: (_, state) =>
-          Scaffold(body: Text('ASSISTED:${state.pathParameters['memberId']}:${state.pathParameters['sessionId']}')),
+      builder: (_, state) => Scaffold(
+          body: Text(
+              'ASSISTED:${state.pathParameters['memberId']}:${state.pathParameters['sessionId']}')),
     ),
-    GoRoute(path: ReceptionPaths.branchQr, builder: (_, __) => const Scaffold(body: Text('BRANCH-QR'))),
+    GoRoute(
+        path: ReceptionPaths.branchQr,
+        builder: (_, __) => const Scaffold(body: Text('BRANCH-QR'))),
   ]);
   addTearDown(router.dispose);
   await tester.pumpWidget(ProviderScope(
@@ -117,7 +135,11 @@ Future<void> _pump(WidgetTester tester, {required FakeSearch search, required Fa
       memberSearchRepositoryProvider.overrideWithValue(search),
       checkinRepositoryProvider.overrideWithValue(today),
     ],
-    child: MaterialApp.router(theme: HvpTheme.light(), darkTheme: HvpTheme.dark(), themeMode: ThemeMode.dark, routerConfig: router),
+    child: MaterialApp.router(
+        theme: HvpTheme.light(),
+        darkTheme: HvpTheme.dark(),
+        themeMode: ThemeMode.dark,
+        routerConfig: router),
   ));
   await tester.pumpAndSettle();
 }
@@ -129,10 +151,14 @@ Future<void> _type(WidgetTester tester, String text) async {
 }
 
 void main() {
-  test('CHK-10 repositories search the members and read a member\'s sessions of today', () async {
+  test(
+      'CHK-10 repositories search the members and read a member\'s sessions of today',
+      () async {
     final dio = createApiDio(
-      config: const AppConfig(apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
-      tokens: MemoryTokenStore(const StoredTokens(accessToken: 'desk-token', refreshToken: 'refresh')),
+      config: const AppConfig(
+          apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
+      tokens: MemoryTokenStore(const StoredTokens(
+          accessToken: 'desk-token', refreshToken: 'refresh')),
     );
     final adapter = ScriptedAdapter((request) {
       if (request.path == '/members') {
@@ -147,7 +173,12 @@ void main() {
             'rankName': 'THE UNKNOWN',
             'packageName': 'BOOK I',
           },
-        ], meta: <String, dynamic>{'page': 1, 'limit': 20, 'total': '45', 'totalPages': 3});
+        ], meta: <String, dynamic>{
+          'page': 1,
+          'limit': 20,
+          'total': '45',
+          'totalPages': 3
+        });
       }
       return okEnvelope(<String, dynamic>{
         'date': '2026-11-02',
@@ -160,33 +191,57 @@ void main() {
 
     final found = await MemberSearchRepositoryImpl(api).search('lan');
     expect(adapter.requests.last.path, '/members');
-    expect(adapter.requests.last.queryParameters, <String, dynamic>{'q': 'lan', 'page': 1, 'limit': 20});
+    expect(adapter.requests.last.queryParameters,
+        <String, dynamic>{'q': 'lan', 'page': 1, 'limit': 20});
     expect(found.total, 45); // the server may send the count as text
     expect(found.hasMoreThanShown, isTrue);
-    expect(found.items.single, isA<MemberHit>().having((m) => m.id, 'id', 'm1').having((m) => m.packageName, 'package', 'BOOK I'));
+    expect(
+        found.items.single,
+        isA<MemberHit>()
+            .having((m) => m.id, 'id', 'm1')
+            .having((m) => m.packageName, 'package', 'BOOK I'));
     expect(found.items.single.avatarUrl, isNull);
+
+    await MemberSearchRepositoryImpl(api).search('');
+    expect(adapter.requests.last.queryParameters,
+        <String, dynamic>{'page': 1, 'limit': 20});
 
     final today = await CheckinRepositoryImpl(api).todayFor('m1');
     expect(adapter.requests.last.path, '/members/m1/checkin/sessions');
     expect(today.date, '2026-11-02');
   });
 
-  testWidgets('asks for text first and does not search for less than 2 characters', (tester) async {
-    final search = FakeSearch(const MemberSearchResult(items: <MemberHit>[_lan], total: 1));
-    await _pump(tester, search: search, today: FakeToday(_day(const <CheckinSession>[])));
-    expect(find.text('Nhập ít nhất 2 ký tự: tên, số điện thoại hoặc mã học viên.'), findsOneWidget);
+  testWidgets('lists the learners on open, before anything is typed',
+      (tester) async {
+    final search = FakeSearch(
+        const MemberSearchResult(items: <MemberHit>[_lan], total: 1));
+    await _pump(tester,
+        search: search, today: FakeToday(_day(const <CheckinSession>[])));
 
-    await _type(tester, 'L');
-    expect(search.queries, isEmpty);
-    expect(find.text('Nhập ít nhất 2 ký tự: tên, số điện thoại hoặc mã học viên.'), findsOneWidget);
+    expect(search.queries, <String>['']);
+    expect(find.text('Nguyễn Thị Lan'), findsOneWidget);
   });
 
-  testWidgets('shows the learners found with their status and package', (tester) async {
-    final search = FakeSearch(const MemberSearchResult(items: <MemberHit>[_lan, _frozen], total: 2));
-    await _pump(tester, search: search, today: FakeToday(_day(const <CheckinSession>[])));
+  testWidgets('an empty academy is not reported as a failed search',
+      (tester) async {
+    final search =
+        FakeSearch(const MemberSearchResult(items: <MemberHit>[], total: 0));
+    await _pump(tester,
+        search: search, today: FakeToday(_day(const <CheckinSession>[])));
+
+    expect(find.text('CHƯA CÓ HỌC VIÊN'), findsOneWidget);
+    expect(find.text('KHÔNG TÌM THẤY HỌC VIÊN'), findsNothing);
+  });
+
+  testWidgets('shows the learners found with their status and package',
+      (tester) async {
+    final search = FakeSearch(
+        const MemberSearchResult(items: <MemberHit>[_lan, _frozen], total: 2));
+    await _pump(tester,
+        search: search, today: FakeToday(_day(const <CheckinSession>[])));
     await _type(tester, 'Lan');
 
-    expect(search.queries, <String>['Lan']);
+    expect(search.queries, <String>['', 'Lan']);
     expect(find.text('Nguyễn Thị Lan'), findsOneWidget);
     expect(find.text('0912345678 · HVP-AB12CD'), findsOneWidget);
     expect(find.text('HOẠT ĐỘNG'), findsOneWidget);
@@ -196,22 +251,32 @@ void main() {
     expect(find.text('2 học viên'), findsOneWidget);
   });
 
-  testWidgets('says when there are more matches than shown, and when there are none', (tester) async {
-    final search = FakeSearch(const MemberSearchResult(items: <MemberHit>[_lan], total: 45));
-    await _pump(tester, search: search, today: FakeToday(_day(const <CheckinSession>[])));
+  testWidgets(
+      'says when there are more matches than shown, and when there are none',
+      (tester) async {
+    final search = FakeSearch(
+        const MemberSearchResult(items: <MemberHit>[_lan], total: 45));
+    await _pump(tester,
+        search: search, today: FakeToday(_day(const <CheckinSession>[])));
     await _type(tester, 'Nguy');
-    expect(find.text('Hiển thị 1 trên 45 học viên. Gõ thêm để thu hẹp.'), findsOneWidget);
+    expect(find.text('Hiển thị 1 trên 45 học viên. Gõ thêm để thu hẹp.'),
+        findsOneWidget);
 
     search.result = const MemberSearchResult(items: <MemberHit>[], total: 0);
     await _type(tester, 'Nguyễn Văn Zzz');
     expect(find.text('KHÔNG TÌM THẤY HỌC VIÊN'), findsOneWidget);
   });
 
-  testWidgets('opens the learner and lists their sessions, offering check-in only for open ones', (tester) async {
-    final search = FakeSearch(const MemberSearchResult(items: <MemberHit>[_lan], total: 1));
+  testWidgets(
+      'opens the learner and lists their sessions, offering check-in only for open ones',
+      (tester) async {
+    final search = FakeSearch(
+        const MemberSearchResult(items: <MemberHit>[_lan], total: 1));
     final today = FakeToday(_day(<CheckinSession>[
       _session('s1', 'Evening class'),
-      _session('s2', 'Late class', state: CheckinState.closed, message: 'Buổi tập đã kết thúc, không thể check-in.'),
+      _session('s2', 'Late class',
+          state: CheckinState.closed,
+          message: 'Buổi tập đã kết thúc, không thể check-in.'),
     ]));
     await _pump(tester, search: search, today: today);
     await _type(tester, 'Lan');
@@ -219,17 +284,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(today.asked, <String>['m1']);
-    expect(find.text('Nguyễn Thị Lan'), findsOneWidget); // the member card on top
+    expect(
+        find.text('Nguyễn Thị Lan'), findsOneWidget); // the member card on top
     expect(find.text('Evening class'), findsOneWidget);
     expect(find.text('ĐANG MỞ CHECK-IN'), findsOneWidget);
     expect(find.text('ĐÃ ĐÓNG CHECK-IN'), findsOneWidget);
-    expect(find.text('Buổi tập đã kết thúc, không thể check-in.'), findsOneWidget);
-    expect(find.text('CHECK-IN HỘ'), findsOneWidget); // not for the closed session
+    expect(
+        find.text('Buổi tập đã kết thúc, không thể check-in.'), findsOneWidget);
+    expect(
+        find.text('CHECK-IN HỘ'), findsOneWidget); // not for the closed session
   });
 
-  testWidgets('the check-in button goes on to the check-in with this learner and session', (tester) async {
-    final search = FakeSearch(const MemberSearchResult(items: <MemberHit>[_lan], total: 1));
-    await _pump(tester, search: search, today: FakeToday(_day(<CheckinSession>[_session('s1', 'Evening class')])));
+  testWidgets(
+      'the check-in button goes on to the check-in with this learner and session',
+      (tester) async {
+    final search = FakeSearch(
+        const MemberSearchResult(items: <MemberHit>[_lan], total: 1));
+    await _pump(tester,
+        search: search,
+        today:
+            FakeToday(_day(<CheckinSession>[_session('s1', 'Evening class')])));
     await _type(tester, 'Lan');
     await tester.tap(find.text('Nguyễn Thị Lan'));
     await tester.pumpAndSettle();
@@ -239,31 +313,45 @@ void main() {
   });
 
   testWidgets('explains why a learner cannot check in at all', (tester) async {
-    final search = FakeSearch(const MemberSearchResult(items: <MemberHit>[_frozen], total: 1));
+    final search = FakeSearch(
+        const MemberSearchResult(items: <MemberHit>[_frozen], total: 1));
     final today = FakeToday(_day(
-      <CheckinSession>[_session('s1', 'Evening class', state: CheckinState.blocked, message: 'Tài khoản đang đóng băng.')],
-      eligibility: const CheckinEligibility(canCheckin: false, code: 'ACCOUNT_RESTRICTED', message: 'Tài khoản đang đóng băng.'),
+      <CheckinSession>[
+        _session('s1', 'Evening class',
+            state: CheckinState.blocked, message: 'Tài khoản đang đóng băng.')
+      ],
+      eligibility: const CheckinEligibility(
+          canCheckin: false,
+          code: 'ACCOUNT_RESTRICTED',
+          message: 'Tài khoản đang đóng băng.'),
     ));
     await _pump(tester, search: search, today: today);
     await _type(tester, 'Lan');
     await tester.tap(find.text('Lan Anh'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Tài khoản đang đóng băng.'), findsNWidgets(2)); // the banner and the session
+    expect(find.text('Tài khoản đang đóng băng.'),
+        findsNWidgets(2)); // the banner and the session
     expect(find.text('CHECK-IN HỘ'), findsNothing);
   });
 
   testWidgets('says so when the learner has no session today', (tester) async {
-    final search = FakeSearch(const MemberSearchResult(items: <MemberHit>[_lan], total: 1));
-    await _pump(tester, search: search, today: FakeToday(_day(const <CheckinSession>[])));
+    final search = FakeSearch(
+        const MemberSearchResult(items: <MemberHit>[_lan], total: 1));
+    await _pump(tester,
+        search: search, today: FakeToday(_day(const <CheckinSession>[])));
     await _type(tester, 'Lan');
     await tester.tap(find.text('Nguyễn Thị Lan'));
     await tester.pumpAndSettle();
     expect(find.text('KHÔNG CÓ BUỔI NÀO HÔM NAY'), findsOneWidget);
   });
 
-  testWidgets('has a way to the branch QR screen for the tablet at the desk', (tester) async {
-    await _pump(tester, search: FakeSearch(const MemberSearchResult(items: <MemberHit>[], total: 0)), today: FakeToday(_day(const <CheckinSession>[])));
+  testWidgets('has a way to the branch QR screen for the tablet at the desk',
+      (tester) async {
+    await _pump(tester,
+        search: FakeSearch(
+            const MemberSearchResult(items: <MemberHit>[], total: 0)),
+        today: FakeToday(_day(const <CheckinSession>[])));
     await tester.tap(find.text('HIỂN THỊ MÃ QR QUẦY'));
     await tester.pumpAndSettle();
     expect(find.text('BRANCH-QR'), findsOneWidget);

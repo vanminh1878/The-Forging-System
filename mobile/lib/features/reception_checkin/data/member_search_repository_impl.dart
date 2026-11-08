@@ -12,8 +12,11 @@ class MemberSearchRepositoryImpl implements MemberSearchRepository {
 
   @override
   Future<MemberSearchResult> search(String query) async {
-    final response = await api.get('/members',
-        query: <String, dynamic>{'q': query, 'page': 1, 'limit': pageSize});
+    final response = await api.get('/members', query: <String, dynamic>{
+      if (query.isNotEmpty) 'q': query,
+      'page': 1,
+      'limit': pageSize,
+    });
     return MemberSearchResult(
       items:
           response.dataList.map((e) => _hit(asMap(e))).toList(growable: false),

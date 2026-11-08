@@ -87,38 +87,34 @@ class _EnrolMemberSheetState extends ConsumerState<EnrolMemberSheet> {
               ],
               const SizedBox(height: 8),
               Flexible(
-                child: _text.length < memberSearchMinLength
-                    ? Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text('Nhập ít nhất 2 ký tự.',
-                            style: context.txt.bodySmall))
-                    : AsyncBody<MemberSearchResult>(
-                        value: results,
-                        onRetry: () =>
-                            ref.invalidate(memberSearchProvider(_text)),
-                        builder: (_, r) => r.items.isEmpty
-                            ? Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Text('Không tìm thấy học viên.',
-                                    style: context.txt.bodySmall))
-                            : ListView(shrinkWrap: true, children: <Widget>[
-                                for (final m in r.items)
-                                  ListTile(
-                                    contentPadding: EdgeInsets.zero,
-                                    title: Text(m.fullName,
-                                        style: context.txt.bodyL),
-                                    subtitle: Text(
-                                        '${m.memberCode}${m.phone == null ? '' : ' · ${m.phone}'}',
-                                        style: context.txt.bodySmall),
-                                    trailing: HvpButton.secondary(
-                                        label: 'Thêm',
-                                        small: true,
-                                        onPressed: submit.submitting
-                                            ? null
-                                            : () => _enrol(m)),
-                                  ),
-                              ]),
-                      ),
+                child: AsyncBody<MemberSearchResult>(
+                  value: results,
+                  onRetry: () => ref.invalidate(memberSearchProvider(_text)),
+                  builder: (_, r) => r.items.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                              _text.isEmpty
+                                  ? 'Chưa có học viên.'
+                                  : 'Không tìm thấy học viên.',
+                              style: context.txt.bodySmall))
+                      : ListView(shrinkWrap: true, children: <Widget>[
+                          for (final m in r.items)
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(m.fullName, style: context.txt.bodyL),
+                              subtitle: Text(
+                                  '${m.memberCode}${m.phone == null ? '' : ' · ${m.phone}'}',
+                                  style: context.txt.bodySmall),
+                              trailing: HvpButton.secondary(
+                                  label: 'Thêm',
+                                  small: true,
+                                  onPressed: submit.submitting
+                                      ? null
+                                      : () => _enrol(m)),
+                            ),
+                        ]),
+                ),
               ),
             ]),
       ),
