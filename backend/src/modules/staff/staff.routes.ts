@@ -8,6 +8,7 @@ import { RoleGroup } from '../../shared/roles';
 import type { StaffService } from './staff.service';
 
 export const staffRole = z.enum(['COACH', 'HEAD_COACH', 'RECEPTIONIST', 'ADMIN', 'SUPER_ADMIN']);
+const assignableStaffRole = z.enum(['COACH', 'RECEPTIONIST', 'ADMIN']);
 const idParam = z.object({ staffId: z.string().uuid() });
 const reason = z.string().trim().min(3).max(500);
 const searchQuery = paginationQuery.extend({
@@ -20,10 +21,10 @@ const createBody = z.object({
   fullName: z.string().trim().min(2).max(100),
   phone: z.string().trim().min(9).max(16).optional(),
   email: z.string().trim().email().max(254).optional(),
-  role: staffRole,
+  role: assignableStaffRole,
   branchId: z.string().uuid(),
 }).strict().refine((input) => input.phone || input.email, { message: 'Cần số điện thoại hoặc email.' });
-const patchBody = z.object({ role: staffRole.optional(), branchId: z.string().uuid().optional(), reason }).strict()
+const patchBody = z.object({ role: assignableStaffRole.optional(), branchId: z.string().uuid().optional(), reason }).strict()
   .refine((input) => input.role || input.branchId, { message: 'Cần vai trò hoặc chi nhánh mới.' });
 
 export function staffRoutes(service: StaffService): Router {

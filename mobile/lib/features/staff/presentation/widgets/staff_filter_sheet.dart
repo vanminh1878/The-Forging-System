@@ -32,7 +32,7 @@ class _StaffFilterSheetState extends ConsumerState<StaffFilterSheet> {
                 _role?.wire ?? '',
                 <String, String>{
                   '': 'Tất cả vai trò',
-                  for (final role in StaffRole.values) role.wire: role.label,
+                   for (final role in StaffRole.assignable) role.wire: role.label,
                 },
                 (value) => setState(() => _role = StaffRole.values
                     .where((role) => role.wire == value)

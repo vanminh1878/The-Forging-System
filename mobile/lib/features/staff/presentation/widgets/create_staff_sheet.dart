@@ -125,7 +125,7 @@ class _CreateStaffSheetState extends ConsumerState<CreateStaffSheet> {
                 DropdownButtonFormField<StaffRole>(
                   initialValue: _role,
                   decoration: const InputDecoration(labelText: 'VAI TRO'),
-                  items: StaffRole.values
+                   items: StaffRole.assignable
                       .map((role) => DropdownMenuItem(
                           value: role, child: Text(role.label)))
                       .toList(),

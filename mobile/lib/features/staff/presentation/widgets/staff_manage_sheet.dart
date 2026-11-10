@@ -83,7 +83,7 @@ class _EditStaffSheetState extends ConsumerState<EditStaffSheet> {
   @override
   void initState() {
     super.initState();
-    _role = StaffRole.values.firstWhere(
+    _role = StaffRole.assignable.firstWhere(
         (r) => widget.member.roles.contains(r.wire),
         orElse: () => StaffRole.coach);
     Future<void>.microtask(
@@ -133,7 +133,7 @@ class _EditStaffSheetState extends ConsumerState<EditStaffSheet> {
                             initialValue: _role,
                             decoration:
                                 const InputDecoration(labelText: 'VAI TRÒ'),
-                            items: StaffRole.values
+                             items: StaffRole.assignable
                                 .map((r) => DropdownMenuItem(
                                     value: r, child: Text(r.label)))
                                 .toList(),

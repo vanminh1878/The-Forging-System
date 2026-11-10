@@ -35,6 +35,7 @@ describe('staff business rules', () => {
     const input = repo.create.mock.calls[0][0];
     expect(input.email).toBe('coach@example.com');
     expect(await verifyPassword(result.temporaryPassword, input.passwordHash)).toBe(true);
+    expect(result.temporaryPassword).toHaveLength(8);
     expect(repo.grant).toHaveBeenCalledWith(staff.id, 'COACH', admin.userId);
     expect(JSON.stringify(audit.record.mock.calls)).not.toContain(result.temporaryPassword);
   });
@@ -50,8 +51,9 @@ describe('staff business rules', () => {
     await expect(service.create({ fullName: staff.fullName, phone: staff.phone!, role: 'COACH', branchId: 'branch-id' }, admin)).rejects.toMatchObject({ code: 'INVALID_BRANCH' });
   });
 
-  it('prevents an ordinary Admin from provisioning or resetting Super Admins', async () => {
-    await expect(service.create({ fullName: staff.fullName, phone: staff.phone!, role: 'SUPER_ADMIN', branchId: 'branch-id' }, admin)).rejects.toMatchObject({ status: 403 });
+  it('does not allow STF to provision Head Coach or Super Admin roles', async () => {
+    await expect(service.create({ fullName: staff.fullName, phone: staff.phone!, role: 'SUPER_ADMIN', branchId: 'branch-id' }, admin)).rejects.toMatchObject({ code: 'STAFF_ROLE_NOT_ASSIGNABLE' });
+    await expect(service.create({ fullName: staff.fullName, phone: staff.phone!, role: 'HEAD_COACH', branchId: 'branch-id' }, admin)).rejects.toMatchObject({ code: 'STAFF_ROLE_NOT_ASSIGNABLE' });
     repo.find.mockResolvedValue({ ...staff, roles: ['SUPER_ADMIN'] });
     await expect(service.resetPassword(staff.id, 'Reset test', admin)).rejects.toMatchObject({ status: 403 });
     expect(repo.setTemporaryPassword).not.toHaveBeenCalled();
@@ -81,5 +83,15 @@ describe('staff business rules', () => {
     expect(await verifyPassword(result.temporaryPassword, repo.setTemporaryPassword.mock.calls[0][1])).toBe(true);
     expect(repo.revokeSessions).toHaveBeenCalledWith(staff.id);
     expect(JSON.stringify(audit.record.mock.calls)).not.toContain(result.temporaryPassword);
+  });
+
+  it('keeps temporary passwords within 8–12 characters and rejects an incompatible policy', async () => {
+    settings.getNumber.mockResolvedValue(12);
+    const result = await service.resetPassword(staff.id, 'Reset test', admin);
+    expect(result.temporaryPassword).toHaveLength(12);
+    settings.getNumber.mockResolvedValue(13);
+    await expect(service.resetPassword(staff.id, 'Reset test', admin)).rejects.toMatchObject({
+      code: 'INVALID_TEMP_PASSWORD_POLICY',
+    });
   });
 });

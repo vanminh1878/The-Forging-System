@@ -17,6 +17,7 @@ export class StaffService {
   async get(id: string) { const user = await this.repo.find(id); if (!user) throw notFound('Staff'); return user; }
 
   async create(input: { fullName: string; email?: string; phone?: string; role: RoleCode; branchId: string }, actor: AuthContext) {
+    this.ensureAssignableRole(input.role);
     this.checkPrivilege(actor, [input.role]);
     await this.requireBranch(input.branchId);
     const phone = input.phone ? normalizePhone(input.phone) : null;
@@ -34,6 +35,7 @@ export class StaffService {
   }
 
   async update(id: string, patch: { role?: RoleCode; branchId?: string; reason: string }, actor: AuthContext) {
+    if (patch.role) this.ensureAssignableRole(patch.role);
     await this.repo.lockDirectory();
     const before = await this.get(id);
     this.checkPrivilege(actor, [...before.roles, ...(patch.role ? [patch.role] : [])]);
@@ -83,5 +85,15 @@ export class StaffService {
   private async requireBranch(id: string) {
     if (!await sql.one(`SELECT id FROM branches WHERE id=$1 AND is_active=true`, [id])) throw badRequest('Chi nhánh không tồn tại hoặc đã ngừng hoạt động.', undefined, 'INVALID_BRANCH');
   }
-  private async temporaryPassword() { const min = await this.settings.getNumber('security.password_min_length'); return `${randomToken(Math.max(12, min))}a1`; }
+  private async temporaryPassword() {
+    const min = await this.settings.getNumber('security.password_min_length');
+    if (min > 12) throw badRequest('Cấu hình mật khẩu tối thiểu không thể lớn hơn 12 cho mật khẩu tạm.', undefined, 'INVALID_TEMP_PASSWORD_POLICY');
+    const length = Math.max(8, min);
+    return `${randomToken(Math.ceil((length - 2) / 2)).substring(0, length - 2)}a1`;
+  }
+  private ensureAssignableRole(role: RoleCode) {
+    if (role === Role.HEAD_COACH || role === Role.SUPER_ADMIN) {
+      throw badRequest('STF không hỗ trợ tạo hoặc gán role Head Coach/Super Admin.', undefined, 'STAFF_ROLE_NOT_ASSIGNABLE');
+    }
+  }
 }

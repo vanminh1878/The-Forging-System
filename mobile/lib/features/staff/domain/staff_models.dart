@@ -9,6 +9,14 @@ enum StaffRole {
   final String wire;
   final String label;
 
+  /// Roles that Admin may provision or assign in STF. Legacy roles remain in
+  /// the enum so existing accounts can still be displayed correctly.
+  static const List<StaffRole> assignable = <StaffRole>[
+    coach,
+    receptionist,
+    admin,
+  ];
+
   static String labelOf(String code) =>
       values
           .where((role) => role.wire == code)

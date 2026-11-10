@@ -30,6 +30,7 @@ describe('staff provisioning and first-use credentials', () => {
     expect(result.staff.roles).toEqual(['COACH']);
     expect(result.staff.mustChangePassword).toBe(true);
     expect(result.temporaryPassword.length).toBeGreaterThanOrEqual(8);
+    expect(result.temporaryPassword.length).toBeLessThanOrEqual(12);
     expect(result.staff.passwordHash).toBeUndefined();
     const members = await ctx.tx(() => sql.many('SELECT user_id FROM members WHERE user_id=$1', [result.staff.id]));
     expect(members).toHaveLength(0);
@@ -111,7 +112,7 @@ describe('staff provisioning and first-use credentials', () => {
     expect((await ctx.api.post('/api/v1/admin/staff').set(bearer(adminToken))
       .send({ fullName: 'Bad branch', phone: nextPhone(), role: 'COACH', branchId: '00000000-0000-4000-8000-000000000001' })).status).toBe(400);
     expect((await ctx.api.post('/api/v1/admin/staff').set(bearer(adminToken))
-      .send({ fullName: 'Escalation', phone: nextPhone(), role: 'SUPER_ADMIN', branchId })).status).toBe(403);
+      .send({ fullName: 'Unsupported role', phone: nextPhone(), role: 'SUPER_ADMIN', branchId })).status).toBe(400);
     const learner = await registerMember(ctx.api);
     expect((await ctx.api.get('/api/v1/admin/staff').set(bearer(learner.token))).status).toBe(403);
     expect((await ctx.api.get('/api/v1/admin/staff')).status).toBe(401);
