@@ -1,0 +1,65 @@
+name: Build mobile
+
+# Manual run (Actions tab > Build mobile > Run workflow). Produces files only:
+# no store upload, no Apple/Google account. The .aab is signed with the debug key
+# and the .ipa is unsigned (re-sign it with your own tool to install on a device).
+on:
+  workflow_dispatch:
+
+# Optional repo variables (Settings > Secrets and variables > Actions > Variables);
+# when unset the app falls back to AppConfig defaults.
+env:
+  API_BASE_URL: ${{ vars.API_BASE_URL }}
+  TENANT_CODE: ${{ vars.TENANT_CODE }}
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build .aab
+        run: |
+          defines=()
+          [ -n "$API_BASE_URL" ] && defines+=(--dart-define=API_BASE_URL="$API_BASE_URL")
+          [ -n "$TENANT_CODE" ] && defines+=(--dart-define=TENANT_CODE="$TENANT_CODE")
+          flutter build appbundle --release --build-number=${{ github.run_number }} "${defines[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hvp-forging-android-aab
+          path: mobile/build/app/outputs/bundle/release/app-release.aab
+
+  ios:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Build .ipa (unsigned)
+        run: |
+          defines=()
+          [ -n "$API_BASE_URL" ] && defines+=(--dart-define=API_BASE_URL="$API_BASE_URL")
+          [ -n "$TENANT_CODE" ] && defines+=(--dart-define=TENANT_CODE="$TENANT_CODE")
+          flutter build ios --release --no-codesign --build-number=${{ github.run_number }} "${defines[@]}"
+          # An .ipa is just Payload/Runner.app zipped.
+          cd build/ios/iphoneos
+          mkdir Payload
+          mv Runner.app Payload/
+          zip -qry app-release.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hvp-forging-ios-ipa
+          path: mobile/build/ios/iphoneos/app-release.ipa
