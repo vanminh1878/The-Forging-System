@@ -1,9 +1,13 @@
 name: Build mobile
 
-# Manual run (Actions tab > Build mobile > Run workflow). Produces files only:
-# no store upload, no Apple/Google account. The .aab is signed with the debug key
-# and the .ipa is unsigned (re-sign it with your own tool to install on a device).
+# Runs when a merge into main touches mobile/, or manually (Actions tab > Build mobile >
+# Run workflow). Produces files only: no store upload, no Apple/Google account. The .aab is
+# signed with the debug key and the .ipa is unsigned (re-sign it to install on a device).
+# Version = pubspec `version` name + github.run_number as build number.
 on:
+  push:
+    branches: [main]
+    paths: ["mobile/**"]
   workflow_dispatch:
 
 # Optional repo variables (Settings > Secrets and variables > Actions > Variables);
@@ -33,7 +37,7 @@ jobs:
           flutter build appbundle --release --build-number=${{ github.run_number }} "${defines[@]}"
       - uses: actions/upload-artifact@v4
         with:
-          name: hvp-forging-android-aab
+          name: hvp-forging-android-aab-${{ github.run_number }}
           path: mobile/build/app/outputs/bundle/release/app-release.aab
 
   ios:
@@ -61,5 +65,5 @@ jobs:
           zip -qry app-release.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
-          name: hvp-forging-ios-ipa
+          name: hvp-forging-ios-ipa-${{ github.run_number }}
           path: mobile/build/ios/iphoneos/app-release.ipa
