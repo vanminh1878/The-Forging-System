@@ -10,6 +10,7 @@ import '../../features/armory_admin/presentation/screens/admin_armory_reward_for
 import '../../features/armory_admin/presentation/screens/admin_armory_tiers_screen.dart';
 import '../../features/class_admin/presentation/screens/class_detail_screen.dart';
 import '../../features/class_admin/presentation/screens/class_list_screen.dart';
+import '../../features/package_admin/presentation/screens/package_list_screen.dart';
 import '../../features/reception_memberships/presentation/screens/admin_renewal_requests_screen.dart';
 import '../../features/admin_challenges/presentation/admin_challenge_form_screen.dart';
 import '../../features/admin_challenges/presentation/admin_challenges_screen.dart';
@@ -88,6 +89,10 @@ List<RouteBase> adminRoutes() => <RouteBase>[
       GoRoute(
         path: AdminPaths.renewalRequests,
         builder: (context, state) => const AdminRenewalRequestsScreen(),
+      ),
+      GoRoute(
+        path: AdminPaths.packages,
+        builder: (context, state) => const PackageListScreen(),
       ),
       GoRoute(
         path: AdminPaths.armory,

@@ -17,6 +17,8 @@ ClassSummary classSummaryFromJson(JsonMap j) => ClassSummary(
       capacity: j['capacity'] == null ? null : intOf(j, 'capacity'),
       isActive: boolOf(j, 'isActive', true),
       enrolledCount: intOf(j, 'enrolledCount'),
+      packageTypeId: strOrNull(j, 'packageTypeId'),
+      packageName: strOrNull(j, 'packageName'),
     );
 
 ClassDetail classDetailFromJson(JsonMap j) => ClassDetail(

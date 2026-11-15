@@ -214,4 +214,50 @@ describe('classes: CRUD and enrollment', () => {
     expect(none.body.data).toEqual([]);
     expect((await ctx.api.get('/api/v1/admin/classes?isActive=maybe').set(bearer(admin))).status).toBe(400);
   });
+  it('links a class to a package and lists the package classes with seatsLeft (PKG-02)', async () => {
+    const pkgId = (await ownerQuery<{ id: string }>(`SELECT id FROM package_types WHERE code = 'BOOK_1'`))[0].id;
+    const missingPkg = await post(body({ name: 'Bad pkg', packageTypeId: '0'.repeat(8) + '-0000-4000-8000-000000000000' }));
+    expect([missingPkg.status, missingPkg.body.error.code]).toEqual([400, 'PACKAGE_NOT_FOUND']);
+    expect((await post(body({ packageTypeId: 'nope' }))).status).toBe(400);
+
+    const limited = await post(body({ name: 'Zeta', capacity: 2, packageTypeId: pkgId, defaultCoachId: coachId }));
+    expect(limited.status).toBe(201);
+    expect(limited.body.data).toMatchObject({ packageTypeId: pkgId, packageName: 'BOOK I — FOUNDATION' });
+    const open = await post(body({ name: 'Alpha', capacity: null, packageTypeId: pkgId }));
+    const inactive = await post(body({ name: 'Off', packageTypeId: pkgId, isActive: false }));
+    expect(open.body.data.packageTypeId).toBe(pkgId);
+    expect(inactive.status).toBe(201);
+    const plain = await post(body({ name: 'No package' }));
+    expect(plain.body.data).toMatchObject({ packageTypeId: null, packageName: null });
+
+    const m = await registerMember(ctx.api);
+    expect((await enroll(limited.body.data.id, { memberId: m.userId })).status).toBe(201);
+
+    const url = `/api/v1/package-types/${pkgId}/classes`;
+    expect((await ctx.api.get(url)).status).toBe(401);
+    const res = await ctx.api.get(url).set(bearer(memberToken));
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((c: { name: string }) => c.name)).toEqual(['Alpha', 'Zeta']);
+    expect(res.body.data[0]).toMatchObject({ seatsLeft: null, capacity: null, coachName: null, branchName: expect.any(String), weekdays: [1, 3, 5], startTime: '06:30', durationMinutes: 60 });
+    expect(res.body.data[1]).toMatchObject({ seatsLeft: 1, capacity: 2, coachName: 'Coach', sessionTypeCode: 'GROUP' });
+
+    const list = await ctx.api.get(`/api/v1/admin/classes?packageTypeId=${pkgId}`).set(bearer(reception));
+    expect(list.body.data.map((c: { name: string }) => c.name).sort()).toEqual(['Alpha', 'Off', 'Zeta']);
+    expect((await ctx.api.get('/api/v1/admin/classes?packageTypeId=x').set(bearer(admin))).status).toBe(400);
+
+    // patch: move to no package, then back; bad id is rejected
+    const patched = await ctx.api.patch(`/api/v1/admin/classes/${plain.body.data.id}`).set(bearer(admin)).send({ packageTypeId: pkgId });
+    expect(patched.body.data.packageTypeId).toBe(pkgId);
+    const cleared = await ctx.api.patch(`/api/v1/admin/classes/${plain.body.data.id}`).set(bearer(admin)).send({ packageTypeId: null });
+    expect(cleared.body.data).toMatchObject({ packageTypeId: null, packageName: null });
+    const bad = await ctx.api.patch(`/api/v1/admin/classes/${plain.body.data.id}`).set(bearer(admin)).send({ packageTypeId: '0'.repeat(8) + '-0000-4000-8000-000000000000' });
+    expect(bad.body.error.code).toBe('PACKAGE_NOT_FOUND');
+
+    // retired package: empty list; unknown package: 404
+    await ownerQuery(`UPDATE package_types SET is_active = false WHERE id = $1`, [pkgId]);
+    expect((await ctx.api.get(url).set(bearer(memberToken))).body.data).toEqual([]);
+    await ownerQuery(`UPDATE package_types SET is_active = true WHERE id = $1`, [pkgId]);
+    expect((await ctx.api.get(`/api/v1/package-types/${'0'.repeat(8)}-0000-4000-8000-000000000000/classes`).set(bearer(memberToken))).status).toBe(404);
+    expect((await ctx.api.get('/api/v1/package-types/x/classes').set(bearer(memberToken))).status).toBe(400);
+  });
 });

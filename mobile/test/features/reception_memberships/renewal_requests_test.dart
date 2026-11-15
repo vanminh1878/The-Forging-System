@@ -7,7 +7,9 @@ import '../../helpers/test_harness.dart';
 import 'desk_harness.dart';
 
 Map<String, dynamic> renewalJson(String id, String name,
-        {String status = 'PENDING', String? reason}) =>
+        {String status = 'PENDING',
+        String? reason,
+        Map<String, dynamic>? cls}) =>
     <String, dynamic>{
       'id': id,
       'status': status,
@@ -25,6 +27,7 @@ Map<String, dynamic> renewalJson(String id, String name,
         'name': 'BOOK II',
         'priceVnd': 9800000
       },
+      'class': cls,
       'currentMembership': <String, dynamic>{
         'id': 'c1',
         'packageName': 'BOOK I',

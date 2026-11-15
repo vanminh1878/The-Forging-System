@@ -12,6 +12,8 @@ import 'package:hvp_forging/features/class_admin/domain/class_models.dart';
 import 'package:hvp_forging/features/class_admin/domain/class_repository.dart';
 import 'package:hvp_forging/features/class_admin/presentation/class_providers.dart';
 import 'package:hvp_forging/features/courses/domain/course.dart';
+import 'package:hvp_forging/features/membership/domain/membership_models.dart';
+import 'package:hvp_forging/features/package_admin/presentation/providers/package_admin_providers.dart';
 import 'package:hvp_forging/features/courses/presentation/course_providers.dart';
 
 import '../../helpers/scripted_adapter.dart';
@@ -63,9 +65,30 @@ List<Override> classOverrides(ClassRepository repo) => <Override>[
       currentUserIdProvider.overrideWithValue('admin'),
       classRepositoryProvider.overrideWithValue(repo),
       coursesProvider.overrideWith((ref) async => const <Course>[]),
+      adminPackagesProvider.overrideWith((ref) async => const <PackageType>[
+            PackageType(id: 'p1', name: 'BOOK I'),
+            PackageType(id: 'p2', name: 'BOOK II', isActive: false),
+          ]),
       branchesProvider.overrideWith((ref) async =>
           const <Branch>[Branch(id: 'b1', code: 'Q7', name: 'HVP Quận 7')]),
     ];
+
+/// [sampleClass] sold in the package `p1`.
+final packagedClass = ClassSummary(
+  id: sampleClass.id,
+  branchId: sampleClass.branchId,
+  name: sampleClass.name,
+  sessionTypeCode: sampleClass.sessionTypeCode,
+  defaultCoachId: sampleClass.defaultCoachId,
+  weekdays: sampleClass.weekdays,
+  startTime: sampleClass.startTime,
+  durationMinutes: sampleClass.durationMinutes,
+  capacity: sampleClass.capacity,
+  isActive: true,
+  enrolledCount: sampleClass.enrolledCount,
+  packageTypeId: 'p1',
+  packageName: 'BOOK I',
+);
 
 class FakeClassRepository implements ClassRepository {
   final queries = <ClassQuery>[];

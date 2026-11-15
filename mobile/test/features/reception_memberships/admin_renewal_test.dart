@@ -28,6 +28,7 @@ Map<String, Reply> _routes() {
     'GET /renewal-requests': (_) => okEnvelope(
         done ? <dynamic>[] : <dynamic>[renewalJson('r1', 'Nguyễn Văn A')],
         meta: pageMeta(1, done ? 0 : 1)),
+    'GET /package-types/p1/classes': (_) => okEnvelope(<dynamic>[]),
     'POST /renewal-requests/r1/approve': (_) {
       done = true;
       return okEnvelope(<String, dynamic>{'message': 'Đã duyệt gói BOOK II.'});
