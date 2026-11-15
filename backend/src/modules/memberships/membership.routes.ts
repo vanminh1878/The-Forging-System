@@ -15,6 +15,7 @@ const requestBody = z.object({
 });
 const activateBody = z.object({
   packageTypeId: z.string().uuid(),
+  classId: z.string().uuid().optional(),
   paymentEvidenceUrl: z.string().trim().max(1000).optional(),
   branchId: z.string().uuid().optional(),
   note: z.string().trim().max(500).optional(),
@@ -22,6 +23,7 @@ const activateBody = z.object({
 const approveBody = z.object({
   paymentEvidenceUrl: z.string().trim().max(1000).optional(),
   packageTypeId: z.string().uuid().optional(),
+  classId: z.string().uuid().optional(),
   note: z.string().trim().max(500).optional(),
 });
 const cancelBody = z.object({ reason: z.string().trim().max(500).optional() });

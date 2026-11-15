@@ -174,7 +174,7 @@ describe('package -> class flow (PKG-03..05)', () => {
           actorId: receptionId,
         }),
       );
-      expect(e2).toMatchObject({ startDate: '2026-12-02', endDate: '2027-01-01' });
+      expect(e2).toMatchObject({ startDate: '2026-10-26', endDate: '2027-01-01' });
       const rows = await enrollments(m.userId);
       expect(rows).toEqual([
         {
@@ -320,8 +320,7 @@ describe('package -> class flow (PKG-03..05)', () => {
 
       const tiny = await mkClass('Lớp một chỗ', 1);
       const holder = await registerMember(ctx.api);
-      const ms = (await activate(holder.userId, { packageTypeId: book1 })).body.data
-        .membership.id;
+      const ms = (await activate(holder.userId, { packageTypeId: book1 })).body.data.membership.id;
       await ctx.tx(() =>
         ctx.services.classes.enrollForMembership({
           classId: tiny,
@@ -382,6 +381,200 @@ describe('package -> class flow (PKG-03..05)', () => {
       const res = await request(m.token, { packageTypeId: book2 });
       expect(res.status).toBe(201);
       expect(res.body.data.class).toBeNull();
+    });
+  });
+  describe('activate / approve with a class (PKG-05)', () => {
+    const request = (token: string, body: object) =>
+      ctx.api.post('/api/v1/me/renewal-requests').set(bearer(token)).send(body);
+    const approve = (id: string, body: object = {}, token = reception) =>
+      ctx.api
+        .post(`/api/v1/renewal-requests/${id}/approve`)
+        .set(bearer(token))
+        .send({ paymentEvidenceUrl: EVIDENCE, ...body });
+    const membershipCount = async (memberId: string) =>
+      (await ownerQuery(`SELECT 1 FROM memberships WHERE member_id = $1`, [memberId])).length;
+    const requestStatus = async (id: string) =>
+      (await ownerQuery<{ status: string }>(`SELECT status FROM renewal_requests WHERE id = $1`, [id]))[0]
+        .status;
+
+    it('manual activation enrols the learner for the membership dates and the class shows on the schedule', async () => {
+      const m = await registerMember(ctx.api);
+      const res = await activate(m.userId, { packageTypeId: pkg, classId: classB });
+      expect(res.status).toBe(201);
+      expect(res.body.data.mode).toBe('ACTIVATED');
+      expect(res.body.data.membership).toMatchObject({ startDate: '2026-10-26', endDate: '2026-11-24' });
+      expect(res.body.data.enrollment).toEqual({
+        classId: classB,
+        className: 'Lớp B',
+        startDate: '2026-10-26',
+        endDate: '2026-11-24',
+      });
+      expect(await enrollments(m.userId)).toEqual([
+        {
+          class_id: classB,
+          status: 'ACTIVE',
+          start_date: '2026-10-26',
+          end_date: '2026-11-24',
+          membership_id: res.body.data.membership.id,
+        },
+      ]);
+      const schedule = await ctx.api
+        .get('/api/v1/me/schedule?view=month&date=2026-10-26')
+        .set(bearer(m.token));
+      const mine = schedule.body.data.filter((i: { title: string }) => i.title === 'Lớp B');
+      expect(mine.length).toBeGreaterThanOrEqual(3);
+      expect(mine[0]).toMatchObject({ sessionType: 'GROUP', status: 'UPCOMING' });
+      const audit = await ownerQuery(
+        `SELECT 1 FROM audit_logs WHERE action = 'ROSTER_UPDATED' AND reason = 'PACKAGE' AND actor_id = $1`,
+        [receptionId],
+      );
+      expect(audit.length).toBeGreaterThan(0);
+    });
+
+    it('manual activation validates the class and creates nothing on error', async () => {
+      const m = await registerMember(ctx.api);
+      const other = await mkClass('Lớp khác gói', null, null);
+      const book2 = (
+        await ownerQuery<{ id: string }>(`SELECT id FROM package_types WHERE code = 'BOOK_2'`)
+      )[0].id;
+      expect((await activate(m.userId, { packageTypeId: pkg, classId: 'nope' })).status).toBe(400);
+      const none = await activate(m.userId, { packageTypeId: pkg });
+      expect([none.status, none.body.error.code]).toEqual([400, 'CLASS_REQUIRED']);
+      const wrong = await activate(m.userId, { packageTypeId: pkg, classId: other });
+      expect([wrong.status, wrong.body.error.code]).toEqual([422, 'CLASS_NOT_IN_PACKAGE']);
+      const extra = await activate(m.userId, { packageTypeId: book2, classId: classB });
+      expect([extra.status, extra.body.error.code]).toEqual([422, 'CLASS_NOT_IN_PACKAGE']);
+      expect((await activate(m.userId, { packageTypeId: pkg, classId: ZERO })).status).toBe(404);
+      expect(await membershipCount(m.userId)).toBe(0);
+      // a package without classes still activates without one
+      const plain = await activate(m.userId, { packageTypeId: book2 });
+      expect(plain.status).toBe(201);
+      expect(plain.body.data.enrollment).toBeNull();
+    });
+
+    it('approve uses the request class: enrolment from today for an ACTIVE package', async () => {
+      const m = await registerMember(ctx.api);
+      const rr = (await request(m.token, { packageTypeId: pkg, classId: classB })).body.data.id;
+      const res = await approve(rr);
+      expect(res.status).toBe(200);
+      expect(res.body.data.enrollment).toMatchObject({
+        classId: classB,
+        startDate: '2026-10-26',
+        endDate: '2026-11-24',
+      });
+      expect(await requestStatus(rr)).toBe('COMPLETED');
+      expect((await enrollments(m.userId))[0]).toMatchObject({
+        class_id: classB,
+        membership_id: res.body.data.membership.id,
+      });
+    });
+
+    it('approve for a SCHEDULED package starts the enrolment on the follow-on date', async () => {
+      const m = await registerMember(ctx.api);
+      expect((await activate(m.userId, { packageTypeId: book1 })).status).toBe(201); // 2026-10-26 .. 2027-01-17
+      const rr = (await request(m.token, { packageTypeId: pkg, classId: classB })).body.data.id;
+      const res = await approve(rr);
+      expect(res.body.data.mode).toBe('SCHEDULED');
+      expect(res.body.data.membership.startDate).toBe('2027-01-18');
+      expect(res.body.data.enrollment).toEqual({
+        classId: classB,
+        className: 'Lớp B',
+        startDate: '2027-01-18',
+        endDate: '2027-02-16',
+      });
+      const rows = await enrollments(m.userId);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({ start_date: '2027-01-18', end_date: '2027-02-16' });
+      const week = await ctx.api.get('/api/v1/me/schedule?date=2026-10-26').set(bearer(m.token));
+      expect(week.body.data.filter((i: { title: string }) => i.title === 'Lớp B')).toHaveLength(0);
+    });
+
+    it('renewing the same class extends the enrolment instead of adding a row', async () => {
+      const m = await registerMember(ctx.api);
+      const first = await activate(m.userId, { packageTypeId: pkg, classId: classB });
+      const rr = (await request(m.token, { packageTypeId: pkg, classId: classB })).body.data.id;
+      const res = await approve(rr);
+      expect(res.body.data.mode).toBe('SCHEDULED');
+      expect(res.body.data.enrollment).toMatchObject({ startDate: '2026-10-26', endDate: '2026-12-24' });
+      expect(await enrollments(m.userId)).toEqual([
+        {
+          class_id: classB,
+          status: 'ACTIVE',
+          start_date: '2026-10-26',
+          end_date: '2026-12-24',
+          membership_id: res.body.data.membership.id,
+        },
+      ]);
+      expect(first.body.data.membership.id).not.toBe(res.body.data.membership.id);
+    });
+
+    it('a classId in the approve body overrides the class of the request', async () => {
+      const m = await registerMember(ctx.api);
+      const classC = await mkClass('Lớp C', 5);
+      const rr = (await request(m.token, { packageTypeId: pkg, classId: classB })).body.data.id;
+      const res = await approve(rr, { classId: classC });
+      expect(res.status).toBe(200);
+      expect((await enrollments(m.userId)).map((e) => e.class_id)).toEqual([classC]);
+    });
+
+    it('a full class at approve time answers 409 and leaves the request PENDING with no membership', async () => {
+      const m = await registerMember(ctx.api);
+      const tiny = await mkClass('Lớp một chỗ 2', 1);
+      const rr = (await request(m.token, { packageTypeId: pkg, classId: tiny })).body.data.id;
+      const rival = await registerMember(ctx.api);
+      expect((await activate(rival.userId, { packageTypeId: pkg, classId: tiny })).status).toBe(201);
+      const res = await approve(rr);
+      expect([res.status, res.body.error.code]).toEqual([409, 'CLASS_FULL']);
+      expect(await requestStatus(rr)).toBe('PENDING');
+      expect(await membershipCount(m.userId)).toBe(0);
+      expect(await enrollments(m.userId)).toHaveLength(0);
+      // after the rival leaves, the same request can be approved
+      await ctx.api
+        .delete(`/api/v1/admin/classes/${tiny}/enrollments/${rival.userId}`)
+        .set(bearer(reception));
+      expect((await approve(rr)).status).toBe(200);
+    });
+
+    it('switching the package at approve needs a class of the new package', async () => {
+      const m = await registerMember(ctx.api);
+      const book2 = (
+        await ownerQuery<{ id: string }>(`SELECT id FROM package_types WHERE code = 'BOOK_2'`)
+      )[0].id;
+      const rr = (await request(m.token, { packageTypeId: book2 })).body.data.id;
+      const none = await approve(rr, { packageTypeId: pkg });
+      expect([none.status, none.body.error.code]).toEqual([400, 'CLASS_REQUIRED']);
+      const other = await mkClass('Lớp khác gói 2', null, null);
+      const wrong = await approve(rr, { packageTypeId: pkg, classId: other });
+      expect([wrong.status, wrong.body.error.code]).toEqual([422, 'CLASS_NOT_IN_PACKAGE']);
+      expect(await requestStatus(rr)).toBe('PENDING');
+      expect(await membershipCount(m.userId)).toBe(0);
+      const ok = await approve(rr, { packageTypeId: pkg, classId: classB });
+      expect(ok.status).toBe(200);
+      expect(ok.body.data.enrollment.classId).toBe(classB);
+    });
+
+    it('switching to a package without classes drops the request class', async () => {
+      const m = await registerMember(ctx.api);
+      const book2 = (
+        await ownerQuery<{ id: string }>(`SELECT id FROM package_types WHERE code = 'BOOK_2'`)
+      )[0].id;
+      const rr = (await request(m.token, { packageTypeId: pkg, classId: classB })).body.data.id;
+      const res = await approve(rr, { packageTypeId: book2 });
+      expect(res.status).toBe(200);
+      expect(res.body.data.enrollment).toBeNull();
+      expect(await enrollments(m.userId)).toHaveLength(0);
+    });
+
+    it('cancelling the membership cancels the enrolment made by the approval', async () => {
+      const m = await registerMember(ctx.api);
+      const rr = (await request(m.token, { packageTypeId: pkg, classId: classB })).body.data.id;
+      const ms = (await approve(rr)).body.data.membership.id;
+      expect((await cancelMs(ms)).status).toBe(200);
+      expect((await enrollments(m.userId))[0]).toMatchObject({ status: 'CANCELLED' });
+      const schedule = await ctx.api
+        .get('/api/v1/me/schedule?view=month&date=2026-10-26')
+        .set(bearer(m.token));
+      expect(schedule.body.data.filter((i: { title: string }) => i.title === 'Lớp B')).toHaveLength(0);
     });
   });
 });

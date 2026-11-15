@@ -118,9 +118,9 @@ export class ClassRepository {
   }
 
   /** The member's ACTIVE enrolment in the class, if any. */
-  findActiveEnrollment(classId: string, memberId: string): Promise<{ id: string; endDate: string | null } | null> {
+  findActiveEnrollment(classId: string, memberId: string): Promise<{ id: string; startDate: string; endDate: string | null } | null> {
     return sql.one(
-      `SELECT id, end_date::text AS end_date FROM class_enrollments WHERE class_id = $1 AND member_id = $2 AND status = 'ACTIVE' FOR UPDATE`,
+      `SELECT id, start_date::text AS start_date, end_date::text AS end_date FROM class_enrollments WHERE class_id = $1 AND member_id = $2 AND status = 'ACTIVE' FOR UPDATE`,
       [classId, memberId],
     );
   }

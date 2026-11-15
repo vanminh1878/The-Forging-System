@@ -4,7 +4,7 @@ import { clock } from '../../common/utils/clock';
 import { addDays, localDate } from '../../common/utils/time';
 import { env } from '../../config/env';
 import type { MembershipEvent } from '../../shared/events';
-import type { ClassPort, MembershipPort, UsableMembership } from '../../shared/ports';
+import type { ClassPort, MembershipPort, PackageEnrollment, UsableMembership } from '../../shared/ports';
 import { RoleGroup } from '../../shared/roles';
 import type { AuditService } from '../audit/audit.service';
 import { NotificationEvent } from '../notifications/notification.events';
@@ -166,7 +166,7 @@ export class MembershipService implements MembershipPort {
     memberId: string,
     by: string,
     actorRoles: readonly string[],
-    input: { packageTypeId: string; paymentEvidenceUrl?: string; branchId?: string; note?: string },
+    input: { packageTypeId: string; classId?: string; paymentEvidenceUrl?: string; branchId?: string; note?: string },
   ) {
     return this.activatePackage({ memberId, by, actorRoles, ...input });
   }
@@ -176,7 +176,7 @@ export class MembershipService implements MembershipPort {
     id: string,
     by: string,
     actorRoles: readonly string[],
-    input: { paymentEvidenceUrl?: string; packageTypeId?: string; note?: string },
+    input: { paymentEvidenceUrl?: string; packageTypeId?: string; classId?: string; note?: string },
   ) {
     const evidence = checkEvidence(input.paymentEvidenceUrl);
     const rr = await this.repo.lockRenewal(id);
@@ -185,12 +185,15 @@ export class MembershipService implements MembershipPort {
       throw conflict('Yêu cầu này đã được xử lý.', 'RENEWAL_ALREADY_HANDLED');
     const packageTypeId = input.packageTypeId ?? rr.desiredPackageTypeId;
     if (!packageTypeId) throw badRequest('Vui lòng chọn gói tập.', undefined, 'PACKAGE_REQUIRED');
+    // The learner's class is only a default for the package they asked for; the body may override either.
+    const classId = input.classId ?? (packageTypeId === rr.desiredPackageTypeId ? rr.classId ?? undefined : undefined);
 
     const result = await this.activatePackage({
       memberId: rr.memberId,
       by,
       actorRoles,
       packageTypeId,
+      classId,
       paymentEvidenceUrl: evidence,
       note: input.note,
     });
@@ -220,6 +223,7 @@ export class MembershipService implements MembershipPort {
     by: string;
     actorRoles: readonly string[];
     packageTypeId: string;
+    classId?: string;
     paymentEvidenceUrl?: string;
     branchId?: string;
     note?: string;
@@ -231,6 +235,7 @@ export class MembershipService implements MembershipPort {
     if (!pkg) throw notFound('Gói tập');
     if (!pkg.isActive) throw unprocessable('Gói tập này đã ngừng bán.', 'PACKAGE_INACTIVE');
     if (input.branchId && !(await this.repo.branchExists(input.branchId))) throw notFound('Chi nhánh');
+    const classId = await this.resolveClass(pkg.id, input.classId, input.memberId);
     if (await this.repo.findByStatus(input.memberId, 'SCHEDULED'))
       throw conflict(
         'Học viên đã có gói nối tiếp đang chờ kích hoạt.',
@@ -295,6 +300,18 @@ export class MembershipService implements MembershipPort {
       note: input.note?.trim() || null,
     });
     const membership = (await this.repo.findMembership(id))!;
+    // Same transaction as the package: a class error rolls the membership back too.
+    const enrollment: PackageEnrollment | null = classId
+      ? await this.classes.enrollForMembership({
+          classId,
+          memberId: input.memberId,
+          membershipId: id,
+          startDate,
+          endDate,
+          actorId: input.by,
+        })
+      : null;
+
     // MEM-05: early renewal earns Marks once per new package (the key is the new membership id).
     let bonusMarks = 0;
     if (mode === 'SCHEDULED') {
@@ -339,7 +356,7 @@ export class MembershipService implements MembershipPort {
       memberId: input.memberId,
       packageTypeId: pkg.id,
     } satisfies MembershipEvent);
-    return { membership: toMembershipView(membership, true), mode, reactivated, bonusMarks, message };
+    return { membership: toMembershipView(membership, true), enrollment, mode, reactivated, bonusMarks, message };
   }
 
   /**

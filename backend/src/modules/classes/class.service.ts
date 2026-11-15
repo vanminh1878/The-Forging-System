@@ -264,13 +264,15 @@ export class ClassService implements ClassPort {
     if (member.status === 'INACTIVE' || member.merged) {
       throw unprocessable('Tài khoản học viên không còn hoạt động', 'MEMBER_INACTIVE');
     }
-    const { startDate, endDate } = input;
+    const { endDate } = input;
+    let startDate = input.startDate;
     const existing = await this.repo.findActiveEnrollment(input.classId, input.memberId);
     let enrollmentId: string;
     let resultEnd = endDate;
     if (existing) {
       // Same class again: no new seat is needed; open-ended on either side stays open-ended.
       enrollmentId = existing.id;
+      startDate = existing.startDate; // the enrolment keeps its original start
       resultEnd = existing.endDate === null || endDate === null ? null : existing.endDate > endDate ? existing.endDate : endDate;
       await this.repo.extendEnrollment(existing.id, resultEnd, input.membershipId);
     } else {

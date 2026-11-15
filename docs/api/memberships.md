@@ -318,7 +318,7 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
 
 `mode`: `ACTIVATED` (gói mới ACTIVE từ hôm nay) hoặc `SCHEDULED` (xếp nối tiếp).
 `bonusMarks`: số Marks thưởng gia hạn sớm (MEM-05); `0` khi không thưởng.
-`enrollment`: ghi danh lớp do gói tạo / kéo dài; `null` khi gói không có lớp.
+`enrollment`: ghi danh lớp do gói tạo / kéo dài; `null` khi gói không có lớp. Gia hạn cùng lớp: `startDate` là ngày bắt đầu thật của ghi danh cũ, `endDate` là ngày kết thúc mới.
 
 ### Lỗi
 
