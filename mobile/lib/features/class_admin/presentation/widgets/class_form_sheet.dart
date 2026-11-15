@@ -9,6 +9,8 @@ import '../../../../core/widgets/hvp_text_field.dart';
 import '../../../../core/widgets/hvp_toast.dart';
 import '../../../../core/widgets/inline_banner.dart';
 import '../../../courses/presentation/course_providers.dart';
+import '../../../membership/domain/membership_models.dart';
+import '../../../package_admin/presentation/providers/package_admin_providers.dart';
 import '../../domain/class_models.dart';
 import '../../domain/class_rules.dart';
 import '../../domain/session_types.dart';
@@ -43,6 +45,7 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
       widget.existing?.sessionTypeCode ?? sessionTypes.first.code;
   late String? _courseId = widget.existing?.courseId;
   late String? _coachId = widget.existing?.defaultCoachId;
+  late String? _packageId = widget.existing?.packageTypeId;
   late final Set<int> _weekdays = <int>{...?widget.existing?.weekdays};
   late bool _active = widget.existing?.isActive ?? true;
   bool _submitted = false;
@@ -80,6 +83,7 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
       sessionTypeCode: _type,
       courseId: _courseId,
       defaultCoachId: _coachId,
+      packageTypeId: _packageId,
       weekdays: _weekdays.toList()..sort(),
       startTime: _time.text.trim(),
       durationMinutes: int.parse(_duration.text.trim()),
@@ -117,6 +121,8 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
     final coaches =
         ref.watch(classCoachesProvider).valueOrNull ?? const <ClassCoach>[];
     final courses = ref.watch(coursesProvider).valueOrNull ?? const [];
+    final packages =
+        ref.watch(adminPackagesProvider).valueOrNull ?? const <PackageType>[];
     const gap = SizedBox(height: 14);
     return Material(
         type: MaterialType.transparency,
@@ -156,6 +162,21 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
                             value: c.id, child: Text(c.name)),
                     ],
                     onChanged: (v) => setState(() => _courseId = v),
+                  ),
+                  gap,
+                  DropdownButtonFormField<String?>(
+                    initialValue: packages.any((p) => p.id == _packageId)
+                        ? _packageId
+                        : null,
+                    decoration: const InputDecoration(labelText: 'GÓI TẬP'),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('Không thuộc gói')),
+                      for (final p in packages)
+                        DropdownMenuItem<String?>(
+                            value: p.id, child: Text(p.name)),
+                    ],
+                    onChanged: (v) => setState(() => _packageId = v),
                   ),
                   gap,
                   DropdownButtonFormField<String?>(
