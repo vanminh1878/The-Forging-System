@@ -169,12 +169,12 @@ Ghi danh học viên vào lớp. Quyền: **FD** (lễ tân + admin). Trả 201.
 | 422  | `CLASS_INACTIVE`       | Lớp học đã ngừng hoạt động             |
 
 - `MEMBER_INACTIVE`: học viên `INACTIVE` hoặc tài khoản đã bị gộp (trùng). Học viên `FROZEN` vẫn ghi danh được.
-- `CLASS_FULL` chỉ áp dụng khi lớp có `capacity`; đếm các enrollment `ACTIVE`.
+- `CLASS_FULL` chỉ áp dụng khi lớp có `capacity`; đếm các enrollment `ACTIVE` còn hạn (`endDate` null hoặc ≥ hôm nay).
 - Học viên đã rời lớp (ENDED) có thể ghi danh lại.
 - Ghi audit `ROSTER_UPDATED`.
 
 - Ghi danh tay vẫn dùng được cho mọi lớp (kể cả lớp thuộc gói). Ghi danh theo gói thì đi qua duyệt yêu cầu / kích hoạt gói (memberships MEM-04) để có `membershipId` và ngày theo gói.
-- Huỷ gói → ghi danh có `membershipId` của gói đó chuyển `CANCELLED`.
+- Huỷ gói → ghi danh có `membershipId` của gói đó chuyển `CANCELLED`. Ghi danh bắt đầu trước ngày bắt đầu của gói bị huỷ (gia hạn cùng lớp) chỉ bị cắt `endDate`, xem memberships MEM-06.
 
 ## GET `/package-types/:id/classes`
 
@@ -194,13 +194,15 @@ Lớp đang hoạt động của một gói, cho bước "chọn lớp" của h�
       "startTime": "18:30",
       "durationMinutes": 60,
       "capacity": 20,
-      "seatsLeft": 3
+      "seatsLeft": 3,
+      "enrolled": false
     }
   ]
 }
 ```
 
-- `seatsLeft = capacity - số ghi danh ACTIVE` (tối thiểu 0); `null` khi lớp không giới hạn sĩ số. `coachName` null khi chưa có HLV.
+- `seatsLeft = capacity - số ghi danh ACTIVE còn hạn` (tối thiểu 0); `null` khi lớp không giới hạn sĩ số. `coachName` null khi chưa có HLV.
+- `enrolled`: học viên đang hỏi đã có chỗ trong lớp (ghi danh ACTIVE còn hạn) → lớp đầy (`seatsLeft = 0`) vẫn chọn được để gia hạn cùng lớp. Học viên luôn được tính là chính mình; staff truyền `?memberId=<uuid>` (không truyền → `false`).
 - Sắp xếp theo chi nhánh, rồi tên lớp. Gói ngừng bán hoặc không có lớp: `data = []`.
 - Lỗi: 401 `UNAUTHORIZED`, 404 `NOT_FOUND` (không có gói).
 

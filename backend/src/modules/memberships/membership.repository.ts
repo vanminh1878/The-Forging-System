@@ -12,6 +12,22 @@ export interface PackageTypeRow {
   priceVnd: string | null;
   description: string | null;
   isActive: boolean;
+  sortOrder: number;
+  /** Active classes of the package; 0 = no class to choose. */
+  classCount: number;
+}
+
+export interface PackageTypeInput {
+  code: string;
+  name: string;
+  durationDays: number | null;
+  totalSessions: number | null;
+  sessionsPerWeek: number | null;
+  isTrial: boolean;
+  priceVnd: number | null;
+  description: string | null;
+  isActive: boolean;
+  sortOrder: number;
 }
 
 export interface MembershipRow {
@@ -42,6 +58,11 @@ export interface PendingRenewalRow {
   desiredPackageTypeId: string | null;
   desiredPackageName: string | null;
   desiredPriceVnd: string | null;
+  classId: string | null;
+  className: string | null;
+  classBranchName: string | null;
+  classWeekdays: number[] | null;
+  classStartTime: string | null;
   note: string | null;
   createdAt: Date;
 }
@@ -63,6 +84,11 @@ export interface RenewalRow {
   currentMembershipId: string | null;
   currentPackageName: string | null;
   currentEndDate: string | null;
+  classId: string | null;
+  className: string | null;
+  classBranchName: string | null;
+  classWeekdays: number[] | null;
+  classStartTime: string | null;
 }
 
 export interface RenewalFilter {
@@ -76,7 +102,9 @@ const RENEWAL_SELECT = `
   SELECT rr.id, rr.status, rr.note, rr.reason, rr.created_at, rr.handled_at, rr.member_id,
          u.full_name AS member_name, u.phone AS member_phone, m.member_code,
          rr.desired_package_type_id, dpt.name AS desired_package_name, dpt.price_vnd AS desired_price_vnd,
-         rr.current_membership_id, cpt.name AS current_package_name, to_char(cms.end_date, 'YYYY-MM-DD') AS current_end_date`;
+         rr.current_membership_id, cpt.name AS current_package_name, to_char(cms.end_date, 'YYYY-MM-DD') AS current_end_date,
+         rr.class_id, cl.name AS class_name, cb.name AS class_branch_name, cl.weekdays::int[] AS class_weekdays,
+         to_char(cl.start_time, 'HH24:MI') AS class_start_time`;
 
 const RENEWAL_FROM = `
     FROM renewal_requests rr
@@ -85,11 +113,18 @@ const RENEWAL_FROM = `
     LEFT JOIN package_types dpt ON dpt.id = rr.desired_package_type_id
     LEFT JOIN memberships cms ON cms.id = rr.current_membership_id
     LEFT JOIN package_types cpt ON cpt.id = cms.package_type_id
+    LEFT JOIN classes cl ON cl.id = rr.class_id
+    LEFT JOIN branches cb ON cb.id = cl.branch_id
    WHERE ($1::uuid IS NULL OR rr.member_id = $1)
      AND ($2::text IS NULL OR rr.status = $2)
      AND ($4::uuid IS NULL OR rr.id = $4)
      AND ($3::text IS NULL OR u.full_name ILIKE '%' || $3 || '%' OR u.phone ILIKE '%' || $3 || '%'
           OR m.member_code ILIKE '%' || $3 || '%')`;
+
+const PACKAGE_SELECT = `
+  SELECT id, code, name, duration_days, total_sessions, sessions_per_week, is_trial, price_vnd, description, is_active,
+         sort_order, (SELECT count(*)::int FROM classes c WHERE c.package_type_id = package_types.id AND c.is_active) AS class_count
+    FROM package_types`;
 
 const MEMBERSHIP_SELECT = `
   SELECT ms.id, ms.package_type_id, pt.code AS package_code, pt.name AS package_name, pt.is_trial, ms.status,
@@ -102,11 +137,39 @@ const MEMBERSHIP_SELECT = `
 export class MembershipRepository {
   listPackageTypes(includeInactive: boolean): Promise<PackageTypeRow[]> {
     return sql.many<PackageTypeRow>(
-      `SELECT id, code, name, duration_days, total_sessions, sessions_per_week, is_trial, price_vnd, description, is_active
-         FROM package_types
-        WHERE ($1::boolean OR is_active)
-        ORDER BY sort_order, name`,
+      `${PACKAGE_SELECT} WHERE ($1::boolean OR is_active) ORDER BY sort_order, name`,
       [includeInactive],
+    );
+  }
+
+  getPackageType(id: string): Promise<PackageTypeRow | null> {
+    return sql.one<PackageTypeRow>(`${PACKAGE_SELECT} WHERE id = $1`, [id]);
+  }
+
+  /** Null when the code is already taken in the tenant. */
+  async insertPackageType(i: PackageTypeInput): Promise<string | null> {
+    return sql.scalar<string>(
+      `INSERT INTO package_types (tenant_id, code, name, duration_days, total_sessions, sessions_per_week, is_trial,
+                                  price_vnd, description, is_active, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       ON CONFLICT (tenant_id, code) DO NOTHING
+       RETURNING id`,
+      [db.currentTenantId(), i.code, i.name, i.durationDays, i.totalSessions, i.sessionsPerWeek, i.isTrial,
+       i.priceVnd, i.description, i.isActive, i.sortOrder],
+    );
+  }
+
+  async packageCodeTaken(code: string, exceptId: string): Promise<boolean> {
+    return (await sql.scalar(`SELECT 1 FROM package_types WHERE code = $1 AND id <> $2`, [code, exceptId])) !== null;
+  }
+
+  async updatePackageType(id: string, i: PackageTypeInput): Promise<void> {
+    await sql.exec(
+      `UPDATE package_types SET code = $2, name = $3, duration_days = $4, total_sessions = $5, sessions_per_week = $6,
+              is_trial = $7, price_vnd = $8, description = $9, is_active = $10, sort_order = $11, updated_at = now()
+        WHERE id = $1`,
+      [id, i.code, i.name, i.durationDays, i.totalSessions, i.sessionsPerWeek, i.isTrial, i.priceVnd, i.description,
+       i.isActive, i.sortOrder],
     );
   }
 
@@ -139,9 +202,12 @@ export class MembershipRepository {
   findPendingRenewal(memberId: string): Promise<PendingRenewalRow | null> {
     return sql.one<PendingRenewalRow>(
       `SELECT rr.id, rr.desired_package_type_id, pt.name AS desired_package_name, pt.price_vnd AS desired_price_vnd,
-              rr.note, rr.created_at
+              rr.class_id, cl.name AS class_name, cb.name AS class_branch_name, cl.weekdays::int[] AS class_weekdays,
+              to_char(cl.start_time, 'HH24:MI') AS class_start_time, rr.note, rr.created_at
          FROM renewal_requests rr
          LEFT JOIN package_types pt ON pt.id = rr.desired_package_type_id
+         LEFT JOIN classes cl ON cl.id = rr.class_id
+         LEFT JOIN branches cb ON cb.id = cl.branch_id
         WHERE rr.member_id = $1 AND rr.status = 'PENDING'`,
       [memberId],
     );
@@ -157,14 +223,15 @@ export class MembershipRepository {
     memberId: string;
     currentMembershipId: string | null;
     packageTypeId: string;
+    classId: string | null;
     note: string | null;
   }): Promise<string | null> {
     const row = await sql.one<{ id: string }>(
-      `INSERT INTO renewal_requests (tenant_id, member_id, current_membership_id, desired_package_type_id, note)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO renewal_requests (tenant_id, member_id, current_membership_id, desired_package_type_id, class_id, note)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (member_id) WHERE status = 'PENDING' DO NOTHING
        RETURNING id`,
-      [db.currentTenantId(), input.memberId, input.currentMembershipId, input.packageTypeId, input.note],
+      [db.currentTenantId(), input.memberId, input.currentMembershipId, input.packageTypeId, input.classId, input.note],
     );
     return row?.id ?? null;
   }
@@ -265,9 +332,11 @@ export class MembershipRepository {
   }
 
   /** Locks a renewal request so two receptionists cannot approve it at once. */
-  lockRenewal(id: string): Promise<{ memberId: string; status: string; desiredPackageTypeId: string | null } | null> {
+  lockRenewal(
+    id: string,
+  ): Promise<{ memberId: string; status: string; desiredPackageTypeId: string | null; classId: string | null } | null> {
     return sql.one(
-      `SELECT member_id, status, desired_package_type_id FROM renewal_requests WHERE id = $1 FOR UPDATE`,
+      `SELECT member_id, status, desired_package_type_id, class_id FROM renewal_requests WHERE id = $1 FOR UPDATE`,
       [id],
     );
   }

@@ -18,8 +18,9 @@ Ghi danh do gói tạo ra (`class_enrollments`):
 - `startDate` / `endDate` = ngày bắt đầu / kết thúc của gói mới, `membershipId` = gói mới (gói SCHEDULED thì lớp cũng bắt đầu từ ngày gói nối tiếp có hiệu lực).
 - Học viên đang có ghi danh ACTIVE ở **đúng lớp đó** (gia hạn cùng lớp): không tạo dòng mới, kéo dài `endDate` theo gói mới và gán `membershipId` = gói mới.
 - Gia hạn sang lớp khác: ghi danh cũ giữ `endDate` cũ (hết theo gói cũ), ghi danh mới bắt đầu từ ngày gói mới.
-- Huỷ gói (MEM-06) → các ghi danh có `membershipId` = gói đó chuyển `CANCELLED`.
-- Sĩ số (`CLASS_FULL`) kiểm tra cả lúc học viên gửi yêu cầu và lúc lễ tân duyệt, đếm ghi danh `ACTIVE` như CLS-01.
+- Quay lại đúng lớp cũ sau một khoảng không có gói (ghi danh cũ kết thúc trước ngày gói mới bắt đầu hơn 1 ngày): ghi danh cũ chuyển `ENDED`, tạo ghi danh mới từ ngày gói mới — không kéo dài qua khoảng trống.
+- Huỷ gói (MEM-06) → các ghi danh có `membershipId` = gói đó chuyển `CANCELLED`. (Ghi danh được kéo dài từ kỳ trước chỉ bị cắt về hết kỳ trước, xem MEM-06.)
+- Sĩ số (`CLASS_FULL`) kiểm tra cả lúc học viên gửi yêu cầu và lúc lễ tân duyệt, đếm ghi danh `ACTIVE` còn hạn (`endDate` null hoặc ≥ hôm nay) — gói đã hết hạn không giữ chỗ.
 
 ## MEM-01 — Danh sách loại gói
 
@@ -154,7 +155,7 @@ Hai endpoint trả cùng một payload. `:memberId` là UUID của học viên (
 | `memberStatus` | `ACTIVE` / `FROZEN` / `INACTIVE` (trạng thái tài khoản). |
 | `current` | Gói đang `ACTIVE`, hoặc `null`. `totalSessions`, `sessionsRemaining` = `null` nếu không giới hạn buổi; `endDate`, `daysRemaining` = `null` nếu không giới hạn ngày. `daysRemaining = 0` là ngày cuối cùng. |
 | `scheduled` | Gói `SCHEDULED` nối tiếp (tối đa 1), cùng cấu trúc như `current` nhưng không có trường tính toán; hoặc `null`. |
-| `pendingRenewal` | Yêu cầu gia hạn đang `PENDING`: `{id, packageTypeId, packageName, priceVnd, note, createdAt}`, hoặc `null`. |
+| `pendingRenewal` | Yêu cầu gia hạn đang `PENDING`: `{id, packageTypeId, packageName, priceVnd, class, note, createdAt}`, hoặc `null`. `class` cùng dạng với `renewalRequest.class` (MEM-03), `null` khi gói không có lớp. |
 | `renewNotice` | `NO_PACKAGE` / `ENDED` / `ENDING_SOON` / `OK` (xem bên dưới). |
 | `canRenewEarly` | `true` khi gói hiện tại còn hiệu lực và chưa có gói `SCHEDULED`. |
 
@@ -318,7 +319,7 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
 
 `mode`: `ACTIVATED` (gói mới ACTIVE từ hôm nay) hoặc `SCHEDULED` (xếp nối tiếp).
 `bonusMarks`: số Marks thưởng gia hạn sớm (MEM-05); `0` khi không thưởng.
-`enrollment`: ghi danh lớp do gói tạo / kéo dài; `null` khi gói không có lớp.
+`enrollment`: ghi danh lớp do gói tạo / kéo dài; `null` khi gói không có lớp. Gia hạn cùng lớp: `startDate` là ngày bắt đầu thật của ghi danh cũ, `endDate` là ngày kết thúc mới.
 
 ### Lỗi
 
@@ -402,7 +403,7 @@ Huỷ gói `SCHEDULED` (lễ tân được) hoặc `ACTIVE` (chỉ Admin). Trả
 - Huỷ gói `ACTIVE` xong học viên (đang `ACTIVE`) chuyển `FROZEN` (lý do "Huỷ gói tập: ..."). Huỷ gói `SCHEDULED` không đổi trạng thái học viên.
 - Nếu gói có thưởng gia hạn sớm (MEM-05), thưởng được đảo bằng giao dịch `REVERSAL`. Nếu Marks đã tiêu (số dư sẽ âm) thì cả thao tác bị từ chối (422), không thay đổi gì. Gia hạn lại sau đó sẽ nhận thưởng lại.
 - Học viên nhận thông báo `MEMBERSHIP_STATUS` ("GÓI TẬP ĐÃ BỊ HUỶ"). Audit `MEMBERSHIP_CANCELLED`.
-- Ghi danh lớp gắn với gói bị huỷ (`membershipId`) chuyển `CANCELLED` trong cùng giao dịch (module classes nghe `MEMBERSHIP_CANCELLED`).
+- Ghi danh lớp gắn với gói bị huỷ (`membershipId`) chuyển `CANCELLED` trong cùng giao dịch (module classes nghe `MEMBERSHIP_CANCELLED`). Ngoại lệ: ghi danh bắt đầu **trước** ngày bắt đầu của gói bị huỷ (do gia hạn cùng lớp kéo dài) không bị huỷ mà chỉ cắt `endDate` về ngày trước khi gói đó bắt đầu và bỏ `membershipId`, để học viên không mất lớp của kỳ đang học khi lễ tân huỷ gói nối tiếp.
 
 ### Ghi chú FE
 
@@ -428,4 +429,4 @@ Sự kiện phát đồng bộ trong transaction, payload `MembershipEvent { mem
 
 Consumer: module `classes` nghe `MEMBERSHIP_CANCELLED` để huỷ ghi danh lớp gắn với gói.
 
-`ClassPort` (`shared/ports.ts`, `ClassService` cài) cho memberships dùng: `hasActiveClasses(packageTypeId)`, `checkEnrollable(classId, packageTypeId)`, `enrollForMembership({ classId, memberId, membershipId, startDate, endDate, actorId })`.
+`ClassPort` (`shared/ports.ts`, `ClassService` cài) cho memberships dùng: `hasActiveClasses(packageTypeId)`, `checkEnrollable(classId, packageTypeId, memberId?)` (có `memberId` và học viên đã ghi danh ACTIVE lớp đó thì không cần chỗ trống: gia hạn cùng lớp), `enrollForMembership({ classId, memberId, membershipId, startDate, endDate, actorId })`.

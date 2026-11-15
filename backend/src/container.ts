@@ -35,6 +35,7 @@ import { PointsRepository } from './modules/points/points.repository';
 import { pointsRoutes } from './modules/points/points.routes';
 import { PointsService } from './modules/points/points.service';
 import type { PointsAwardedEvent } from './modules/points/points.service';
+import type { MembershipEvent } from './shared/events';
 import { RankRepository } from './modules/ranks/rank.repository';
 import { rankRoutes } from './modules/ranks/rank.routes';
 import { RankService } from './modules/ranks/rank.service';
@@ -181,6 +182,8 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   services.branches = branches;
   const classes = new ClassService(new ClassRepository(), audit, settings, notifications);
   services.classes = classes;
+  // A cancelled package takes its class enrolments with it (same transaction).
+  eventBus.on<MembershipEvent>(DomainEvents.MEMBERSHIP_CANCELLED, (e) => classes.onMembershipCancelled(e));
   const memberships = new MembershipService(
     new MembershipRepository(),
     settings,
@@ -188,6 +191,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     audit,
     services.members,
     points,
+    classes,
   );
   services.memberships = memberships;
   registerJob({

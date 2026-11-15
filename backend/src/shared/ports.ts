@@ -32,3 +32,35 @@ export interface MembershipPort {
    */
   consumeSession(membershipId: string): Promise<void>;
 }
+
+/** What `enrollForMembership` leaves behind, echoed to the receptionist. */
+export interface PackageEnrollment {
+  classId: string;
+  className: string;
+  /** YYYY-MM-DD */
+  startDate: string;
+  endDate: string | null;
+}
+
+/** Implemented by the classes module; memberships uses it to pair a package with a class. */
+export interface ClassPort {
+  /** Does the package type have at least one ACTIVE class to choose from? */
+  hasActiveClasses(packageTypeId: string): Promise<boolean>;
+  /**
+   * Throws 404 (no such class), 422 CLASS_NOT_IN_PACKAGE, 422 CLASS_INACTIVE or 409 CLASS_FULL.
+   * With `memberId`, a member already ACTIVE in the class does not need a free seat (same-class renewal).
+   */
+  checkEnrollable(classId: string, packageTypeId: string, memberId?: string): Promise<void>;
+  /**
+   * Enrols the member in the class for the new membership's date range (row lock + capacity check).
+   * An ACTIVE enrolment in the same class is extended instead of duplicated. Audits ROSTER_UPDATED (reason PACKAGE).
+   */
+  enrollForMembership(input: {
+    classId: string;
+    memberId: string;
+    membershipId: string;
+    startDate: string;
+    endDate: string | null;
+    actorId: string;
+  }): Promise<PackageEnrollment>;
+}
