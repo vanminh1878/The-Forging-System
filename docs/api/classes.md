@@ -174,7 +174,7 @@ Ghi danh học viên vào lớp. Quyền: **FD** (lễ tân + admin). Trả 201.
 - Ghi audit `ROSTER_UPDATED`.
 
 - Ghi danh tay vẫn dùng được cho mọi lớp (kể cả lớp thuộc gói). Ghi danh theo gói thì đi qua duyệt yêu cầu / kích hoạt gói (memberships MEM-04) để có `membershipId` và ngày theo gói.
-- Huỷ gói → ghi danh có `membershipId` của gói đó chuyển `CANCELLED`.
+- Huỷ gói → ghi danh có `membershipId` của gói đó chuyển `CANCELLED`. Ghi danh bắt đầu trước ngày bắt đầu của gói bị huỷ (gia hạn cùng lớp) chỉ bị cắt `endDate`, xem memberships MEM-06.
 
 ## GET `/package-types/:id/classes`
 

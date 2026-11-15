@@ -117,6 +117,35 @@ export class ClassRepository {
     return !!(await sql.scalar(`SELECT 1 FROM class_enrollments WHERE class_id = $1 AND member_id = $2 AND status = 'ACTIVE'`, [classId, memberId]));
   }
 
+  /** The member's ACTIVE enrolment in the class, if any. */
+  findActiveEnrollment(classId: string, memberId: string): Promise<{ id: string; endDate: string | null } | null> {
+    return sql.one(
+      `SELECT id, end_date::text AS end_date FROM class_enrollments WHERE class_id = $1 AND member_id = $2 AND status = 'ACTIVE' FOR UPDATE`,
+      [classId, memberId],
+    );
+  }
+
+  async extendEnrollment(id: string, endDate: string | null, membershipId: string): Promise<void> {
+    await sql.exec(`UPDATE class_enrollments SET end_date = $2, membership_id = $3 WHERE id = $1`, [id, endDate, membershipId]);
+  }
+
+  /**
+   * A cancelled package takes its ACTIVE enrolments with it. An enrolment that began before the package
+   * (a same-class renewal extended it) only loses the days the cancelled package added.
+   */
+  cancelEnrollmentsOfMembership(membershipId: string): Promise<Array<{ id: string; classId: string; memberId: string; trimmed: boolean }>> {
+    return sql.many(
+      `UPDATE class_enrollments e
+          SET status = CASE WHEN e.start_date < m.start_date THEN e.status ELSE 'CANCELLED' END,
+              end_date = CASE WHEN e.start_date < m.start_date THEN m.start_date - 1 ELSE e.end_date END,
+              membership_id = CASE WHEN e.start_date < m.start_date THEN NULL ELSE e.membership_id END
+         FROM memberships m
+        WHERE m.id = $1 AND e.membership_id = m.id AND e.status = 'ACTIVE'
+        RETURNING e.id, e.class_id, e.member_id, (e.status = 'ACTIVE') AS trimmed`,
+      [membershipId],
+    );
+  }
+
   roster(classId: string): Promise<RosterEntry[]> {
     return sql.many(
       `SELECT e.id AS enrollment_id, e.member_id, m.member_code, u.full_name, e.membership_id,

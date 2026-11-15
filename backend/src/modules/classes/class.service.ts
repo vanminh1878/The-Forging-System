@@ -4,7 +4,8 @@ import { clock } from '../../common/utils/clock';
 import { env } from '../../config/env';
 import { addDays, daysBetween, isoWeekdayOf, localDate, startOfLocalDay, zonedParts, zonedToUtc } from '../../common/utils/time';
 import { db } from '../../db/database';
-import type { SessionCancelledEvent } from '../../shared/events';
+import type { MembershipEvent, SessionCancelledEvent } from '../../shared/events';
+import type { ClassPort, PackageEnrollment } from '../../shared/ports';
 import { RoleGroup } from '../../shared/roles';
 import type { RoleCode } from '../../shared/roles';
 import { NotificationEvent } from '../notifications/notification.events';
@@ -63,7 +64,7 @@ function fitsSchedule(cls: ClassRow, s: { startsAt: Date; endsAt: Date }): boole
   );
 }
 
-export class ClassService {
+export class ClassService implements ClassPort {
   constructor(
     private readonly repo: ClassRepository,
     private readonly audit: AuditService,
@@ -228,6 +229,86 @@ export class ClassService {
       after: { op: 'ENROLL', memberId: input.memberId, enrollmentId, startDate, endDate },
     });
     return { enrollmentId };
+  }
+
+  async hasActiveClasses(packageTypeId: string): Promise<boolean> {
+    return (await this.repo.packageClasses(packageTypeId)).length > 0;
+  }
+
+  /** ClassPort: validates the class for a package before the membership exists (nothing is reserved). */
+  async checkEnrollable(classId: string, packageTypeId: string, memberId?: string): Promise<void> {
+    const cls = await this.repo.findById(classId);
+    if (!cls) throw notFound('Lớp học');
+    if (cls.packageTypeId !== packageTypeId) throw unprocessable('Lớp không thuộc gói đã chọn.', 'CLASS_NOT_IN_PACKAGE');
+    if (!cls.isActive) throw unprocessable('Lớp học đã ngừng hoạt động', 'CLASS_INACTIVE');
+    if (memberId && (await this.repo.findActiveEnrollment(classId, memberId))) return;
+    if (cls.capacity !== null && (await this.repo.countActive(classId)) >= cls.capacity) {
+      throw conflict('Lớp đã đủ sĩ số', 'CLASS_FULL');
+    }
+  }
+
+  /** ClassPort: enrols for a new membership, or extends the ACTIVE enrolment when the learner renews the same class. */
+  async enrollForMembership(input: {
+    classId: string;
+    memberId: string;
+    membershipId: string;
+    startDate: string;
+    endDate: string | null;
+    actorId: string;
+  }): Promise<PackageEnrollment> {
+    const cls = await this.repo.findById(input.classId, true);
+    if (!cls) throw notFound('Lớp học');
+    if (!cls.isActive) throw unprocessable('Lớp học đã ngừng hoạt động', 'CLASS_INACTIVE');
+    const member = await this.repo.memberState(input.memberId);
+    if (!member) throw notFound('Học viên');
+    if (member.status === 'INACTIVE' || member.merged) {
+      throw unprocessable('Tài khoản học viên không còn hoạt động', 'MEMBER_INACTIVE');
+    }
+    const { startDate, endDate } = input;
+    const existing = await this.repo.findActiveEnrollment(input.classId, input.memberId);
+    let enrollmentId: string;
+    let resultEnd = endDate;
+    if (existing) {
+      // Same class again: no new seat is needed; open-ended on either side stays open-ended.
+      enrollmentId = existing.id;
+      resultEnd = existing.endDate === null || endDate === null ? null : existing.endDate > endDate ? existing.endDate : endDate;
+      await this.repo.extendEnrollment(existing.id, resultEnd, input.membershipId);
+    } else {
+      if (cls.capacity !== null && (await this.repo.countActive(input.classId)) >= cls.capacity) {
+        throw conflict('Lớp đã đủ sĩ số', 'CLASS_FULL');
+      }
+      enrollmentId = await this.repo.insertEnrollment({
+        classId: input.classId,
+        memberId: input.memberId,
+        membershipId: input.membershipId,
+        startDate,
+        endDate,
+        by: input.actorId,
+      });
+    }
+    await this.audit.record({
+      actorId: input.actorId,
+      action: 'ROSTER_UPDATED',
+      entityType: 'CLASS',
+      entityId: input.classId,
+      after: { op: 'ENROLL', memberId: input.memberId, enrollmentId, startDate, endDate: resultEnd, membershipId: input.membershipId, extended: !!existing },
+      reason: 'PACKAGE',
+    });
+    return { classId: cls.id, className: cls.name, startDate, endDate: resultEnd };
+  }
+
+  /** MEMBERSHIP_CANCELLED handler: learners must not keep a class they no longer have a package for. */
+  async onMembershipCancelled(e: MembershipEvent): Promise<void> {
+    for (const row of await this.repo.cancelEnrollmentsOfMembership(e.membershipId)) {
+      await this.audit.record({
+        actorId: null,
+        action: 'ROSTER_UPDATED',
+        entityType: 'CLASS',
+        entityId: row.classId,
+        after: { op: row.trimmed ? 'TRIM' : 'CANCEL', memberId: e.memberId, enrollmentId: row.id, membershipId: e.membershipId },
+        reason: 'MEMBERSHIP_CANCELLED',
+      });
+    }
   }
 
   async unenroll(classId: string, memberId: string, by: string, reason?: string): Promise<void> {
