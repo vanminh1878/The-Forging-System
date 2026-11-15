@@ -18,6 +18,9 @@ import 'package:hvp_forging/features/auth/domain/auth_user.dart';
 import 'package:hvp_forging/features/auth/presentation/providers/auth_controller.dart';
 import 'package:hvp_forging/features/reception_checkin/data/member_search_repository_impl.dart';
 import 'package:hvp_forging/features/reception_checkin/presentation/reception_providers.dart';
+import 'package:hvp_forging/features/membership/data/membership_api.dart';
+import 'package:hvp_forging/features/membership/data/membership_repository_impl.dart';
+import 'package:hvp_forging/features/membership/presentation/providers/membership_providers.dart';
 import 'package:hvp_forging/features/reception_memberships/data/reception_memberships_api.dart';
 import 'package:hvp_forging/features/reception_memberships/data/reception_memberships_repository_impl.dart';
 import 'package:hvp_forging/features/reception_memberships/presentation/reception_memberships_providers.dart';
@@ -58,6 +61,8 @@ class Desk {
         currentUserIdProvider.overrideWithValue(user.id),
         receptionMembershipsRepositoryProvider.overrideWithValue(
             ReceptionMembershipsRepositoryImpl(ReceptionMembershipsApi(api))),
+        membershipRepositoryProvider
+            .overrideWithValue(MembershipRepositoryImpl(MembershipApi(api))),
         memberSearchRepositoryProvider
             .overrideWithValue(MemberSearchRepositoryImpl(api)),
         evidencePhotoBuilderProvider.overrideWithValue(fakePhotoField),

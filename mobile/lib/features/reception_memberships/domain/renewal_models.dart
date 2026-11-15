@@ -1,3 +1,5 @@
+import '../../membership/domain/membership_models.dart';
+
 /// A renewal request in the front desk inbox (`GET /renewal-requests`).
 class RenewalRequest {
   const RenewalRequest({
@@ -13,6 +15,8 @@ class RenewalRequest {
     this.createdAt,
     this.currentPackageName,
     this.currentEndDate,
+    this.packageTypeId = '',
+    this.classInfo,
   });
 
   final String id;
@@ -23,7 +27,13 @@ class RenewalRequest {
   final String? memberPhone;
   final String memberCode;
   final String packageName;
+
+  /// The package the learner asked for (to list its classes on approval).
+  final String packageTypeId;
   final int? priceVnd;
+
+  /// The class the learner chose; null when the package has no classes.
+  final RenewalClass? classInfo;
   final String? note;
 
   /// Why it was cancelled.

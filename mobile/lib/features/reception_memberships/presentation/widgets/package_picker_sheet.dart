@@ -60,6 +60,9 @@ class _PackagePickerState extends ConsumerState<_PackagePicker> {
                               Text(p.name, style: context.txt.titleS),
                               Text(packageTypeSummary(p),
                                   style: context.txt.bodySmall),
+                              if (p.hasClasses)
+                                Text('${p.classCount} lớp để chọn',
+                                    style: context.txt.caption),
                             ],
                           ),
                         ),

@@ -42,10 +42,11 @@ Future<void> askActivatePackage(BuildContext context, WidgetRef ref,
     title: 'Xác nhận đã thu phí',
     summary: '$memberName · ${package.name}',
     confirmLabel: 'Xác nhận & kích hoạt gói',
-    submit: (url) => ref
+    packageTypeId: package.hasClasses ? package.id : null,
+    submit: (url, classId) => ref
         .read(receptionMembershipsRepositoryProvider)
         .activateMembership(memberId,
-            packageTypeId: package.id, evidenceUrl: url),
+            packageTypeId: package.id, evidenceUrl: url, classId: classId),
   );
   if (message == null) return;
   ref.invalidate(memberOverviewProvider(memberId));

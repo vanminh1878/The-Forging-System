@@ -33,11 +33,13 @@ Future<void> askApproveRenewal(
     title: 'Xác nhận đã thu phí',
     summary: '${request.memberName} · ${request.packageName}$price',
     confirmLabel: 'Xác nhận & kích hoạt gói',
-    submit: (url) => _reloadWhenHandled(
+    packageTypeId: request.packageTypeId.isEmpty ? null : request.packageTypeId,
+    initialClassId: request.classInfo?.id,
+    submit: (url, classId) => _reloadWhenHandled(
       ref,
       () => ref
           .read(receptionMembershipsRepositoryProvider)
-          .approveRenewal(request.id, evidenceUrl: url),
+          .approveRenewal(request.id, evidenceUrl: url, classId: classId),
     ),
   );
   if (message == null) return;

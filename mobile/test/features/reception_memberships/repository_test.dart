@@ -55,6 +55,35 @@ void main() {
         <String, dynamic>{'paymentEvidenceUrl': 'http://x/files/a.jpg'});
   });
 
+  test('approveRenewal and activateMembership send classId when given',
+      () async {
+    boot(<String, Reply>{
+      'POST /renewal-requests/r1/approve': (_) =>
+          okEnvelope(<String, dynamic>{'message': 'Xong'}),
+      'POST /members/m1/memberships': (_) =>
+          okEnvelope(<String, dynamic>{'message': 'Xong'}, status: 201),
+    });
+    await repo.approveRenewal('r1',
+        evidenceUrl: 'http://x/files/a.jpg', classId: 'c1');
+    await repo.activateMembership('m1',
+        packageTypeId: 'p1',
+        evidenceUrl: 'http://x/files/a.jpg',
+        classId: 'c2');
+    expect(
+        desk.calls('POST /renewal-requests/r1/approve').single.data,
+        <String, dynamic>{
+          'paymentEvidenceUrl': 'http://x/files/a.jpg',
+          'classId': 'c1'
+        });
+    expect(
+        desk.calls('POST /members/m1/memberships').single.data,
+        <String, dynamic>{
+          'packageTypeId': 'p1',
+          'classId': 'c2',
+          'paymentEvidenceUrl': 'http://x/files/a.jpg'
+        });
+  });
+
   test('MEM-14 cancel calls post the reason to the request and the package',
       () async {
     boot(<String, Reply>{
