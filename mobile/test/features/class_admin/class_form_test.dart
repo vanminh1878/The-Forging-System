@@ -35,6 +35,24 @@ void main() {
         <String, Object?>{'name': 'Boxing tối', 'capacity': null});
   });
 
+  test('packageTypeId is part of the diff; null clears it', () {
+    final before = ClassDraft.of(packagedClass);
+    expect(before.toJson()['packageTypeId'], 'p1');
+    final cleared = ClassDraft(
+      branchId: before.branchId,
+      name: before.name,
+      sessionTypeCode: before.sessionTypeCode,
+      weekdays: before.weekdays,
+      startTime: before.startTime,
+      durationMinutes: before.durationMinutes,
+      capacity: before.capacity,
+      defaultCoachId: before.defaultCoachId,
+      isActive: before.isActive,
+    );
+    expect(
+        cleared.changesFrom(before), <String, Object?>{'packageTypeId': null});
+  });
+
   test('validators', () {
     expect(validateClassName('  '), 'Nhập tên lớp.');
     expect(validateStartTime('6:30'), isNotNull);
@@ -108,6 +126,33 @@ void main() {
       await tester.pumpAndSettle();
       expect(repo.updated.single, <String, Object?>{'name': 'Boxing tối'});
       expect(find.text('Đã cập nhật lớp.'), findsOneWidget);
+    });
+
+    testWidgets('create with a package sends packageTypeId', (tester) async {
+      final repo = await show(tester);
+      await tester.enterText(find.byType(TextFormField).first, 'Boxing sáng');
+      await tester.tap(find.text('Không thuộc gói'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('BOOK I').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Chọn chi nhánh'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('HVP Quận 7'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('T2'));
+      await tapSubmit(tester);
+      expect(repo.created.single.packageTypeId, 'p1');
+    });
+
+    testWidgets('edit: choosing "Không thuộc gói" clears the package',
+        (tester) async {
+      final repo = await show(tester, existing: packagedClass);
+      await tester.tap(find.text('BOOK I').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Không thuộc gói').last);
+      await tester.pumpAndSettle();
+      await tapSubmit(tester);
+      expect(repo.updated.single, <String, Object?>{'packageTypeId': null});
     });
 
     testWidgets('API error stays in the sheet', (tester) async {

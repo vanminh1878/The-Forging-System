@@ -11,6 +11,7 @@ Map<String, Reply> _routes({Reply? approve}) {
     'GET /renewal-requests': (_) => okEnvelope(
         handled ? <dynamic>[] : <dynamic>[renewalJson('r1', 'Nguyễn Văn A')],
         meta: pageMeta(1, handled ? 0 : 1)),
+    'GET /package-types/p1/classes': (_) => okEnvelope(<dynamic>[]),
     'POST /renewal-requests/r1/approve': (o) {
       handled = true;
       return approve?.call(o) ??
