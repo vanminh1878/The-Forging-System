@@ -95,4 +95,6 @@ export interface PackageClassRow {
   capacity: number | null;
   /** null = unlimited. */
   seatsLeft: number | null;
+  /** The member asked about already holds a seat (same-class renewal works even when the class is full). */
+  enrolled: boolean;
 }

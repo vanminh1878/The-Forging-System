@@ -64,21 +64,23 @@ export class ClassRepository {
   }
 
   /** Active classes of an ACTIVE package with seats left (PKG-02); empty when the package is retired. */
-  packageClasses(packageTypeId: string, today: string): Promise<PackageClassRow[]> {
+  packageClasses(packageTypeId: string, today: string, memberId: string | null = null): Promise<PackageClassRow[]> {
     return sql.many(
       `SELECT c.id, c.name, c.branch_id, b.name AS branch_name, c.session_type_code, u.full_name AS coach_name,
               c.weekdays::int[] AS weekdays, to_char(c.start_time, 'HH24:MI') AS start_time, c.duration_minutes, c.capacity,
               CASE WHEN c.capacity IS NULL THEN NULL
                    ELSE GREATEST(c.capacity - (SELECT COUNT(*)::int FROM class_enrollments e WHERE e.class_id = c.id AND e.status = 'ACTIVE'
                      AND (e.end_date IS NULL OR e.end_date >= $2::date)), 0)
-              END AS seats_left
+              END AS seats_left,
+              EXISTS (SELECT 1 FROM class_enrollments e WHERE e.class_id = c.id AND e.member_id = $3 AND e.status = 'ACTIVE'
+                        AND (e.end_date IS NULL OR e.end_date >= $2::date)) AS enrolled
          FROM classes c
          JOIN package_types p ON p.id = c.package_type_id AND p.is_active
          JOIN branches b ON b.id = c.branch_id
          LEFT JOIN users u ON u.id = c.default_coach_id
         WHERE c.package_type_id = $1 AND c.is_active
         ORDER BY b.name, c.name, c.id`,
-      [packageTypeId, today],
+      [packageTypeId, today, memberId],
     );
   }
 

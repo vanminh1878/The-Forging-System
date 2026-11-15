@@ -512,9 +512,9 @@ export class ClassService implements ClassPort {
   }
 
   /** PKG-02: classes a learner can pick for a package. */
-  async listForPackage(packageTypeId: string) {
+  async listForPackage(packageTypeId: string, memberId: string | null) {
     if (!(await this.repo.packageExists(packageTypeId))) throw notFound('Gói tập');
-    return this.repo.packageClasses(packageTypeId, localDate(clock.now()));
+    return this.repo.packageClasses(packageTypeId, localDate(clock.now()), memberId);
   }
 
   /** `before` is set on update: unchanged refs (e.g. a since-deactivated branch) are not re-validated. */

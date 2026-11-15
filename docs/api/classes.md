@@ -194,13 +194,15 @@ Lớp đang hoạt động của một gói, cho bước "chọn lớp" của h�
       "startTime": "18:30",
       "durationMinutes": 60,
       "capacity": 20,
-      "seatsLeft": 3
+      "seatsLeft": 3,
+      "enrolled": false
     }
   ]
 }
 ```
 
 - `seatsLeft = capacity - số ghi danh ACTIVE còn hạn` (tối thiểu 0); `null` khi lớp không giới hạn sĩ số. `coachName` null khi chưa có HLV.
+- `enrolled`: học viên đang hỏi đã có chỗ trong lớp (ghi danh ACTIVE còn hạn) → lớp đầy (`seatsLeft = 0`) vẫn chọn được để gia hạn cùng lớp. Học viên luôn được tính là chính mình; staff truyền `?memberId=<uuid>` (không truyền → `false`).
 - Sắp xếp theo chi nhánh, rồi tên lớp. Gói ngừng bán hoặc không có lớp: `data = []`.
 - Lỗi: 401 `UNAUTHORIZED`, 404 `NOT_FOUND` (không có gói).
 

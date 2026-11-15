@@ -16,6 +16,7 @@ const listQuery = paginationQuery.extend({
   isActive: boolString.optional(),
   packageTypeId: z.string().uuid().optional(),
 });
+const packageClassesQuery = z.object({ memberId: z.string().uuid().optional() });
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const classFields = {
   branchId: z.string().uuid(),
@@ -113,8 +114,14 @@ export function classRoutes(service: ClassService): Router {
   // Any signed-in user: the learner picks a class when buying a package.
   r.get(
     '/package-types/:id/classes',
-    validate({ params: idParam }),
-    handle(async (req) => ok(await service.listForPackage(req.params.id))),
+    validate({ params: idParam, query: packageClassesQuery }),
+    handle(async (req) => {
+      // A learner always asks about themselves; staff may name the learner they are serving.
+      const a = authOf(req);
+      const isStaff = a.roles.some((role) => (RoleGroup.STAFF as readonly string[]).includes(role));
+      const memberId = isStaff ? ((req.query.memberId as string | undefined) ?? null) : a.userId;
+      return ok(await service.listForPackage(req.params.id, memberId));
+    }),
   );
   r.post(
     '/admin/classes',

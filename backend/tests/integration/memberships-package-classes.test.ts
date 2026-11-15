@@ -614,6 +614,26 @@ describe('package -> class flow (PKG-03..05)', () => {
       ]);
     });
 
+    it('a full class stays selectable for the learner who already holds a seat in it', async () => {
+      const classD = await mkClass('Lớp D', 1);
+      const p = await registerMember(ctx.api);
+      const other = await registerMember(ctx.api);
+      expect((await activate(p.userId, { packageTypeId: pkg, classId: classD })).status).toBe(201);
+      const seen = async (token: string, query = '') =>
+        (await ctx.api.get(`/api/v1/package-types/${pkg}/classes${query}`).set(bearer(token))).body.data.find(
+          (c: { id: string }) => c.id === classD,
+        );
+      expect(await seen(p.token)).toMatchObject({ seatsLeft: 0, enrolled: true });
+      expect(await seen(other.token, `?memberId=${p.userId}`)).toMatchObject({ enrolled: false }); // learners only see themselves
+      expect(await seen(reception, `?memberId=${p.userId}`)).toMatchObject({ enrolled: true });
+      expect(await seen(reception)).toMatchObject({ enrolled: false });
+      const renew = await ctx.api
+        .post('/api/v1/me/renewal-requests')
+        .set(bearer(p.token))
+        .send({ packageTypeId: pkg, classId: classD });
+      expect(renew.status).toBe(201);
+    });
+
     it('GET /me/membership shows the class of the pending request', async () => {
       const m = await registerMember(ctx.api);
       await ctx.api.post('/api/v1/me/renewal-requests').set(bearer(m.token)).send({ packageTypeId: pkg, classId: classB });
