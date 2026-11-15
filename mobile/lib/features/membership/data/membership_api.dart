@@ -9,8 +9,10 @@ class MembershipApi {
 
   Future<ApiEnvelope> packageTypes() => _api.get('/package-types');
 
-  Future<ApiEnvelope> packageClasses(String packageTypeId) =>
-      _api.get('/package-types/$packageTypeId/classes');
+  Future<ApiEnvelope> packageClasses(String packageTypeId,
+          {String? memberId}) =>
+      _api.get('/package-types/$packageTypeId/classes',
+          query: <String, dynamic>{if (memberId != null) 'memberId': memberId});
 
   Future<ApiEnvelope> requestRenewal(
           String packageTypeId, String? classId, String? note) =>

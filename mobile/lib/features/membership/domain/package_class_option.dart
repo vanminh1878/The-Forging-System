@@ -11,6 +11,7 @@ class PackageClassOption {
     this.coachName,
     this.capacity,
     this.seatsLeft,
+    this.enrolled = false,
   });
 
   final String id;
@@ -31,5 +32,11 @@ class PackageClassOption {
   /// Null = unlimited seats.
   final int? seatsLeft;
 
+  /// The learner already holds a seat here (renewing the same class).
+  final bool enrolled;
+
   bool get isFull => seatsLeft != null && seatsLeft! <= 0;
+
+  /// A full class stays pickable for a learner who already has a seat in it.
+  bool get isSelectable => !isFull || enrolled;
 }

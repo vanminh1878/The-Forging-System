@@ -43,6 +43,7 @@ Future<void> askActivatePackage(BuildContext context, WidgetRef ref,
     summary: '$memberName · ${package.name}',
     confirmLabel: 'Xác nhận & kích hoạt gói',
     packageTypeId: package.hasClasses ? package.id : null,
+    memberId: memberId,
     submit: (url, classId) => ref
         .read(receptionMembershipsRepositoryProvider)
         .activateMembership(memberId,

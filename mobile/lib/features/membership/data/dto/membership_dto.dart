@@ -97,4 +97,5 @@ PackageClassOption packageClassFromJson(JsonMap j) => PackageClassOption(
       durationMinutes: intOf(j, 'durationMinutes'),
       capacity: _intOrNull(j, 'capacity'),
       seatsLeft: _intOrNull(j, 'seatsLeft'),
+      enrolled: boolOf(j, 'enrolled'),
     );

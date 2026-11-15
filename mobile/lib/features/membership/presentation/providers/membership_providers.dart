@@ -25,11 +25,14 @@ final myMembershipProvider = FutureProvider.autoDispose<MyMembership>((ref) {
 final packageTypesProvider = FutureProvider.autoDispose<List<PackageType>>(
     (ref) => ref.watch(membershipRepositoryProvider).listPackageTypes());
 
+/// Which package, and (staff only) which learner the `enrolled` flag is for.
+typedef PackageClassesKey = ({String packageTypeId, String? memberId});
+
 /// Active classes of one package, for the "choose a class" step.
 final packageClassesProvider = FutureProvider.autoDispose
-    .family<List<PackageClassOption>, String>((ref, packageTypeId) => ref
+    .family<List<PackageClassOption>, PackageClassesKey>((ref, key) => ref
         .watch(membershipRepositoryProvider)
-        .listPackageClasses(packageTypeId));
+        .listPackageClasses(key.packageTypeId, memberId: key.memberId));
 
 final renewalSubmitProvider =
     NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);

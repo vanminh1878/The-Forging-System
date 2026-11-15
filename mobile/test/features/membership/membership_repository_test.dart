@@ -219,6 +219,31 @@ void main() {
     expect(list.last.isFull, isFalse);
   });
 
+  test('package classes: enrolled flag and memberId query only when given',
+      () async {
+    final t = _build((o) => okEnvelope(<dynamic>[
+          <String, dynamic>{
+            'id': 'c1',
+            'name': 'n',
+            'branchName': 'b',
+            'weekdays': <int>[1],
+            'startTime': '18:30',
+            'durationMinutes': 60,
+            'seatsLeft': 0,
+            'enrolled': true,
+          },
+          <String, dynamic>{'id': 'c2', 'name': 'm', 'seatsLeft': 1},
+        ]));
+    final list = await t.repo.listPackageClasses('p1', memberId: 'm9');
+    await t.repo.listPackageClasses('p1');
+    expect(t.adapter.requests.first.queryParameters['memberId'], 'm9');
+    expect(t.adapter.requests.last.queryParameters.containsKey('memberId'),
+        isFalse);
+    expect(list.first.enrolled, isTrue);
+    expect(list.first.isSelectable, isTrue);
+    expect(list.last.enrolled, isFalse);
+  });
+
   test('requestRenewal sends classId only when given', () async {
     final t = _build((o) => okEnvelope(<String, dynamic>{}, status: 201));
     await t.repo.requestRenewal(packageTypeId: 'p1', classId: 'c1');

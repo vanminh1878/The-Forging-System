@@ -22,9 +22,9 @@ class MembershipRepositoryImpl implements MembershipRepository {
           .toList(growable: false);
 
   @override
-  Future<List<PackageClassOption>> listPackageClasses(
-          String packageTypeId) async =>
-      (await _api.packageClasses(packageTypeId))
+  Future<List<PackageClassOption>> listPackageClasses(String packageTypeId,
+          {String? memberId}) async =>
+      (await _api.packageClasses(packageTypeId, memberId: memberId))
           .dataList
           .map((e) => packageClassFromJson(asMap(e)))
           .toList(growable: false);

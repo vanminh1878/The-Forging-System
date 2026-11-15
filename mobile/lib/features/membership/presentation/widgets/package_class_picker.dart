@@ -20,6 +20,7 @@ class PackageClassPicker extends ConsumerWidget {
     required this.selectedId,
     required this.onChanged,
     this.enabled = true,
+    this.memberId,
   });
 
   final String packageTypeId;
@@ -27,34 +28,39 @@ class PackageClassPicker extends ConsumerWidget {
   final ValueChanged<PackageClassOption> onChanged;
   final bool enabled;
 
+  /// Staff only: the learner whose seats decide `enrolled`.
+  final String? memberId;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) =>
-      AsyncBody<List<PackageClassOption>>(
-        value: ref.watch(packageClassesProvider(packageTypeId)),
-        onRetry: () => ref.invalidate(packageClassesProvider(packageTypeId)),
-        loading: const SizedBox(height: 200, child: ShimmerList(itemCount: 2)),
-        builder: (context, classes) {
-          if (classes.isEmpty) {
-            return const EmptyState(
-              icon: HvpIcons.calendar,
-              title: 'Gói này chưa có lớp nào đang mở',
-            );
-          }
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              for (final c in classes) ...<Widget>[
-                _ClassTile(
-                  option: c,
-                  selected: c.id == selectedId,
-                  onTap: enabled && !c.isFull ? () => onChanged(c) : null,
-                ),
-                const SizedBox(height: 10),
-              ],
-            ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    final key = (packageTypeId: packageTypeId, memberId: memberId);
+    return AsyncBody<List<PackageClassOption>>(
+      value: ref.watch(packageClassesProvider(key)),
+      onRetry: () => ref.invalidate(packageClassesProvider(key)),
+      loading: const SizedBox(height: 200, child: ShimmerList(itemCount: 2)),
+      builder: (context, classes) {
+        if (classes.isEmpty) {
+          return const EmptyState(
+            icon: HvpIcons.calendar,
+            title: 'Gói này chưa có lớp nào đang mở',
           );
-        },
-      );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            for (final c in classes) ...<Widget>[
+              _ClassTile(
+                option: c,
+                selected: c.id == selectedId,
+                onTap: enabled && c.isSelectable ? () => onChanged(c) : null,
+              ),
+              const SizedBox(height: 10),
+            ],
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _ClassTile extends StatelessWidget {
@@ -70,7 +76,7 @@ class _ClassTile extends StatelessWidget {
     final c = context.hvp;
     final t = context.txt;
     return Opacity(
-      opacity: option.isFull ? 0.5 : 1,
+      opacity: option.isSelectable ? 1 : 0.5,
       child: HvpCard(
         accent: selected ? c.gold : null,
         highlighted: selected,
@@ -89,9 +95,14 @@ class _ClassTile extends StatelessWidget {
                           option.durationMinutes),
                       style: t.bodySmall),
                   const SizedBox(height: 4),
-                  Text(seatsLabel(option.seatsLeft),
+                  Text(
+                      option.enrolled
+                          ? enrolledClassLabel
+                          : seatsLabel(option.seatsLeft),
                       style: t.label.copyWith(
-                          color: option.isFull ? c.red : c.textMuted)),
+                          color: option.enrolled
+                              ? c.gold
+                              : (option.isFull ? c.red : c.textMuted))),
                 ],
               ),
             ),

@@ -158,6 +158,9 @@ String seatsLabel(int? seatsLeft) {
   return seatsLeft <= 0 ? 'Hết chỗ' : 'Còn $seatsLeft chỗ';
 }
 
+/// Tag of a class the learner already attends.
+const String enrolledClassLabel = 'Đang học lớp này';
+
 /// `HVP Quận 1 · HLV Trần Văn B`.
 String classPlaceLabel(PackageClassOption c) => <String>[
       c.branchName,

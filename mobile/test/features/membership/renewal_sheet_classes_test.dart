@@ -72,6 +72,18 @@ Future<FakeMembershipRepository> _show(
   return repo;
 }
 
+const _fullEnrolled = PackageClassOption(
+  id: 'c4',
+  name: 'Lớp đang học',
+  branchName: 'HVP Quận 1',
+  weekdays: <int>[2],
+  startTime: '19:00',
+  durationMinutes: 60,
+  capacity: 10,
+  seatsLeft: 0,
+  enrolled: true,
+);
+
 HvpButton _btn(WidgetTester tester, String label) =>
     tester.widget<HvpButton>(find.widgetWithText(HvpButton, label));
 
@@ -107,6 +119,25 @@ void main() {
     expect(repo.requests.single.classId, 'c1');
     expect(repo.requests.single.note, 'ghi chú');
     expect(find.text('Đã gửi yêu cầu gia hạn tới lễ tân.'), findsOneWidget);
+  });
+
+  testWidgets('a full class the learner attends is selectable and sendable',
+      (tester) async {
+    final repo = await _show(tester,
+        classes: (_) async => const <PackageClassOption>[_full, _fullEnrolled]);
+    await tester.tap(find.text('BOOK II'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(HvpButton, 'TIẾP TỤC'));
+    await tester.pumpAndSettle();
+    expect(find.text('Đang học lớp này'), findsOneWidget);
+    await tester.tap(find.text('Lớp đang học'));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(HvpButton, 'GỬI YÊU CẦU GIA HẠN'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(HvpButton, 'GỬI YÊU CẦU'));
+    await tester.pumpAndSettle();
+    expect(repo.requests.single.classId, 'c4');
+    expect(repo.classMemberIds.every((m) => m == null), isTrue);
   });
 
   testWidgets('a full class cannot be selected', (tester) async {

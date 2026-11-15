@@ -87,7 +87,8 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet> {
           ref.invalidate(packageTypesProvider);
         } else if (e.code == 'CLASS_FULL' || e.code == 'CLASS_INACTIVE') {
           _class = null;
-          ref.invalidate(packageClassesProvider(package.id));
+          ref.invalidate(packageClassesProvider(
+              (packageTypeId: package.id, memberId: null)));
         }
         rethrow;
       }

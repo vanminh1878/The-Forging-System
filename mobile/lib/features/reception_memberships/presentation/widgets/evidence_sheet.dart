@@ -24,6 +24,7 @@ Future<String?> showEvidenceSheet(
   String? summary,
   String? packageTypeId,
   String? initialClassId,
+  String? memberId,
 }) =>
     showHvpSheet<String>(
       context,
@@ -34,6 +35,7 @@ Future<String?> showEvidenceSheet(
         summary: summary,
         packageTypeId: packageTypeId,
         initialClassId: initialClassId,
+        memberId: memberId,
       ),
     );
 
@@ -44,12 +46,14 @@ class _EvidenceSheet extends ConsumerStatefulWidget {
     this.summary,
     this.packageTypeId,
     this.initialClassId,
+    this.memberId,
   });
 
   final String confirmLabel;
   final String? summary;
   final String? packageTypeId;
   final String? initialClassId;
+  final String? memberId;
   final Future<String> Function(String evidenceUrl, String? classId) submit;
 
   @override
@@ -74,7 +78,10 @@ class _EvidenceSheetState extends ConsumerState<_EvidenceSheet> {
       final id = widget.packageTypeId;
       final classGone = e is ApiException &&
           (e.code == 'CLASS_FULL' || e.code == 'CLASS_INACTIVE');
-      if (classGone && id != null) ref.invalidate(packageClassesProvider(id));
+      if (classGone && id != null) {
+        ref.invalidate(packageClassesProvider(
+            (packageTypeId: id, memberId: widget.memberId)));
+      }
       if (mounted) {
         setState(() {
           _submitting = false;
@@ -88,14 +95,18 @@ class _EvidenceSheetState extends ConsumerState<_EvidenceSheet> {
   @override
   Widget build(BuildContext context) {
     final id = widget.packageTypeId;
-    final options =
-        id == null ? null : ref.watch(packageClassesProvider(id)).valueOrNull;
+    final options = id == null
+        ? null
+        : ref
+            .watch(packageClassesProvider(
+                (packageTypeId: id, memberId: widget.memberId)))
+            .valueOrNull;
     final needsClass = options != null && options.isNotEmpty;
     // Without a package to pick a class for, nothing waits on the class list.
     final classReady = id == null ||
         (options != null &&
             (options.isEmpty ||
-                options.any((c) => c.id == _classId && !c.isFull)));
+                options.any((c) => c.id == _classId && c.isSelectable)));
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       child: Column(
@@ -110,6 +121,7 @@ class _EvidenceSheetState extends ConsumerState<_EvidenceSheet> {
             const SizedBox(height: 8),
             PackageClassPicker(
               packageTypeId: id,
+              memberId: widget.memberId,
               selectedId: _classId,
               enabled: !_submitting,
               onChanged: (c) => setState(() => _classId = c.id),

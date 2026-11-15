@@ -123,6 +123,30 @@ void main() {
     expect(tester.widget<HvpButton>(_confirm()).onPressed, isNotNull);
   });
 
+  testWidgets(
+      'approve: a full class the member is enrolled in can be confirmed, asking about that member',
+      (tester) async {
+    final desk = Desk(_inbox(classes: <dynamic>[
+      <String, dynamic>{..._class('c1', 'Boxing tối', 0), 'enrolled': true},
+      _class('c2', 'Boxing sáng', 5),
+    ]));
+    await pumpTab(tester, desk);
+    await tester.tap(find.text('ĐỒNG Ý · ĐÃ THU PHÍ'));
+    await tester.pumpAndSettle();
+    expect(find.text('Đang học lớp này'), findsOneWidget);
+    await tester.tap(find.text('CHỌN ẢNH'));
+    await tester.pump();
+    expect(tester.widget<HvpButton>(_confirm()).onPressed, isNotNull);
+    await tester.tap(_confirm());
+    await tester.pumpAndSettle();
+    expect(desk.calls('GET /package-types/p1/classes').first.queryParameters,
+        <String, dynamic>{'memberId': 'm-r1'});
+    expect(
+        (desk.calls('POST /renewal-requests/r1/approve').single.data
+            as Map)['classId'],
+        'c1');
+  });
+
   testWidgets('CLASS_FULL on approve shows the message and reloads the classes',
       (tester) async {
     final desk = Desk(_inbox(

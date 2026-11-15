@@ -172,6 +172,25 @@ void _renewalRuleTests() {
         'Boxing tối · HVP Quận 1 · T2, T4 · 18:30');
   });
 
+  test('a full class is selectable only when the learner is enrolled in it',
+      () {
+    PackageClassOption c(int? seats, {bool enrolled = false}) =>
+        PackageClassOption(
+            id: 'c',
+            name: 'n',
+            branchName: 'b',
+            weekdays: const <int>[1],
+            startTime: '18:30',
+            durationMinutes: 60,
+            seatsLeft: seats,
+            enrolled: enrolled);
+    expect(c(0).isSelectable, isFalse);
+    expect(c(0, enrolled: true).isSelectable, isTrue);
+    expect(c(2).isSelectable, isTrue);
+    expect(c(null).isSelectable, isTrue);
+    expect(enrolledClassLabel, 'Đang học lớp này');
+  });
+
   test('PackageClassOption.isFull only for 0 seats left', () {
     PackageClassOption c(int? seats) => PackageClassOption(
         id: 'c',

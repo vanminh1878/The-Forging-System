@@ -35,6 +35,7 @@ Future<void> askApproveRenewal(
     confirmLabel: 'Xác nhận & kích hoạt gói',
     packageTypeId: request.packageTypeId.isEmpty ? null : request.packageTypeId,
     initialClassId: request.classInfo?.id,
+    memberId: request.memberId,
     submit: (url, classId) => _reloadWhenHandled(
       ref,
       () => ref

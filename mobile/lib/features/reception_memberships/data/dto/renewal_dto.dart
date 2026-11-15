@@ -10,6 +10,7 @@ RenewalRequest renewalFromJson(JsonMap j) {
   return RenewalRequest(
     id: str(j, 'id'),
     status: str(j, 'status', 'PENDING'),
+    memberId: str(member, 'id'),
     memberName: str(member, 'fullName'),
     memberPhone: strOrNull(member, 'phone'),
     memberCode: str(member, 'memberCode'),

@@ -10,7 +10,9 @@ abstract class MembershipRepository {
   Future<List<PackageType>> listPackageTypes();
 
   /// `GET /package-types/:id/classes`: the active classes of a package.
-  Future<List<PackageClassOption>> listPackageClasses(String packageTypeId);
+  /// Staff pass [memberId] so `enrolled` is about that learner.
+  Future<List<PackageClassOption>> listPackageClasses(String packageTypeId,
+      {String? memberId});
 
   /// `POST /me/renewal-requests`. [classId] is required when the package has
   /// classes.

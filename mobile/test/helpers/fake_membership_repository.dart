@@ -25,6 +25,7 @@ class FakeMembershipRepository implements MembershipRepository {
   int packageCalls = 0;
   int historyCalls = 0;
   int classCalls = 0;
+  final List<String?> classMemberIds = <String?>[];
   final List<({String packageTypeId, String? classId, String? note})> requests =
       <({String packageTypeId, String? classId, String? note})>[];
 
@@ -41,8 +42,10 @@ class FakeMembershipRepository implements MembershipRepository {
   }
 
   @override
-  Future<List<PackageClassOption>> listPackageClasses(String packageTypeId) {
+  Future<List<PackageClassOption>> listPackageClasses(String packageTypeId,
+      {String? memberId}) {
     classCalls++;
+    classMemberIds.add(memberId);
     return classes == null
         ? Future<List<PackageClassOption>>.value(const <PackageClassOption>[])
         : classes!(packageTypeId);

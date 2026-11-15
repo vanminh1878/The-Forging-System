@@ -16,6 +16,7 @@ class RenewalRequest {
     this.currentPackageName,
     this.currentEndDate,
     this.packageTypeId = '',
+    this.memberId = '',
     this.classInfo,
   });
 
@@ -23,6 +24,7 @@ class RenewalRequest {
 
   /// `PENDING`, `COMPLETED` or `CANCELLED`.
   final String status;
+  final String memberId;
   final String memberName;
   final String? memberPhone;
   final String memberCode;
