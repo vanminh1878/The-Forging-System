@@ -14,6 +14,7 @@ const listQuery = paginationQuery.extend({
   branchId: z.string().uuid().optional(),
   sessionTypeCode: z.string().min(1).max(30).optional(),
   isActive: boolString.optional(),
+  packageTypeId: z.string().uuid().optional(),
 });
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const classFields = {
@@ -21,6 +22,7 @@ const classFields = {
   name: z.string().trim().min(1).max(120),
   sessionTypeCode: z.string().min(1).max(30),
   courseId: z.string().uuid().nullable(),
+  packageTypeId: z.string().uuid().nullable(),
   defaultCoachId: z.string().uuid().nullable(),
   weekdays: z
     .array(z.number().int().min(1).max(7))
@@ -34,6 +36,7 @@ const classFields = {
 const createBody = z.object({
   ...classFields,
   courseId: classFields.courseId.default(null),
+  packageTypeId: classFields.packageTypeId.default(null),
   defaultCoachId: classFields.defaultCoachId.default(null),
   capacity: classFields.capacity.default(null),
   isActive: classFields.isActive.default(true),
@@ -106,6 +109,12 @@ export function classRoutes(service: ClassService): Router {
       const { from, to } = req.query as unknown as z.infer<typeof sessionsQuery>;
       return ok(await service.listSessions(req.params.id, from, to));
     }),
+  );
+  // Any signed-in user: the learner picks a class when buying a package.
+  r.get(
+    '/package-types/:id/classes',
+    validate({ params: idParam }),
+    handle(async (req) => ok(await service.listForPackage(req.params.id))),
   );
   r.post(
     '/admin/classes',

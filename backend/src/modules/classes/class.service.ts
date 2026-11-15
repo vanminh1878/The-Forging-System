@@ -423,6 +423,12 @@ export class ClassService {
     return row;
   }
 
+  /** PKG-02: classes a learner can pick for a package. */
+  async listForPackage(packageTypeId: string) {
+    if (!(await this.repo.packageExists(packageTypeId))) throw notFound('Gói tập');
+    return this.repo.packageClasses(packageTypeId);
+  }
+
   /** `before` is set on update: unchanged refs (e.g. a since-deactivated branch) are not re-validated. */
   private async validateRefs(i: ClassInput, before?: ClassRow): Promise<void> {
     if (i.branchId !== before?.branchId && !(await this.repo.branchIsActive(i.branchId))) {
@@ -433,6 +439,9 @@ export class ClassService {
     }
     if (i.courseId && i.courseId !== before?.courseId && !(await this.repo.courseExists(i.courseId))) {
       throw badRequest('Khoá học không tồn tại', undefined, 'COURSE_NOT_FOUND');
+    }
+    if (i.packageTypeId && i.packageTypeId !== before?.packageTypeId && !(await this.repo.packageExists(i.packageTypeId))) {
+      throw badRequest('Gói tập không tồn tại', undefined, 'PACKAGE_NOT_FOUND');
     }
     if (i.defaultCoachId && i.defaultCoachId !== before?.defaultCoachId && !(await this.repo.isCoach(i.defaultCoachId))) {
       throw badRequest('Người dùng được chọn không phải huấn luyện viên', undefined, 'COACH_INVALID');

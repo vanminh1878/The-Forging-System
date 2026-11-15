@@ -4,6 +4,8 @@ export interface ClassRow {
   name: string;
   sessionTypeCode: string;
   courseId: string | null;
+  packageTypeId: string | null;
+  packageName: string | null;
   defaultCoachId: string | null;
   weekdays: number[];
   /** HH:mm */
@@ -28,6 +30,7 @@ export interface ClassInput {
   name: string;
   sessionTypeCode: string;
   courseId: string | null;
+  packageTypeId: string | null;
   defaultCoachId: string | null;
   weekdays: number[];
   startTime: string;
@@ -76,4 +79,20 @@ export interface SessionInput {
 export interface SessionRecord extends Omit<SessionInput, 'createdBy'> {
   id: string;
   status: string;
+}
+
+/** A class offered by a package type, for the learner's "pick a class" step (PKG-02). */
+export interface PackageClassRow {
+  id: string;
+  name: string;
+  branchId: string;
+  branchName: string;
+  sessionTypeCode: string;
+  coachName: string | null;
+  weekdays: number[];
+  startTime: string;
+  durationMinutes: number;
+  capacity: number | null;
+  /** null = unlimited. */
+  seatsLeft: number | null;
 }
