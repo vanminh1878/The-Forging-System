@@ -22,12 +22,12 @@ Trạng thái: ✅ đã có · ⬜ cần code. Gợi ý module = tên thư mục
 | ADM-13 | `branches` | branches | CRUD chi nhánh, giờ mở cửa, `qr_version`; học viên đọc danh sách |
 | ADM-10 | `staff` | users, user_roles | Tạo staff (mật khẩu tạm), gán vai trò + chi nhánh, vô hiệu hoá. Không phân quyền theo chức năng (khách hàng đã chốt) |
 | HV-11, ADM(đào tạo) | `catalog` | courses, lesson_plans | 5 khóa, khóa 5 tăng dần; soft-delete bài học |
-| HV-08, COACH-02 | `classes` | classes, class_enrollments, sessions | Tạo lớp, sinh buổi theo lịch (idempotent), buổi lẻ / Academy / kiểm tra (`is_exam`), lịch của học viên mọi chi nhánh |
+| HV-08, COACH-02 | `classes` | classes, class_enrollments, sessions | Lớp thuộc 1 gói (`package_type_id`), cài `ClassPort` cho memberships; tạo lớp, sinh buổi theo lịch (idempotent), buổi lẻ / Academy / kiểm tra (`is_exam`), lịch của học viên mọi chi nhánh |
 
 ### B. Gói tập
 | UC | Module | Bảng | Ghi chú |
 |---|---|---|---|
-| HV-07, HV-09, HV-10, LT-02 | `memberships` | package_types, memberships, renewal_requests | Kích hoạt/gia hạn (xếp hàng SCHEDULED), ảnh minh chứng thu phí, +50 Marks gia hạn sớm (1 lần/gói), huỷ gói. Cài `MembershipPort` (`shared/ports.ts`) |
+| HV-07, HV-09, HV-10, LT-02 | `memberships` | package_types, memberships, renewal_requests | Admin CRUD gói (PKG-01); học viên chọn gói → chọn lớp → gửi yêu cầu, lễ tân duyệt = kích hoạt gói + ghi danh lớp. Kích hoạt/gia hạn (xếp hàng SCHEDULED), ảnh minh chứng thu phí, +50 Marks gia hạn sớm (1 lần/gói), huỷ gói. Cài `MembershipPort` (`shared/ports.ts`) |
 | SYS-06, SYS-07 | job trong `memberships` | members, memberships | Hết hạn → FROZEN, 12 tháng không hoạt động → INACTIVE (ưu tiên Inactive > Frozen) |
 | (khóa học) | `course-progress` | course_enrollments | Lắng nghe `ATTENDANCE_CONFIRMED`, hoàn thành khóa → mở course-gate của hạng (gọi `ranks.reevaluate`) |
 

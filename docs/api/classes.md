@@ -1,6 +1,8 @@
 # Lớp học (`classes`)
 
-Vai trò xem [README](README.md). Mọi endpoint yêu cầu đăng nhập; đường dẫn đều bắt đầu bằng `/admin/classes`.
+Vai trò xem [README](README.md). Mọi endpoint yêu cầu đăng nhập; đường dẫn quản trị bắt đầu bằng `/admin/classes`.
+
+Từ 15/11/2026 mỗi lớp thuộc tối đa 1 gói tập (`packageTypeId`); học viên chọn lớp khi đăng ký gói. Xem [memberships.md — Mô hình gói – lớp](./memberships.md#mô-hình-gói--lớp-cập-nhật-15112026).
 
 Object lớp học (`ClassRow`):
 
@@ -11,6 +13,8 @@ Object lớp học (`ClassRow`):
   "name": "Boxing sáng",
   "sessionTypeCode": "GROUP",
   "courseId": null,
+  "packageTypeId": "6f1c0a52-3b0e-4e0c-9d1d-0f6d2f3a9b11",
+  "packageName": "Group Training 3 tháng",
   "defaultCoachId": "a1c0a52-8d0e-4c0b-9a55-0b6f3a2f6c22",
   "weekdays": [1, 3, 5],
   "startTime": "06:30",
@@ -22,6 +26,7 @@ Object lớp học (`ClassRow`):
 
 - `weekdays`: ISO, 1 = Thứ Hai ... 7 = Chủ Nhật. `startTime`: `HH:mm` (giờ địa phương). `capacity = null` nghĩa là không giới hạn sĩ số.
 - `sessionTypeCode`: `GROUP`, `PT`, `ACADEMY`, `WORKSHOP`, `SPARRING`.
+- `packageTypeId` / `packageName`: gói chứa lớp; `null` = lớp không bán theo gói (học viên không tự chọn được, chỉ lễ tân/admin ghi danh tay).
 
 ## GET `/admin/classes`
 
@@ -105,6 +110,7 @@ Tạo lớp. Quyền: **A**. Trả 201 với `ClassRow`.
 | `name`            | string     | có       | 1–120 ký tự                                                           |
 | `sessionTypeCode` | string     | có       | Phải tồn tại (và đang bật)                                            |
 | `courseId`        | uuid\|null | không    | Mặc định `null`; phải tồn tại                                         |
+| `packageTypeId`   | uuid\|null | không    | Mặc định `null`; gói phải tồn tại                                     |
 | `defaultCoachId`  | uuid\|null | không    | Mặc định `null`; user phải có role COACH/HEAD_COACH/ADMIN/SUPER_ADMIN |
 | `weekdays`        | int[]      | có       | Mỗi phần tử 1–7, không trùng, ít nhất 1                               |
 | `startTime`       | string     | có       | `HH:mm` (00:00–23:59)                                                 |
@@ -117,6 +123,7 @@ Tạo lớp. Quyền: **A**. Trả 201 với `ClassRow`.
 | 400  | `VALIDATION_ERROR`       | Dữ liệu không hợp lệ (xem `details`)            |
 | 400  | `SESSION_TYPE_NOT_FOUND` | Loại buổi tập không tồn tại                     |
 | 400  | `COURSE_NOT_FOUND`       | Khoá học không tồn tại                          |
+| 400  | `PACKAGE_NOT_FOUND`      | Gói tập không tồn tại                           |
 | 400  | `COACH_INVALID`          | Người dùng được chọn không phải huấn luyện viên |
 | 403  | `FORBIDDEN`              | Không đủ quyền                                  |
 | 422  | `BRANCH_INACTIVE`        | Chi nhánh không tồn tại hoặc đã ngừng hoạt động |
@@ -125,11 +132,12 @@ Ghi audit `CLASS_CREATED`.
 
 ## PATCH `/admin/classes/:id`
 
-Sửa lớp. Quyền: **A**. Body là các field như trên, **tất cả tuỳ chọn** nhưng phải gửi ít nhất 1 field (cho phép gửi `null` cho `courseId`, `defaultCoachId`, `capacity` để xoá). Trả 200 với `ClassRow` mới.
+Sửa lớp. Quyền: **A**. Body là các field như trên, **tất cả tuỳ chọn** nhưng phải gửi ít nhất 1 field (cho phép gửi `null` cho `courseId`, `packageTypeId`, `defaultCoachId`, `capacity` để xoá). Trả 200 với `ClassRow` mới.
 
-- Chỉ kiểm tra lại chi nhánh / loại buổi / khoá học / HLV khi giá trị **thay đổi**; lớp thuộc chi nhánh đã ngừng hoạt động vẫn sửa tên, giờ... được.
+- Chỉ kiểm tra lại chi nhánh / loại buổi / khoá học / gói / HLV khi giá trị **thay đổi**; lớp thuộc chi nhánh đã ngừng hoạt động vẫn sửa tên, giờ... được.
 - Giảm `capacity` xuống thấp hơn sĩ số hiện tại không bị chặn; chỉ ảnh hưởng lần ghi danh sau.
 - Tắt lớp bằng `isActive: false` (không xoá). Lớp tắt không nhận ghi danh mới.
+- Đổi / bỏ `packageTypeId` không đụng tới ghi danh hiện có; chỉ ảnh hưởng lần chọn lớp sau.
 
 Lỗi như POST, thêm `404 NOT_FOUND` (Lớp học not found). Ghi audit `CLASS_UPDATED` (before/after).
 
@@ -164,6 +172,37 @@ Ghi danh học viên vào lớp. Quyền: **FD** (lễ tân + admin). Trả 201.
 - `CLASS_FULL` chỉ áp dụng khi lớp có `capacity`; đếm các enrollment `ACTIVE`.
 - Học viên đã rời lớp (ENDED) có thể ghi danh lại.
 - Ghi audit `ROSTER_UPDATED`.
+
+- Ghi danh tay vẫn dùng được cho mọi lớp (kể cả lớp thuộc gói). Ghi danh theo gói thì đi qua duyệt yêu cầu / kích hoạt gói (memberships MEM-04) để có `membershipId` và ngày theo gói.
+- Huỷ gói → ghi danh có `membershipId` của gói đó chuyển `CANCELLED`.
+
+## GET `/package-types/:id/classes`
+
+Lớp đang hoạt động của một gói, cho bước "chọn lớp" của học viên và lễ tân. Quyền: mọi tài khoản đã đăng nhập.
+
+```json
+{
+  "data": [
+    {
+      "id": "0b8f...",
+      "name": "Boxing tối T2-4-6",
+      "branchId": "6f1c...",
+      "branchName": "HVP Quận 1",
+      "sessionTypeCode": "GROUP",
+      "coachName": "Trần Văn B",
+      "weekdays": [1, 3, 5],
+      "startTime": "18:30",
+      "durationMinutes": 60,
+      "capacity": 20,
+      "seatsLeft": 3
+    }
+  ]
+}
+```
+
+- `seatsLeft = capacity - số ghi danh ACTIVE` (tối thiểu 0); `null` khi lớp không giới hạn sĩ số. `coachName` null khi chưa có HLV.
+- Sắp xếp theo chi nhánh, rồi tên lớp. Gói ngừng bán hoặc không có lớp: `data = []`.
+- Lỗi: 401 `UNAUTHORIZED`, 404 `NOT_FOUND` (không có gói).
 
 ## DELETE `/admin/classes/:id/enrollments/:memberId`
 
@@ -330,7 +369,7 @@ Body: `{ "reason": "Nghỉ lễ" }`, bắt buộc, không được rỗng. Respo
 ## Ghi chú FE
 
 - Màn danh sách lớp (CLS-06): bảng/thẻ với tên, thứ trong tuần (map 1..7 sang T2..CN), giờ `startTime` + `durationMinutes`, `enrolledCount/capacity` (hiện "∞" nếu `capacity = null`). Bộ lọc chi nhánh, loại buổi, trạng thái. Trạng thái: loading, rỗng ("Chưa có lớp học"), lỗi (thử lại).
-- Form tạo/sửa chỉ hiện cho **admin**: chọn chi nhánh từ `GET /branches?includeInactive=false`, chọn nhiều thứ, giờ bắt đầu, thời lượng, sĩ số (tuỳ chọn), HLV (tuỳ chọn). Toast thành công: "Đã tạo lớp" / "Đã cập nhật lớp".
+- Form tạo/sửa chỉ hiện cho **admin**: chọn chi nhánh từ `GET /branches?includeInactive=false`, gói tập từ `GET /package-types?includeInactive=true` (có lựa chọn "Không thuộc gói"), chọn nhiều thứ, giờ bắt đầu, thời lượng, sĩ số (tuỳ chọn), HLV (tuỳ chọn). Toast thành công: "Đã tạo lớp" / "Đã cập nhật lớp".
 - Chi tiết lớp: hiện roster; nút "Thêm học viên" và "Cho rời lớp" chỉ hiện cho lễ tân và admin. Coach chỉ xem.
 - Hiển thị theo `code`: `ALREADY_ENROLLED` ("Học viên đã có trong lớp"), `CLASS_FULL` ("Lớp đã đủ sĩ số"), `MEMBER_INACTIVE` ("Tài khoản học viên đã ngừng hoạt động"). Xác nhận trước khi cho rời lớp, có ô lý do tuỳ chọn.
 - Buổi tập được hệ thống tự sinh từ lịch lớp (xem mục "Sinh buổi tập" bên dưới); FE không tạo buổi cho lớp. Sau khi admin sửa lịch/coach/trạng thái lớp, nên tải lại danh sách buổi.

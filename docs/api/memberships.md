@@ -2,6 +2,25 @@
 
 Quy ước chung (base URL, `X-Tenant-Code`, Bearer, envelope, phân trang, vai trò): xem [README](./README.md).
 
+## Mô hình gói – lớp (cập nhật 15/11/2026)
+
+Khách hàng đổi định nghĩa gói tập và lớp học:
+
+1. **Admin tạo gói tập** (số buổi, thời hạn, giá...) — PKG-01.
+2. **Một gói gồm nhiều lớp**; **mỗi lớp thuộc tối đa 1 gói** (`classes.package_type_id`, null = lớp không bán theo gói như Academy / Workshop / PT). Mỗi lớp có lịch, HLV, chi nhánh, sĩ số riêng (xem [classes.md](./classes.md)).
+3. **Học viên chọn gói → chọn đúng 1 lớp của gói → gửi yêu cầu** (`POST /me/renewal-requests` có `classId`). Gói không gán lớp nào (ví dụ gói Giao thoa tập tự do) thì bỏ bước chọn lớp.
+4. **Lễ tân duyệt** yêu cầu (thu phí + ảnh minh chứng), hoặc **tự thêm** học viên vào gói + lớp như admin (`POST /members/:memberId/memberships` có `classId`). Duyệt / kích hoạt = kích hoạt gói **và** ghi danh lớp trong cùng một giao dịch.
+
+Không đổi: một học viên tối đa 1 gói ACTIVE + 1 gói SCHEDULED, 1 yêu cầu PENDING; gia hạn sớm xếp nối tiếp +50 Marks; check-in vẫn trừ buổi của gói ACTIVE.
+
+Ghi danh do gói tạo ra (`class_enrollments`):
+
+- `startDate` / `endDate` = ngày bắt đầu / kết thúc của gói mới, `membershipId` = gói mới (gói SCHEDULED thì lớp cũng bắt đầu từ ngày gói nối tiếp có hiệu lực).
+- Học viên đang có ghi danh ACTIVE ở **đúng lớp đó** (gia hạn cùng lớp): không tạo dòng mới, kéo dài `endDate` theo gói mới và gán `membershipId` = gói mới.
+- Gia hạn sang lớp khác: ghi danh cũ giữ `endDate` cũ (hết theo gói cũ), ghi danh mới bắt đầu từ ngày gói mới.
+- Huỷ gói (MEM-06) → các ghi danh có `membershipId` = gói đó chuyển `CANCELLED`.
+- Sĩ số (`CLASS_FULL`) kiểm tra cả lúc học viên gửi yêu cầu và lúc lễ tân duyệt, đếm ghi danh `ACTIVE` như CLS-01.
+
 ## MEM-01 — Danh sách loại gói
 
 ### `GET /package-types`
@@ -27,11 +46,14 @@ Quy ước chung (base URL, `X-Tenant-Code`, Bearer, envelope, phân trang, vai 
       "sessionsPerWeek": 3,
       "isTrial": false,
       "priceVnd": 8900000,
-      "description": null
+      "description": null,
+      "classCount": 2
     }
   ]
 }
 ```
+
+`classCount`: số lớp đang hoạt động thuộc gói. `0` = gói không cần chọn lớp. Danh sách lớp: `GET /package-types/:id/classes` ([classes.md](./classes.md#get-package-typesidclasses)).
 
 Khi ADMIN gọi với `includeInactive=true`, mỗi phần tử có thêm `isActive: boolean`.
 
@@ -49,6 +71,50 @@ Khi ADMIN gọi với `includeInactive=true`, mỗi phần tử có thêm `isAct
   - Dùng cho modal "Gia hạn": hiển thị `name`, `priceVnd` (định dạng `8.900.000đ`), thời hạn (`durationDays` ngày) và số buổi (`totalSessions` hoặc "Không giới hạn buổi").
   - `isTrial = true`: gắn nhãn "Gói trải nghiệm".
   - Danh sách rỗng: hiển thị trạng thái trống "Hiện chưa có gói nào đang bán".
+
+## PKG-01 — Admin tạo / sửa gói tập
+
+### `POST /admin/package-types`  (vai trò: ADMIN, SUPER_ADMIN)
+
+Tạo gói. Trả **201** `{ "data": <packageType> }` (cùng dạng phần tử của `GET /package-types`, có thêm `isActive`, `sortOrder`).
+
+| Trường body | Kiểu | Bắt buộc | Giới hạn |
+|---|---|---|---|
+| `code` | string | có | 1–40 ký tự `A-Z0-9_`, duy nhất trong tenant |
+| `name` | string | có | 1–120 ký tự |
+| `durationDays` | int\|null | không | 1–3650; `null` = không giới hạn ngày |
+| `totalSessions` | int\|null | không | 1–1000; `null` = không giới hạn buổi |
+| `sessionsPerWeek` | int\|null | không | 1–14 |
+| `isTrial` | boolean | không | Mặc định `false` |
+| `priceVnd` | int\|null | không | 0–1.000.000.000 |
+| `description` | string\|null | không | Tối đa 1000 ký tự |
+| `isActive` | boolean | không | Mặc định `true` |
+| `sortOrder` | int | không | 0–999, mặc định 0 |
+
+### `PATCH /admin/package-types/:id`  (vai trò: ADMIN, SUPER_ADMIN)
+
+Sửa gói. Các field như trên, tất cả tuỳ chọn, gửi ít nhất 1 field; `null` để xoá giá trị tuỳ chọn. Trả **200** `{ "data": <packageType> }`.
+
+- Không xoá gói; ngừng bán bằng `isActive: false`. Gói ngừng bán không hiện cho học viên, không duyệt / kích hoạt mới được (`PACKAGE_INACTIVE`), gói đã bán vẫn giữ nguyên.
+- Sửa số buổi / thời hạn / giá **không** ảnh hưởng gói đã bán (đã snapshot vào `memberships`).
+
+### Lỗi
+
+| HTTP | code | message |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | Dữ liệu không hợp lệ |
+| 401 | `UNAUTHORIZED` | Chưa đăng nhập |
+| 403 | `FORBIDDEN` | Không đủ quyền (lễ tân / HLV / học viên) |
+| 404 | `NOT_FOUND` | Không tìm thấy gói tập |
+| 409 | `PACKAGE_CODE_EXISTS` | Mã gói đã tồn tại. |
+
+Audit `PACKAGE_TYPE_CREATED` / `PACKAGE_TYPE_UPDATED` (entityType `PACKAGE_TYPE`, before/after).
+
+### Ghi chú FE
+
+- Tab "Khác" của admin → mục "Gói tập": danh sách mọi gói (`GET /package-types?includeInactive=true`) với tên, giá, thời hạn, số buổi, số lớp (`classCount`), nhãn "Ngừng bán". Trống: "Chưa có gói tập nào".
+- Form tạo/sửa: các field trên; toast "Đã tạo gói" / "Đã cập nhật gói". 409: hiển thị `error.message` dưới ô mã gói.
+- Gán lớp vào gói làm ở form lớp (chọn "Gói tập" trong form lớp), không làm ở form gói.
 
 ## MEM-02 — Gói hiện tại, gói chờ và trạng thái
 
@@ -119,7 +185,7 @@ Hai endpoint trả cùng một payload. `:memberId` là UUID của học viên (
 
 ## MEM-03 — Yêu cầu gia hạn
 
-Duyệt / huỷ yêu cầu là MEM-04 / MEM-06 (W2), chưa có trong nhánh này.
+Duyệt / huỷ yêu cầu: MEM-04 / MEM-06. Từ 15/11/2026 yêu cầu có thêm lớp học viên chọn (`class`).
 
 Đối tượng `renewalRequest` dùng chung cho các endpoint dưới đây:
 
@@ -133,17 +199,19 @@ Duyệt / huỷ yêu cầu là MEM-04 / MEM-06 (W2), chưa có trong nhánh này
   "handledAt": null,
   "member": { "id": "a1b2...", "fullName": "Nguyễn Văn A", "phone": "0911000001", "memberCode": "HVP000123" },
   "desiredPackage": { "id": "6f1c...", "name": "BOOK II — Foundation 2", "priceVnd": 9800000 },
+  "class": { "id": "0b8f...", "name": "Boxing tối T2-4-6", "branchName": "HVP Quận 1", "weekdays": [1, 3, 5], "startTime": "18:30" },
   "currentMembership": { "id": "b2c1...", "packageName": "BOOK I — Foundation", "endDate": "2026-11-30" }
 }
 ```
 
-`status`: `PENDING` / `COMPLETED` / `CANCELLED`. `currentMembership` = `null` nếu học viên không có gói ACTIVE lúc gửi. `reason` là lý do huỷ (có khi MEM-06 xong).
+`status`: `PENDING` / `COMPLETED` / `CANCELLED`. `class` = `null` khi gói không có lớp (hoặc yêu cầu cũ). `currentMembership` = `null` nếu học viên không có gói ACTIVE lúc gửi. `reason` là lý do huỷ (có khi MEM-06 xong).
 
 ### `POST /me/renewal-requests`  (vai trò: MEMBER)
 
 | Trường body | Kiểu | Bắt buộc | Giới hạn |
 |---|---|---|---|
 | `packageTypeId` | uuid | có | Gói phải đang bán (`GET /package-types`) |
+| `classId` | uuid | khi gói có lớp | Lớp đang hoạt động thuộc gói (`GET /package-types/:id/classes`) |
 | `note` | string | không | tối đa 500 ký tự, tự cắt khoảng trắng đầu/cuối |
 
 - **Response 201:** `{ "data": <renewalRequest> }` với `status = "PENDING"`.
@@ -155,17 +223,25 @@ Duyệt / huỷ yêu cầu là MEM-04 / MEM-06 (W2), chưa có trong nhánh này
 | 401 | `UNAUTHORIZED` | Chưa đăng nhập |
 | 403 | `FORBIDDEN` | Không phải học viên |
 | 403 | `ACCOUNT_INACTIVE` | Tài khoản đang ngừng hoạt động. Vui lòng liên hệ lễ tân để kích hoạt lại. |
+| 400 | `CLASS_REQUIRED` | Vui lòng chọn lớp. |
 | 422 | `PACKAGE_NOT_AVAILABLE` | Gói tập này hiện không còn được bán. |
+| 422 | `CLASS_NOT_IN_PACKAGE` | Lớp không thuộc gói đã chọn. |
+| 422 | `CLASS_INACTIVE` | Lớp học đã ngừng hoạt động |
+| 409 | `CLASS_FULL` | Lớp đã đủ sĩ số |
 | 409 | `RENEWAL_PENDING_EXISTS` | Bạn đã có một yêu cầu gia hạn đang chờ xử lý. Lễ tân sẽ xử lý sớm. |
 
 - **Quy tắc:**
   - Mỗi học viên chỉ có tối đa 1 yêu cầu `PENDING`; gửi đồng thời nhiều lần chỉ tạo 1 yêu cầu, các lần còn lại nhận 409.
   - Tài khoản `FROZEN` vẫn được gửi; `INACTIVE` bị chặn.
   - Lưu `currentMembership` = gói ACTIVE tại thời điểm gửi (nếu có).
+  - Gói có lớp đang hoạt động: bắt buộc `classId` thuộc gói (`CLASS_REQUIRED` / `CLASS_NOT_IN_PACKAGE` / `CLASS_INACTIVE` / `CLASS_FULL`). Gói không có lớp mà gửi `classId`: `CLASS_NOT_IN_PACKAGE`.
+  - Gửi yêu cầu **chưa** giữ chỗ trong lớp; chỗ chỉ được giữ khi lễ tân duyệt.
   - Học viên nhận thông báo `RENEWAL_SENT` ("Đã gửi yêu cầu gia hạn"); lễ tân nhận thông báo nội bộ `RENEWAL_REQUEST`. Ghi audit `RENEWAL_REQUESTED`.
 - **Ghi chú FE:**
   - Sau 201: toast "Đã gửi yêu cầu gia hạn. Lễ tân sẽ liên hệ với bạn sớm." rồi tải lại `GET /me/membership` (`pendingRenewal` có giá trị -> khoá nút Gia hạn).
   - 409: hiển thị đúng `error.message`, đồng thời tải lại `GET /me/membership`.
+  - Luồng 2 bước: chọn gói → nếu `classCount > 0` chọn 1 lớp (chi nhánh, HLV, thứ + giờ, chỗ trống; lớp hết chỗ bị khoá) → ghi chú → gửi.
+  - `CLASS_FULL` / `CLASS_INACTIVE`: hiển thị `error.message`, tải lại danh sách lớp.
   - 422: toast lỗi và tải lại danh sách gói. 403 `ACCOUNT_INACTIVE`: hiển thị `error.message` kèm gợi ý liên hệ lễ tân.
 
 ### `GET /me/renewal-requests`  (vai trò: MEMBER)
@@ -187,7 +263,7 @@ Hộp thư yêu cầu gia hạn cho lễ tân (MEM-12).
 
 - **Response 200:** `{ "data": [<renewalRequest>...], "meta": { "page", "limit", "total", "totalPages" } }`, mới nhất trước.
 - **Lỗi:** 400 `VALIDATION_ERROR` (ví dụ `status` sai), 401 `UNAUTHORIZED`, 403 `FORBIDDEN` (HLV/học viên).
-- **Ghi chú FE:** tab mặc định `status=PENDING` kèm ô tìm kiếm; mỗi dòng hiển thị tên + mã học viên, gói muốn gia hạn + giá, gói hiện tại + ngày hết hạn, ghi chú, thời điểm gửi. Trống: "Chưa có yêu cầu gia hạn nào". Nút Duyệt/Huỷ sẽ có ở MEM-04/MEM-06.
+- **Ghi chú FE:** tab mặc định `status=PENDING` kèm ô tìm kiếm; mỗi dòng hiển thị tên + mã học viên, gói muốn gia hạn + giá, lớp đã chọn (tên, chi nhánh, lịch), gói hiện tại + ngày hết hạn, ghi chú, thời điểm gửi. Trống: "Chưa có yêu cầu gia hạn nào". Nút Duyệt/Huỷ: MEM-04/MEM-06.
 
 ## MEM-04 — Lễ tân kích hoạt / gia hạn gói kèm ảnh thu phí
 
@@ -200,6 +276,7 @@ Kích hoạt thủ công gói cho học viên. Trả **201**.
 | Trường body | Kiểu | Bắt buộc | Giới hạn |
 |---|---|---|---|
 | `packageTypeId` | uuid | có | Gói phải đang bán |
+| `classId` | uuid | khi gói có lớp | Lớp đang hoạt động thuộc gói |
 | `paymentEvidenceUrl` | string | có (kiểm tra ở server) | Phải bắt đầu bằng `${PUBLIC_BASE_URL}/files/` |
 | `branchId` | uuid | không | Mặc định chi nhánh chính của học viên |
 | `note` | string | không | Tối đa 500 ký tự |
@@ -212,6 +289,7 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
 |---|---|---|---|
 | `paymentEvidenceUrl` | string | có | Như trên |
 | `packageTypeId` | uuid | không | Mặc định `desiredPackage` của yêu cầu |
+| `classId` | uuid | không | Mặc định `class` của yêu cầu. Bắt buộc khi đổi sang gói khác có lớp |
 | `note` | string | không | Tối đa 500 ký tự, lưu vào `reason` của yêu cầu |
 
 ### Response (cả hai endpoint)
@@ -229,6 +307,7 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
       "usedSessions": 0,
       "paymentEvidenceUrl": "http://localhost:4000/files/evidence/abc.jpg"
     },
+    "enrollment": { "classId": "0b8f...", "className": "Boxing tối T2-4-6", "startDate": "2027-01-16", "endDate": "2027-04-09" },
     "mode": "SCHEDULED",
     "reactivated": false,
     "bonusMarks": 50,
@@ -239,6 +318,7 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
 
 `mode`: `ACTIVATED` (gói mới ACTIVE từ hôm nay) hoặc `SCHEDULED` (xếp nối tiếp).
 `bonusMarks`: số Marks thưởng gia hạn sớm (MEM-05); `0` khi không thưởng.
+`enrollment`: ghi danh lớp do gói tạo / kéo dài; `null` khi gói không có lớp.
 
 ### Lỗi
 
@@ -248,12 +328,16 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
 | 400 | `PAYMENT_EVIDENCE_REQUIRED` | Vui lòng tải ảnh minh chứng đã thu phí. |
 | 400 | `INVALID_PAYMENT_EVIDENCE` | Ảnh minh chứng không hợp lệ. |
 | 400 | `PACKAGE_REQUIRED` | Vui lòng chọn gói tập. (duyệt yêu cầu không có gói mong muốn và body không có `packageTypeId`) |
+| 400 | `CLASS_REQUIRED` | Vui lòng chọn lớp. |
 | 401 | `UNAUTHORIZED` | Chưa đăng nhập |
 | 403 | `FORBIDDEN` | Không đủ quyền (HLV / học viên) |
 | 404 | `NOT_FOUND` | Không tìm thấy học viên / gói tập / chi nhánh / yêu cầu gia hạn |
 | 409 | `MEMBERSHIP_ALREADY_SCHEDULED` | Học viên đã có gói nối tiếp đang chờ kích hoạt. |
 | 409 | `RENEWAL_ALREADY_HANDLED` | Yêu cầu này đã được xử lý. |
+| 409 | `CLASS_FULL` | Lớp đã đủ sĩ số |
 | 422 | `PACKAGE_INACTIVE` | Gói tập này đã ngừng bán. |
+| 422 | `CLASS_NOT_IN_PACKAGE` | Lớp không thuộc gói đã chọn. |
+| 422 | `CLASS_INACTIVE` | Lớp học đã ngừng hoạt động |
 
 ### Quy tắc nghiệp vụ
 
@@ -262,13 +346,14 @@ Duyệt yêu cầu gia hạn `PENDING`. Trả **200**.
 - `endDate = startDate + durationDays - 1` (null nếu gói không giới hạn ngày). Giá thu = giá gói, `totalSessions` lấy snapshot từ gói.
 - HVP Marks không bị đóng băng/mở băng khi đổi trạng thái.
 - Duyệt yêu cầu: yêu cầu chuyển `COMPLETED`, lưu người xử lý, thời điểm, ảnh và gói kết quả.
+- Lớp: kiểm tra như MEM-03 rồi ghi danh theo mục "Mô hình gói – lớp" ở đầu file, trong cùng giao dịch với kích hoạt gói (lỗi lớp → không tạo gói, yêu cầu vẫn `PENDING`). Audit `ROSTER_UPDATED` (op `ENROLL`, reason `PACKAGE`).
 - Học viên nhận thông báo `RENEWAL_COMPLETED` ("GIA HẠN THÀNH CÔNG"). Audit: `MEMBERSHIP_CREATED`, `MEMBERSHIP_EXPIRED` (gói cũ), `RENEWAL_COMPLETED`.
 - **Thưởng gia hạn sớm (MEM-05)**: chỉ khi `mode = SCHEDULED`, học viên nhận `+N` HVP Marks (setting `points.early_renewal_marks`, mặc định 50; đặt 0 thì tắt). Không tính vào trần Marks hàng tháng. Mỗi gói mới nhận thưởng đúng 1 lần (khoá `renewal:{membershipId}`); thưởng bị đảo khi gói đó bị huỷ (MEM-06). Kích hoạt khi gói cũ đã hết hạn/hết buổi thì không thưởng.
 - `GET /members/:memberId/membership` (lễ tân) có thêm `paymentEvidenceUrl` trong `current` / `scheduled`; `GET /me/membership` thì không.
 
 ### Ghi chú FE
 
-- Form: chọn gói, tải ảnh thu phí (bắt buộc, có preview), chi nhánh (tuỳ chọn), ghi chú. Nút "Xác nhận đã thu phí" bị khoá tới khi ảnh upload xong.
+- Form: chọn gói → chọn lớp (nếu gói có lớp; duyệt yêu cầu thì chọn sẵn lớp học viên đã chọn, cho đổi) → tải ảnh thu phí (bắt buộc, có preview), chi nhánh (tuỳ chọn), ghi chú. `CLASS_FULL`: hiển thị `error.message` và cho chọn lớp khác. Nút "Xác nhận đã thu phí" bị khoá tới khi ảnh upload xong.
 - Thành công: hiển thị `message` làm toast (đã kèm số Marks thưởng nếu có), tải lại `GET /members/:memberId/membership` và hộp thư yêu cầu.
 - 409 `RENEWAL_ALREADY_HANDLED`: tải lại hộp thư. 409 `MEMBERSHIP_ALREADY_SCHEDULED`: hiển thị `error.message`. 422: tải lại danh sách gói.
 - Chỉ lễ tân/admin thấy ảnh minh chứng; màn học viên không có field này.
@@ -317,6 +402,7 @@ Huỷ gói `SCHEDULED` (lễ tân được) hoặc `ACTIVE` (chỉ Admin). Trả
 - Huỷ gói `ACTIVE` xong học viên (đang `ACTIVE`) chuyển `FROZEN` (lý do "Huỷ gói tập: ..."). Huỷ gói `SCHEDULED` không đổi trạng thái học viên.
 - Nếu gói có thưởng gia hạn sớm (MEM-05), thưởng được đảo bằng giao dịch `REVERSAL`. Nếu Marks đã tiêu (số dư sẽ âm) thì cả thao tác bị từ chối (422), không thay đổi gì. Gia hạn lại sau đó sẽ nhận thưởng lại.
 - Học viên nhận thông báo `MEMBERSHIP_STATUS` ("GÓI TẬP ĐÃ BỊ HUỶ"). Audit `MEMBERSHIP_CANCELLED`.
+- Ghi danh lớp gắn với gói bị huỷ (`membershipId`) chuyển `CANCELLED` trong cùng giao dịch (module classes nghe `MEMBERSHIP_CANCELLED`).
 
 ### Ghi chú FE
 
@@ -340,4 +426,6 @@ Sự kiện phát đồng bộ trong transaction, payload `MembershipEvent { mem
 | `MEMBERSHIP_CANCELLED` | Huỷ gói (MEM-06) |
 | `MEMBERSHIP_COMPLETED` | `consumeSession` dùng hết buổi |
 
-Hiện chưa có consumer.
+Consumer: module `classes` nghe `MEMBERSHIP_CANCELLED` để huỷ ghi danh lớp gắn với gói.
+
+`ClassPort` (`shared/ports.ts`, `ClassService` cài) cho memberships dùng: `hasActiveClasses(packageTypeId)`, `checkEnrollable(classId, packageTypeId)`, `enrollForMembership({ classId, memberId, membershipId, startDate, endDate, actorId })`.
