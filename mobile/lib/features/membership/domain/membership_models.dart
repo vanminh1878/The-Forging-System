@@ -98,24 +98,40 @@ class MyMembership {
   final bool canRenewEarly;
 }
 
-/// A sellable package from `GET /package-types`. Null limits mean unlimited,
-/// a null price means the price is not set yet.
+/// A package from `GET /package-types`. Null limits mean unlimited, a null
+/// price means the price is not set yet. [classCount] is the number of active
+/// classes of the package (0 = no class to choose). [isActive] is only false
+/// in the admin list (`includeInactive=true`).
 class PackageType {
   const PackageType({
     required this.id,
     required this.name,
+    this.code = '',
     this.isTrial = false,
     this.durationDays,
     this.totalSessions,
+    this.sessionsPerWeek,
     this.priceVnd,
+    this.description,
+    this.isActive = true,
+    this.sortOrder = 0,
+    this.classCount = 0,
   });
 
   final String id;
   final String name;
+  final String code;
   final bool isTrial;
   final int? durationDays;
   final int? totalSessions;
+  final int? sessionsPerWeek;
   final int? priceVnd;
+  final String? description;
+  final bool isActive;
+  final int sortOrder;
+  final int classCount;
+
+  bool get hasClasses => classCount > 0;
 }
 
 enum RenewalStatus {

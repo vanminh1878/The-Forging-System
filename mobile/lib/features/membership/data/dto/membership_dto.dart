@@ -40,10 +40,16 @@ MyMembership myMembershipFromJson(JsonMap j) => MyMembership(
 PackageType packageTypeFromJson(JsonMap j) => PackageType(
       id: str(j, 'id'),
       name: str(j, 'name'),
+      code: str(j, 'code'),
       isTrial: boolOf(j, 'isTrial'),
       durationDays: _intOrNull(j, 'durationDays'),
       totalSessions: _intOrNull(j, 'totalSessions'),
+      sessionsPerWeek: _intOrNull(j, 'sessionsPerWeek'),
       priceVnd: _intOrNull(j, 'priceVnd'),
+      description: strOrNull(j, 'description'),
+      isActive: boolOf(j, 'isActive', true),
+      sortOrder: intOf(j, 'sortOrder'),
+      classCount: intOf(j, 'classCount'),
     );
 
 RenewalRequest renewalRequestFromJson(JsonMap j) {

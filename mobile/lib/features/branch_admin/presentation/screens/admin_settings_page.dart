@@ -148,6 +148,26 @@ class _ConfigTab extends StatelessWidget {
           if (tab.label == 'Khác') ...<Widget>[
             const SizedBox(height: 12),
             HvpCard(
+              onTap: () => context.push(AdminPaths.packages),
+              child: Row(children: <Widget>[
+                Icon(HvpIcons.package, color: context.hvp.gold),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text('Gói tập', style: context.txt.titleS),
+                      const SizedBox(height: 2),
+                      Text('Tạo gói, giá, số buổi và trạng thái bán.',
+                          style: context.txt.bodySmall),
+                    ],
+                  ),
+                ),
+                Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
+              ]),
+            ),
+            const SizedBox(height: 12),
+            HvpCard(
               onTap: () => context.push(AdminPaths.renewalRequests),
               child: Row(children: <Widget>[
                 Icon(HvpIcons.ticket, color: context.hvp.gold),

@@ -112,6 +112,7 @@ abstract final class AdminPaths {
   static const String branches = '/admin/settings/branches';
   static const String armory = '/admin/settings/armory';
   static const String renewalRequests = '/admin/settings/renewal-requests';
+  static const String packages = '/admin/settings/packages';
   static const String armoryRewards = '/admin/settings/armory/rewards';
   static String armoryRewardsForTier(String tierCode) =>
       '$armoryRewards?tierCode=${Uri.encodeQueryComponent(tierCode)}';
@@ -119,6 +120,8 @@ abstract final class AdminPaths {
   static const String armoryRewardCreate =
       '/admin/settings/armory/rewards/create';
   static const String challengeCreate = '/admin/challenges/create';
-  static const String challengeEditPattern = '/admin/challenges/:challengeId/edit';
-  static String challengeEdit(String challengeId) => '/admin/challenges/$challengeId/edit';
+  static const String challengeEditPattern =
+      '/admin/challenges/:challengeId/edit';
+  static String challengeEdit(String challengeId) =>
+      '/admin/challenges/$challengeId/edit';
 }
