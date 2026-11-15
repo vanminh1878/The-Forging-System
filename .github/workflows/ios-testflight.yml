@@ -1,0 +1,69 @@
+name: iOS TestFlight
+
+# Manual only (Actions tab > iOS TestFlight > Run workflow). Signs the app for the App Store
+# and uploads it to TestFlight. Needs 4 repo secrets (Settings > Secrets and variables >
+# Actions > Secrets):
+#   ASC_ISSUER_ID, ASC_KEY_ID, ASC_PRIVATE_KEY  - App Store Connect API key (.p8 contents)
+#   IOS_CERT_PRIVATE_KEY                         - RSA key used to create the distribution cert
+# The API URL for the test build comes from the repo variable API_BASE_URL (staging server).
+on:
+  workflow_dispatch:
+
+env:
+  BUNDLE_ID: vn.hvp.hvpForging
+  API_BASE_URL: ${{ vars.API_BASE_URL }}
+  TENANT_CODE: ${{ vars.TENANT_CODE }}
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Codemagic CLI tools
+        run: pip3 install --break-system-packages codemagic-cli-tools
+
+      - name: Fetch certificate + provisioning profile and apply them
+        env:
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.ASC_KEY_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+          CERTIFICATE_PRIVATE_KEY: ${{ secrets.IOS_CERT_PRIVATE_KEY }}
+        run: |
+          keychain initialize
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
+          keychain add-certificates
+          cd mobile
+          xcode-project use-profiles
+
+      - name: Build signed .ipa
+        working-directory: mobile
+        run: |
+          flutter pub get
+          defines=()
+          [ -n "$API_BASE_URL" ] && defines+=(--dart-define=API_BASE_URL="$API_BASE_URL")
+          [ -n "$TENANT_CODE" ] && defines+=(--dart-define=TENANT_CODE="$TENANT_CODE")
+          flutter build ipa --release \
+            --export-options-plist="$HOME/export_options.plist" \
+            --build-number=${{ github.run_number }} "${defines[@]}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hvp-forging-ios-ipa-signed-${{ github.run_number }}
+          path: mobile/build/ios/ipa/*.ipa
+
+      - name: Upload to TestFlight
+        env:
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_PRIVATE_KEY: ${{ secrets.ASC_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s' "$ASC_PRIVATE_KEY" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+          xcrun altool --upload-app --type ios \
+            --file mobile/build/ios/ipa/*.ipa \
+            --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID"
