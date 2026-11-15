@@ -72,12 +72,40 @@ class MemberPackage {
   final bool endingSoon;
 }
 
+/// The class a renewal request asks for (`class` of a renewal request).
+class RenewalClass {
+  const RenewalClass({
+    required this.id,
+    required this.name,
+    required this.branchName,
+    required this.weekdays,
+    required this.startTime,
+  });
+
+  final String id;
+  final String name;
+  final String branchName;
+
+  /// ISO weekdays, 1 = Monday ... 7 = Sunday.
+  final List<int> weekdays;
+
+  /// `HH:mm`.
+  final String startTime;
+}
+
 /// A renewal request waiting for the front desk.
 class PendingRenewal {
-  const PendingRenewal({required this.packageName, required this.createdAt});
+  const PendingRenewal({
+    required this.packageName,
+    required this.createdAt,
+    this.classInfo,
+  });
 
   final String packageName;
   final DateTime? createdAt;
+
+  /// Null when the package has no classes.
+  final RenewalClass? classInfo;
 }
 
 class MyMembership {
@@ -161,10 +189,12 @@ class RenewalRequest {
     required this.createdAt,
     this.priceVnd,
     this.reason,
+    this.classInfo,
   });
 
   final String id;
   final RenewalStatus status;
+  final RenewalClass? classInfo;
   final String packageName;
   final int? priceVnd;
   final String? reason;

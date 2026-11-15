@@ -2,7 +2,9 @@
 library;
 
 import '../../../core/utils/formatters.dart';
+import '../../class_admin/domain/class_rules.dart';
 import 'membership_models.dart';
+import 'package_class_option.dart';
 
 /// `30/36 buổi đã dùng · còn 6` or `12 buổi đã tập · Không giới hạn`.
 String sessionsLabel(MemberPackage p) {
@@ -127,3 +129,44 @@ String packageSummary(PackageType p) {
   return '${days == null ? 'Không giới hạn ngày' : '$days ngày'} · '
       '${sessions == null ? 'Không giới hạn buổi' : '$sessions buổi'}';
 }
+
+/// `18:30` + 60 -> `19:30` (wraps past midnight).
+String endTimeLabel(String startTime, int durationMinutes) {
+  final parts = startTime.split(':');
+  if (parts.length != 2) return startTime;
+  final h = int.tryParse(parts[0]);
+  final m = int.tryParse(parts[1]);
+  if (h == null || m == null) return startTime;
+  final total = (h * 60 + m + durationMinutes) % 1440;
+  return '${(total ~/ 60).toString().padLeft(2, '0')}:'
+      '${(total % 60).toString().padLeft(2, '0')}';
+}
+
+/// `T2, T4, T6 · 18:30–19:30`; without [durationMinutes] only the start time.
+String classScheduleLabel(List<int> weekdays, String startTime,
+    [int? durationMinutes]) {
+  final days = weekdaysLabel(weekdays);
+  final time = durationMinutes == null
+      ? startTime
+      : '$startTime–${endTimeLabel(startTime, durationMinutes)}';
+  return days.isEmpty ? time : '$days · $time';
+}
+
+/// `Còn 3 chỗ`, `Hết chỗ`, or `Không giới hạn chỗ` when [seatsLeft] is null.
+String seatsLabel(int? seatsLeft) {
+  if (seatsLeft == null) return 'Không giới hạn chỗ';
+  return seatsLeft <= 0 ? 'Hết chỗ' : 'Còn $seatsLeft chỗ';
+}
+
+/// `HVP Quận 1 · HLV Trần Văn B`.
+String classPlaceLabel(PackageClassOption c) => <String>[
+      c.branchName,
+      if (c.coachName != null) 'HLV ${c.coachName}',
+    ].where((p) => p.isNotEmpty).join(' · ');
+
+/// `Boxing tối · HVP Quận 1 · T2, T4 · 18:30` for a request's class.
+String renewalClassLabel(RenewalClass c) => <String>[
+      c.name,
+      if (c.branchName.isNotEmpty) c.branchName,
+      classScheduleLabel(c.weekdays, c.startTime),
+    ].join(' · ');

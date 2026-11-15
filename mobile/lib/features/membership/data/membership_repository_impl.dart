@@ -1,6 +1,7 @@
 import '../../../core/utils/json_utils.dart';
 import '../domain/membership_models.dart';
 import '../domain/membership_repository.dart';
+import '../domain/package_class_option.dart';
 import 'dto/membership_dto.dart';
 import 'membership_api.dart';
 
@@ -21,11 +22,19 @@ class MembershipRepositoryImpl implements MembershipRepository {
           .toList(growable: false);
 
   @override
+  Future<List<PackageClassOption>> listPackageClasses(
+          String packageTypeId) async =>
+      (await _api.packageClasses(packageTypeId))
+          .dataList
+          .map((e) => packageClassFromJson(asMap(e)))
+          .toList(growable: false);
+
+  @override
   Future<void> requestRenewal(
-      {required String packageTypeId, String? note}) async {
+      {required String packageTypeId, String? classId, String? note}) async {
     final trimmed = note?.trim();
-    await _api.requestRenewal(
-        packageTypeId, trimmed == null || trimmed.isEmpty ? null : trimmed);
+    await _api.requestRenewal(packageTypeId, classId,
+        trimmed == null || trimmed.isEmpty ? null : trimmed);
   }
 
   @override

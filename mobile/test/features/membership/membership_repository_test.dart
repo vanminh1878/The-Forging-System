@@ -183,4 +183,97 @@ void main() {
     expect(list.last.reason, isNull);
     expect(list.last.priceVnd, isNull);
   });
+
+  test('lists package classes with seats left (null = unlimited)', () async {
+    final t = _build((o) => okEnvelope(<dynamic>[
+          <String, dynamic>{
+            'id': 'c1',
+            'name': 'Boxing tối',
+            'branchId': 'b',
+            'branchName': 'HVP Quận 1',
+            'coachName': 'Trần Văn B',
+            'weekdays': <int>[1, 3, 5],
+            'startTime': '18:30',
+            'durationMinutes': 60,
+            'capacity': 20,
+            'seatsLeft': 0,
+          },
+          <String, dynamic>{
+            'id': 'c2',
+            'name': 'Sáng',
+            'branchName': 'HVP Quận 7',
+            'coachName': null,
+            'weekdays': <int>[2],
+            'startTime': '06:00',
+            'durationMinutes': 90,
+            'capacity': null,
+            'seatsLeft': null,
+          },
+        ]));
+    final list = await t.repo.listPackageClasses('p1');
+    expect(t.adapter.requests.single.path, '/package-types/p1/classes');
+    expect(list.first.weekdays, <int>[1, 3, 5]);
+    expect(list.first.isFull, isTrue);
+    expect(list.last.coachName, isNull);
+    expect(list.last.seatsLeft, isNull);
+    expect(list.last.isFull, isFalse);
+  });
+
+  test('requestRenewal sends classId only when given', () async {
+    final t = _build((o) => okEnvelope(<String, dynamic>{}, status: 201));
+    await t.repo.requestRenewal(packageTypeId: 'p1', classId: 'c1');
+    expect(t.adapter.requests.single.data,
+        <String, dynamic>{'packageTypeId': 'p1', 'classId': 'c1'});
+  });
+
+  test('CLASS_FULL surfaces its code and message', () async {
+    final t =
+        _build((o) => errorEnvelope(409, 'CLASS_FULL', 'Lớp đã đủ sĩ số'));
+    await expectLater(
+      t.repo.requestRenewal(packageTypeId: 'p1', classId: 'c1'),
+      throwsA(isA<ApiException>()
+          .having((e) => e.code, 'code', 'CLASS_FULL')
+          .having((e) => e.message, 'message', 'Lớp đã đủ sĩ số')),
+    );
+  });
+
+  test('renewal request and pending renewal carry the chosen class', () async {
+    const cls = <String, dynamic>{
+      'id': 'c1',
+      'name': 'Boxing tối',
+      'branchName': 'HVP Quận 1',
+      'weekdays': <int>[1, 3],
+      'startTime': '18:30',
+    };
+    final t = _build((o) => o.path == '/me/membership'
+        ? okEnvelope(<String, dynamic>{
+            'memberStatus': 'ACTIVE',
+            'renewNotice': 'ENDED',
+            'pendingRenewal': <String, dynamic>{
+              'packageName': 'BOOK II',
+              'createdAt': '2026-10-24T05:00:00.000Z',
+              'class': cls,
+            },
+          })
+        : okEnvelope(<dynamic>[
+            <String, dynamic>{
+              'id': 'r1',
+              'status': 'PENDING',
+              'desiredPackage': <String, dynamic>{'name': 'BOOK II'},
+              'class': cls,
+            },
+            <String, dynamic>{
+              'id': 'r2',
+              'status': 'PENDING',
+              'desiredPackage': <String, dynamic>{'name': 'BOOK I'},
+              'class': null,
+            },
+          ]));
+    final m = await t.repo.getMyMembership();
+    expect(m.pendingRenewal!.classInfo!.name, 'Boxing tối');
+    final list = await t.repo.listMyRenewalRequests();
+    expect(list.first.classInfo!.branchName, 'HVP Quận 1');
+    expect(list.first.classInfo!.weekdays, <int>[1, 3]);
+    expect(list.last.classInfo, isNull);
+  });
 }

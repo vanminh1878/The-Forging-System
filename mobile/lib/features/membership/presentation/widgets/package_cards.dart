@@ -156,6 +156,9 @@ class PendingRenewalCard extends StatelessWidget {
                 : '${renewal.packageName} · gửi ${formatDate(sent)}',
             style: t.bodySmall,
           ),
+          if (renewal.classInfo != null)
+            Text('Lớp: ${renewalClassLabel(renewal.classInfo!)}',
+                style: t.bodySmall),
         ],
       ),
     );
@@ -199,6 +202,9 @@ class RenewalRequestTile extends StatelessWidget {
             ].join(' · '),
             style: t.bodySmall,
           ),
+          if (request.classInfo != null)
+            Text('Lớp: ${renewalClassLabel(request.classInfo!)}',
+                style: t.bodySmall),
           if (reason != null) ...<Widget>[
             const SizedBox(height: 4),
             Text('Lý do huỷ: $reason', style: t.body),
