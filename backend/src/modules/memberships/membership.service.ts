@@ -99,6 +99,13 @@ export class MembershipService implements MembershipPort {
         packageTypeId: pending.desiredPackageTypeId,
         packageName: pending.desiredPackageName,
         priceVnd: pending.desiredPriceVnd === null ? null : Number(pending.desiredPriceVnd),
+        class: pending.classId && {
+          id: pending.classId,
+          name: pending.className,
+          branchName: pending.classBranchName,
+          weekdays: pending.classWeekdays,
+          startTime: pending.classStartTime,
+        },
         note: pending.note,
         createdAt: pending.createdAt,
       },

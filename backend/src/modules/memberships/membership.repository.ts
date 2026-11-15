@@ -58,6 +58,11 @@ export interface PendingRenewalRow {
   desiredPackageTypeId: string | null;
   desiredPackageName: string | null;
   desiredPriceVnd: string | null;
+  classId: string | null;
+  className: string | null;
+  classBranchName: string | null;
+  classWeekdays: number[] | null;
+  classStartTime: string | null;
   note: string | null;
   createdAt: Date;
 }
@@ -197,9 +202,12 @@ export class MembershipRepository {
   findPendingRenewal(memberId: string): Promise<PendingRenewalRow | null> {
     return sql.one<PendingRenewalRow>(
       `SELECT rr.id, rr.desired_package_type_id, pt.name AS desired_package_name, pt.price_vnd AS desired_price_vnd,
-              rr.note, rr.created_at
+              rr.class_id, cl.name AS class_name, cb.name AS class_branch_name, cl.weekdays::int[] AS class_weekdays,
+              to_char(cl.start_time, 'HH24:MI') AS class_start_time, rr.note, rr.created_at
          FROM renewal_requests rr
          LEFT JOIN package_types pt ON pt.id = rr.desired_package_type_id
+         LEFT JOIN classes cl ON cl.id = rr.class_id
+         LEFT JOIN branches cb ON cb.id = cl.branch_id
         WHERE rr.member_id = $1 AND rr.status = 'PENDING'`,
       [memberId],
     );

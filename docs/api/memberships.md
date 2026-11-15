@@ -18,8 +18,9 @@ Ghi danh do gói tạo ra (`class_enrollments`):
 - `startDate` / `endDate` = ngày bắt đầu / kết thúc của gói mới, `membershipId` = gói mới (gói SCHEDULED thì lớp cũng bắt đầu từ ngày gói nối tiếp có hiệu lực).
 - Học viên đang có ghi danh ACTIVE ở **đúng lớp đó** (gia hạn cùng lớp): không tạo dòng mới, kéo dài `endDate` theo gói mới và gán `membershipId` = gói mới.
 - Gia hạn sang lớp khác: ghi danh cũ giữ `endDate` cũ (hết theo gói cũ), ghi danh mới bắt đầu từ ngày gói mới.
+- Quay lại đúng lớp cũ sau một khoảng không có gói (ghi danh cũ kết thúc trước ngày gói mới bắt đầu hơn 1 ngày): ghi danh cũ chuyển `ENDED`, tạo ghi danh mới từ ngày gói mới — không kéo dài qua khoảng trống.
 - Huỷ gói (MEM-06) → các ghi danh có `membershipId` = gói đó chuyển `CANCELLED`. (Ghi danh được kéo dài từ kỳ trước chỉ bị cắt về hết kỳ trước, xem MEM-06.)
-- Sĩ số (`CLASS_FULL`) kiểm tra cả lúc học viên gửi yêu cầu và lúc lễ tân duyệt, đếm ghi danh `ACTIVE` như CLS-01.
+- Sĩ số (`CLASS_FULL`) kiểm tra cả lúc học viên gửi yêu cầu và lúc lễ tân duyệt, đếm ghi danh `ACTIVE` còn hạn (`endDate` null hoặc ≥ hôm nay) — gói đã hết hạn không giữ chỗ.
 
 ## MEM-01 — Danh sách loại gói
 
@@ -154,7 +155,7 @@ Hai endpoint trả cùng một payload. `:memberId` là UUID của học viên (
 | `memberStatus` | `ACTIVE` / `FROZEN` / `INACTIVE` (trạng thái tài khoản). |
 | `current` | Gói đang `ACTIVE`, hoặc `null`. `totalSessions`, `sessionsRemaining` = `null` nếu không giới hạn buổi; `endDate`, `daysRemaining` = `null` nếu không giới hạn ngày. `daysRemaining = 0` là ngày cuối cùng. |
 | `scheduled` | Gói `SCHEDULED` nối tiếp (tối đa 1), cùng cấu trúc như `current` nhưng không có trường tính toán; hoặc `null`. |
-| `pendingRenewal` | Yêu cầu gia hạn đang `PENDING`: `{id, packageTypeId, packageName, priceVnd, note, createdAt}`, hoặc `null`. |
+| `pendingRenewal` | Yêu cầu gia hạn đang `PENDING`: `{id, packageTypeId, packageName, priceVnd, class, note, createdAt}`, hoặc `null`. `class` cùng dạng với `renewalRequest.class` (MEM-03), `null` khi gói không có lớp. |
 | `renewNotice` | `NO_PACKAGE` / `ENDED` / `ENDING_SOON` / `OK` (xem bên dưới). |
 | `canRenewEarly` | `true` khi gói hiện tại còn hiệu lực và chưa có gói `SCHEDULED`. |
 

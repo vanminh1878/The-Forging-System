@@ -210,7 +210,7 @@ export class ClassService implements ClassPort {
     if (await this.repo.hasActiveEnrollment(input.classId, input.memberId)) {
       throw conflict('Học viên đã có trong lớp này', 'ALREADY_ENROLLED');
     }
-    if (cls.capacity !== null && (await this.repo.countActive(input.classId)) >= cls.capacity) {
+    if (cls.capacity !== null && (await this.repo.countActive(input.classId, localDate(clock.now()))) >= cls.capacity) {
       throw conflict('Lớp đã đủ sĩ số', 'CLASS_FULL');
     }
     const enrollmentId = await this.repo.insertEnrollment({
@@ -232,7 +232,7 @@ export class ClassService implements ClassPort {
   }
 
   async hasActiveClasses(packageTypeId: string): Promise<boolean> {
-    return (await this.repo.packageClasses(packageTypeId)).length > 0;
+    return (await this.repo.packageClasses(packageTypeId, localDate(clock.now()))).length > 0;
   }
 
   /** ClassPort: validates the class for a package before the membership exists (nothing is reserved). */
@@ -242,7 +242,7 @@ export class ClassService implements ClassPort {
     if (cls.packageTypeId !== packageTypeId) throw unprocessable('Lớp không thuộc gói đã chọn.', 'CLASS_NOT_IN_PACKAGE');
     if (!cls.isActive) throw unprocessable('Lớp học đã ngừng hoạt động', 'CLASS_INACTIVE');
     if (memberId && (await this.repo.findActiveEnrollment(classId, memberId))) return;
-    if (cls.capacity !== null && (await this.repo.countActive(classId)) >= cls.capacity) {
+    if (cls.capacity !== null && (await this.repo.countActive(classId, localDate(clock.now()))) >= cls.capacity) {
       throw conflict('Lớp đã đủ sĩ số', 'CLASS_FULL');
     }
   }
@@ -266,7 +266,12 @@ export class ClassService implements ClassPort {
     }
     const { endDate } = input;
     let startDate = input.startDate;
-    const existing = await this.repo.findActiveEnrollment(input.classId, input.memberId);
+    let existing = await this.repo.findActiveEnrollment(input.classId, input.memberId);
+    if (existing && existing.endDate !== null && existing.endDate < addDays(startDate, -1)) {
+      // Back after a gap: close the old stint instead of stretching it over days without a package.
+      await this.repo.endEnrollmentById(existing.id, existing.endDate);
+      existing = null;
+    }
     let enrollmentId: string;
     let resultEnd = endDate;
     if (existing) {
@@ -276,7 +281,7 @@ export class ClassService implements ClassPort {
       resultEnd = existing.endDate === null || endDate === null ? null : existing.endDate > endDate ? existing.endDate : endDate;
       await this.repo.extendEnrollment(existing.id, resultEnd, input.membershipId);
     } else {
-      if (cls.capacity !== null && (await this.repo.countActive(input.classId)) >= cls.capacity) {
+      if (cls.capacity !== null && (await this.repo.countActive(input.classId, localDate(clock.now()))) >= cls.capacity) {
         throw conflict('Lớp đã đủ sĩ số', 'CLASS_FULL');
       }
       enrollmentId = await this.repo.insertEnrollment({
@@ -509,7 +514,7 @@ export class ClassService implements ClassPort {
   /** PKG-02: classes a learner can pick for a package. */
   async listForPackage(packageTypeId: string) {
     if (!(await this.repo.packageExists(packageTypeId))) throw notFound('Gói tập');
-    return this.repo.packageClasses(packageTypeId);
+    return this.repo.packageClasses(packageTypeId, localDate(clock.now()));
   }
 
   /** `before` is set on update: unchanged refs (e.g. a since-deactivated branch) are not re-validated. */

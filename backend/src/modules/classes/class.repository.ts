@@ -64,12 +64,13 @@ export class ClassRepository {
   }
 
   /** Active classes of an ACTIVE package with seats left (PKG-02); empty when the package is retired. */
-  packageClasses(packageTypeId: string): Promise<PackageClassRow[]> {
+  packageClasses(packageTypeId: string, today: string): Promise<PackageClassRow[]> {
     return sql.many(
       `SELECT c.id, c.name, c.branch_id, b.name AS branch_name, c.session_type_code, u.full_name AS coach_name,
               c.weekdays::int[] AS weekdays, to_char(c.start_time, 'HH24:MI') AS start_time, c.duration_minutes, c.capacity,
               CASE WHEN c.capacity IS NULL THEN NULL
-                   ELSE GREATEST(c.capacity - (SELECT COUNT(*)::int FROM class_enrollments e WHERE e.class_id = c.id AND e.status = 'ACTIVE'), 0)
+                   ELSE GREATEST(c.capacity - (SELECT COUNT(*)::int FROM class_enrollments e WHERE e.class_id = c.id AND e.status = 'ACTIVE'
+                     AND (e.end_date IS NULL OR e.end_date >= $2::date)), 0)
               END AS seats_left
          FROM classes c
          JOIN package_types p ON p.id = c.package_type_id AND p.is_active
@@ -77,7 +78,7 @@ export class ClassRepository {
          LEFT JOIN users u ON u.id = c.default_coach_id
         WHERE c.package_type_id = $1 AND c.is_active
         ORDER BY b.name, c.name, c.id`,
-      [packageTypeId],
+      [packageTypeId, today],
     );
   }
 
@@ -109,8 +110,18 @@ export class ClassRepository {
     return !!(await sql.scalar(`SELECT 1 FROM memberships WHERE id = $1 AND member_id = $2`, [membershipId, memberId]));
   }
 
-  async countActive(classId: string): Promise<number> {
-    return (await sql.scalar<number>(`SELECT COUNT(*)::int FROM class_enrollments WHERE class_id = $1 AND status = 'ACTIVE'`, [classId])) ?? 0;
+  /** Seats taken on `today`: ACTIVE enrolments that have not run out (an expired package does not hold a seat). */
+  async countActive(classId: string, today: string): Promise<number> {
+    return (
+      (await sql.scalar<number>(
+        `SELECT COUNT(*)::int FROM class_enrollments WHERE class_id = $1 AND status = 'ACTIVE' AND (end_date IS NULL OR end_date >= $2::date)`,
+        [classId, today],
+      )) ?? 0
+    );
+  }
+
+  async endEnrollmentById(id: string, endDate: string): Promise<void> {
+    await sql.exec(`UPDATE class_enrollments SET status = 'ENDED', end_date = $2 WHERE id = $1`, [id, endDate]);
   }
 
   async hasActiveEnrollment(classId: string, memberId: string): Promise<boolean> {

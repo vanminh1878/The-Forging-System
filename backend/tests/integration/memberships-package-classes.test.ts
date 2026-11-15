@@ -577,4 +577,48 @@ describe('package -> class flow (PKG-03..05)', () => {
       expect(schedule.body.data.filter((i: { title: string }) => i.title === 'Lớp B')).toHaveLength(0);
     });
   });
+
+  describe('expired enrolments and gaps', () => {
+    const LATER = new Date('2027-01-04T05:00:00Z'); // a Monday after the 30-day packages above ran out
+
+    it('an expired package no longer holds a seat', async () => {
+      const classC = await mkClass('Lớp C', 1);
+      const x = await registerMember(ctx.api);
+      const y = await registerMember(ctx.api);
+      expect((await activate(x.userId, { packageTypeId: pkg, classId: classC })).status).toBe(201);
+      const full = await activate(y.userId, { packageTypeId: pkg, classId: classC });
+      expect([full.status, full.body.error.code]).toEqual([409, 'CLASS_FULL']);
+
+      setClock(fixedClock(LATER));
+      const list = await ctx.api.get(`/api/v1/package-types/${pkg}/classes`).set(bearer(y.token));
+      expect(list.body.data.find((c: { id: string }) => c.id === classC).seatsLeft).toBe(1);
+      expect((await activate(y.userId, { packageTypeId: pkg, classId: classC })).status).toBe(201);
+    });
+
+    it('coming back to the same class after a gap closes the old stint instead of stretching it', async () => {
+      const z = await registerMember(ctx.api);
+      const first = (await activate(z.userId, { packageTypeId: pkg, classId: classB })).body.data.membership.id;
+      setClock(fixedClock(LATER));
+      const res = await activate(z.userId, { packageTypeId: pkg, classId: classB });
+      expect(res.status).toBe(201);
+      expect(res.body.data.enrollment).toMatchObject({ startDate: '2027-01-04', endDate: '2027-02-02' });
+      expect(await enrollments(z.userId)).toEqual([
+        { class_id: classB, status: 'ENDED', start_date: '2026-10-26', end_date: '2026-11-24', membership_id: first },
+        {
+          class_id: classB,
+          status: 'ACTIVE',
+          start_date: '2027-01-04',
+          end_date: '2027-02-02',
+          membership_id: res.body.data.membership.id,
+        },
+      ]);
+    });
+
+    it('GET /me/membership shows the class of the pending request', async () => {
+      const m = await registerMember(ctx.api);
+      await ctx.api.post('/api/v1/me/renewal-requests').set(bearer(m.token)).send({ packageTypeId: pkg, classId: classB });
+      const me = await ctx.api.get('/api/v1/me/membership').set(bearer(m.token));
+      expect(me.body.data.pendingRenewal.class).toMatchObject({ id: classB, name: 'Lớp B', weekdays: [1, 3, 5], startTime: '18:30' });
+    });
+  });
 });

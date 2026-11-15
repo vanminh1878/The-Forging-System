@@ -169,7 +169,7 @@ Ghi danh học viên vào lớp. Quyền: **FD** (lễ tân + admin). Trả 201.
 | 422  | `CLASS_INACTIVE`       | Lớp học đã ngừng hoạt động             |
 
 - `MEMBER_INACTIVE`: học viên `INACTIVE` hoặc tài khoản đã bị gộp (trùng). Học viên `FROZEN` vẫn ghi danh được.
-- `CLASS_FULL` chỉ áp dụng khi lớp có `capacity`; đếm các enrollment `ACTIVE`.
+- `CLASS_FULL` chỉ áp dụng khi lớp có `capacity`; đếm các enrollment `ACTIVE` còn hạn (`endDate` null hoặc ≥ hôm nay).
 - Học viên đã rời lớp (ENDED) có thể ghi danh lại.
 - Ghi audit `ROSTER_UPDATED`.
 
@@ -200,7 +200,7 @@ Lớp đang hoạt động của một gói, cho bước "chọn lớp" của h�
 }
 ```
 
-- `seatsLeft = capacity - số ghi danh ACTIVE` (tối thiểu 0); `null` khi lớp không giới hạn sĩ số. `coachName` null khi chưa có HLV.
+- `seatsLeft = capacity - số ghi danh ACTIVE còn hạn` (tối thiểu 0); `null` khi lớp không giới hạn sĩ số. `coachName` null khi chưa có HLV.
 - Sắp xếp theo chi nhánh, rồi tên lớp. Gói ngừng bán hoặc không có lớp: `data = []`.
 - Lỗi: 401 `UNAUTHORIZED`, 404 `NOT_FOUND` (không có gói).
 
