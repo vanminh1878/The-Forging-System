@@ -12,6 +12,22 @@ export interface PackageTypeRow {
   priceVnd: string | null;
   description: string | null;
   isActive: boolean;
+  sortOrder: number;
+  /** Active classes of the package; 0 = no class to choose. */
+  classCount: number;
+}
+
+export interface PackageTypeInput {
+  code: string;
+  name: string;
+  durationDays: number | null;
+  totalSessions: number | null;
+  sessionsPerWeek: number | null;
+  isTrial: boolean;
+  priceVnd: number | null;
+  description: string | null;
+  isActive: boolean;
+  sortOrder: number;
 }
 
 export interface MembershipRow {
@@ -91,6 +107,11 @@ const RENEWAL_FROM = `
      AND ($3::text IS NULL OR u.full_name ILIKE '%' || $3 || '%' OR u.phone ILIKE '%' || $3 || '%'
           OR m.member_code ILIKE '%' || $3 || '%')`;
 
+const PACKAGE_SELECT = `
+  SELECT id, code, name, duration_days, total_sessions, sessions_per_week, is_trial, price_vnd, description, is_active,
+         sort_order, (SELECT count(*)::int FROM classes c WHERE c.package_type_id = package_types.id AND c.is_active) AS class_count
+    FROM package_types`;
+
 const MEMBERSHIP_SELECT = `
   SELECT ms.id, ms.package_type_id, pt.code AS package_code, pt.name AS package_name, pt.is_trial, ms.status,
          to_char(ms.start_date, 'YYYY-MM-DD') AS start_date, to_char(ms.end_date, 'YYYY-MM-DD') AS end_date,
@@ -102,11 +123,39 @@ const MEMBERSHIP_SELECT = `
 export class MembershipRepository {
   listPackageTypes(includeInactive: boolean): Promise<PackageTypeRow[]> {
     return sql.many<PackageTypeRow>(
-      `SELECT id, code, name, duration_days, total_sessions, sessions_per_week, is_trial, price_vnd, description, is_active
-         FROM package_types
-        WHERE ($1::boolean OR is_active)
-        ORDER BY sort_order, name`,
+      `${PACKAGE_SELECT} WHERE ($1::boolean OR is_active) ORDER BY sort_order, name`,
       [includeInactive],
+    );
+  }
+
+  getPackageType(id: string): Promise<PackageTypeRow | null> {
+    return sql.one<PackageTypeRow>(`${PACKAGE_SELECT} WHERE id = $1`, [id]);
+  }
+
+  /** Null when the code is already taken in the tenant. */
+  async insertPackageType(i: PackageTypeInput): Promise<string | null> {
+    return sql.scalar<string>(
+      `INSERT INTO package_types (tenant_id, code, name, duration_days, total_sessions, sessions_per_week, is_trial,
+                                  price_vnd, description, is_active, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       ON CONFLICT (tenant_id, code) DO NOTHING
+       RETURNING id`,
+      [db.currentTenantId(), i.code, i.name, i.durationDays, i.totalSessions, i.sessionsPerWeek, i.isTrial,
+       i.priceVnd, i.description, i.isActive, i.sortOrder],
+    );
+  }
+
+  async packageCodeTaken(code: string, exceptId: string): Promise<boolean> {
+    return (await sql.scalar(`SELECT 1 FROM package_types WHERE code = $1 AND id <> $2`, [code, exceptId])) !== null;
+  }
+
+  async updatePackageType(id: string, i: PackageTypeInput): Promise<void> {
+    await sql.exec(
+      `UPDATE package_types SET code = $2, name = $3, duration_days = $4, total_sessions = $5, sessions_per_week = $6,
+              is_trial = $7, price_vnd = $8, description = $9, is_active = $10, sort_order = $11, updated_at = now()
+        WHERE id = $1`,
+      [id, i.code, i.name, i.durationDays, i.totalSessions, i.sessionsPerWeek, i.isTrial, i.priceVnd, i.description,
+       i.isActive, i.sortOrder],
     );
   }
 

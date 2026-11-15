@@ -15,6 +15,7 @@ import type { SettingsService } from '../settings/settings.service';
 import type {
   MembershipRepository,
   MembershipRow,
+  PackageTypeInput,
   PackageTypeRow,
   RenewalFilter,
   RenewalRow,
@@ -35,6 +36,41 @@ export class MembershipService implements MembershipPort {
   async listPackageTypes(includeInactive: boolean) {
     const rows = await this.repo.listPackageTypes(includeInactive);
     return rows.map(toPackageTypeView(includeInactive));
+  }
+
+  /** PKG-01: admin creates a package type. */
+  async createPackageType(input: PackageTypeInput, by: string) {
+    const id = await this.repo.insertPackageType(input);
+    if (!id) throw conflict('Mã gói đã tồn tại', 'PACKAGE_CODE_EXISTS');
+    const row = (await this.repo.getPackageType(id))!;
+    await this.audit.record({
+      actorId: by,
+      action: 'PACKAGE_TYPE_CREATED',
+      entityType: 'PACKAGE_TYPE',
+      entityId: id,
+      after: toPackageTypeView(true)(row),
+    });
+    return toAdminPackageView(row);
+  }
+
+  /** PKG-01: admin edits a package type (sold memberships keep their snapshot). */
+  async updatePackageType(id: string, patch: Partial<PackageTypeInput>, by: string) {
+    const before = await this.repo.getPackageType(id);
+    if (!before) throw notFound('Gói tập');
+    const next: PackageTypeInput = { ...before, ...patch, priceVnd: patch.priceVnd !== undefined ? patch.priceVnd : toPrice(before) };
+    if (next.code !== before.code && (await this.repo.packageCodeTaken(next.code, id)))
+      throw conflict('Mã gói đã tồn tại', 'PACKAGE_CODE_EXISTS');
+    await this.repo.updatePackageType(id, next);
+    const row = (await this.repo.getPackageType(id))!;
+    await this.audit.record({
+      actorId: by,
+      action: 'PACKAGE_TYPE_UPDATED',
+      entityType: 'PACKAGE_TYPE',
+      entityId: id,
+      before: toAdminPackageView(before),
+      after: toAdminPackageView(row),
+    });
+    return toAdminPackageView(row);
   }
 
   /** Member status + current package, queued package, pending renewal and the card notice (MEM-02). */
@@ -480,6 +516,9 @@ const toMembershipView = (m: MembershipRow, withEvidence = false) => ({
   ...(withEvidence ? { paymentEvidenceUrl: m.paymentEvidenceUrl } : {}),
 });
 
+const toPrice = (r: PackageTypeRow) => (r.priceVnd === null ? null : Number(r.priceVnd));
+const toAdminPackageView = (r: PackageTypeRow) => ({ ...toPackageTypeView(true)(r), sortOrder: r.sortOrder });
+
 const toPackageTypeView = (withActive: boolean) => (r: PackageTypeRow) => ({
   id: r.id,
   code: r.code,
@@ -490,5 +529,6 @@ const toPackageTypeView = (withActive: boolean) => (r: PackageTypeRow) => ({
   isTrial: r.isTrial,
   priceVnd: r.priceVnd === null ? null : Number(r.priceVnd),
   description: r.description,
+  classCount: r.classCount,
   ...(withActive ? { isActive: r.isActive } : {}),
 });
