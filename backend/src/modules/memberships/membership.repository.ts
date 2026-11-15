@@ -79,6 +79,11 @@ export interface RenewalRow {
   currentMembershipId: string | null;
   currentPackageName: string | null;
   currentEndDate: string | null;
+  classId: string | null;
+  className: string | null;
+  classBranchName: string | null;
+  classWeekdays: number[] | null;
+  classStartTime: string | null;
 }
 
 export interface RenewalFilter {
@@ -92,7 +97,9 @@ const RENEWAL_SELECT = `
   SELECT rr.id, rr.status, rr.note, rr.reason, rr.created_at, rr.handled_at, rr.member_id,
          u.full_name AS member_name, u.phone AS member_phone, m.member_code,
          rr.desired_package_type_id, dpt.name AS desired_package_name, dpt.price_vnd AS desired_price_vnd,
-         rr.current_membership_id, cpt.name AS current_package_name, to_char(cms.end_date, 'YYYY-MM-DD') AS current_end_date`;
+         rr.current_membership_id, cpt.name AS current_package_name, to_char(cms.end_date, 'YYYY-MM-DD') AS current_end_date,
+         rr.class_id, cl.name AS class_name, cb.name AS class_branch_name, cl.weekdays::int[] AS class_weekdays,
+         to_char(cl.start_time, 'HH24:MI') AS class_start_time`;
 
 const RENEWAL_FROM = `
     FROM renewal_requests rr
@@ -101,6 +108,8 @@ const RENEWAL_FROM = `
     LEFT JOIN package_types dpt ON dpt.id = rr.desired_package_type_id
     LEFT JOIN memberships cms ON cms.id = rr.current_membership_id
     LEFT JOIN package_types cpt ON cpt.id = cms.package_type_id
+    LEFT JOIN classes cl ON cl.id = rr.class_id
+    LEFT JOIN branches cb ON cb.id = cl.branch_id
    WHERE ($1::uuid IS NULL OR rr.member_id = $1)
      AND ($2::text IS NULL OR rr.status = $2)
      AND ($4::uuid IS NULL OR rr.id = $4)
@@ -206,14 +215,15 @@ export class MembershipRepository {
     memberId: string;
     currentMembershipId: string | null;
     packageTypeId: string;
+    classId: string | null;
     note: string | null;
   }): Promise<string | null> {
     const row = await sql.one<{ id: string }>(
-      `INSERT INTO renewal_requests (tenant_id, member_id, current_membership_id, desired_package_type_id, note)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO renewal_requests (tenant_id, member_id, current_membership_id, desired_package_type_id, class_id, note)
+       VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (member_id) WHERE status = 'PENDING' DO NOTHING
        RETURNING id`,
-      [db.currentTenantId(), input.memberId, input.currentMembershipId, input.packageTypeId, input.note],
+      [db.currentTenantId(), input.memberId, input.currentMembershipId, input.packageTypeId, input.classId, input.note],
     );
     return row?.id ?? null;
   }
@@ -314,9 +324,11 @@ export class MembershipRepository {
   }
 
   /** Locks a renewal request so two receptionists cannot approve it at once. */
-  lockRenewal(id: string): Promise<{ memberId: string; status: string; desiredPackageTypeId: string | null } | null> {
+  lockRenewal(
+    id: string,
+  ): Promise<{ memberId: string; status: string; desiredPackageTypeId: string | null; classId: string | null } | null> {
     return sql.one(
-      `SELECT member_id, status, desired_package_type_id FROM renewal_requests WHERE id = $1 FOR UPDATE`,
+      `SELECT member_id, status, desired_package_type_id, class_id FROM renewal_requests WHERE id = $1 FOR UPDATE`,
       [id],
     );
   }

@@ -4,7 +4,7 @@ import { clock } from '../../common/utils/clock';
 import { addDays, localDate } from '../../common/utils/time';
 import { env } from '../../config/env';
 import type { MembershipEvent } from '../../shared/events';
-import type { MembershipPort, UsableMembership } from '../../shared/ports';
+import type { ClassPort, MembershipPort, UsableMembership } from '../../shared/ports';
 import { RoleGroup } from '../../shared/roles';
 import type { AuditService } from '../audit/audit.service';
 import { NotificationEvent } from '../notifications/notification.events';
@@ -31,6 +31,7 @@ export class MembershipService implements MembershipPort {
     private readonly audit: AuditService,
     private readonly members: MemberService,
     private readonly points: PointsPort,
+    private readonly classes: ClassPort,
   ) {}
 
   async listPackageTypes(includeInactive: boolean) {
@@ -107,7 +108,7 @@ export class MembershipService implements MembershipPort {
   }
 
   /** Member asks reception to renew (MEM-03). Approval and cancellation come with MEM-04/MEM-06. */
-  async requestRenewal(memberId: string, input: { packageTypeId: string; note?: string }) {
+  async requestRenewal(memberId: string, input: { packageTypeId: string; classId?: string; note?: string }) {
     const status = await this.repo.memberStatus(memberId);
     if (!status) throw notFound('Học viên');
     if (status === 'INACTIVE')
@@ -119,11 +120,13 @@ export class MembershipService implements MembershipPort {
     if (!pkg || !pkg.isActive)
       throw unprocessable('Gói tập này hiện không còn được bán.', 'PACKAGE_NOT_AVAILABLE');
 
+    const classId = await this.resolveClass(pkg.id, input.classId, memberId);
     const current = await this.repo.findByStatus(memberId, 'ACTIVE');
     const id = await this.repo.insertRenewal({
       memberId,
       currentMembershipId: current?.id ?? null,
       packageTypeId: pkg.id,
+      classId,
       note: input.note?.trim() || null,
     });
     if (!id)
@@ -138,7 +141,7 @@ export class MembershipService implements MembershipPort {
       action: 'RENEWAL_REQUESTED',
       entityType: 'RENEWAL_REQUEST',
       entityId: id,
-      after: { packageTypeId: pkg.id, currentMembershipId: current?.id ?? null, note: input.note ?? null },
+      after: { packageTypeId: pkg.id, classId, currentMembershipId: current?.id ?? null, note: input.note ?? null },
       reason: 'Học viên gửi yêu cầu gia hạn',
     });
     // Rows are written inside this transaction; the notifier schedules the push after commit.
@@ -153,7 +156,7 @@ export class MembershipService implements MembershipPort {
       'RECEPTIONIST',
       NotificationEvent.RENEWAL_REQUEST,
       'Yêu cầu gia hạn mới',
-      `${view.memberName} (${view.memberCode}) xin gia hạn gói ${pkg.name}.`,
+      `${view.memberName} (${view.memberCode}) xin gia hạn gói ${pkg.name}${view.className ? ` — lớp ${view.className}` : ''}.`,
     );
     return toRenewalView(view);
   }
@@ -292,7 +295,6 @@ export class MembershipService implements MembershipPort {
       note: input.note?.trim() || null,
     });
     const membership = (await this.repo.findMembership(id))!;
-
     // MEM-05: early renewal earns Marks once per new package (the key is the new membership id).
     let bonusMarks = 0;
     if (mode === 'SCHEDULED') {
@@ -338,6 +340,20 @@ export class MembershipService implements MembershipPort {
       packageTypeId: pkg.id,
     } satisfies MembershipEvent);
     return { membership: toMembershipView(membership, true), mode, reactivated, bonusMarks, message };
+  }
+
+  /**
+   * Package -> class rule shared by request, approve and manual activation: a package with active classes needs
+   * one of them, a package without classes takes none. Returns the class to enrol in, or null.
+   */
+  private async resolveClass(packageTypeId: string, classId: string | undefined, memberId: string): Promise<string | null> {
+    if (!(await this.classes.hasActiveClasses(packageTypeId))) {
+      if (classId) throw unprocessable('Lớp không thuộc gói đã chọn.', 'CLASS_NOT_IN_PACKAGE');
+      return null;
+    }
+    if (!classId) throw badRequest('Vui lòng chọn lớp.', undefined, 'CLASS_REQUIRED');
+    await this.classes.checkEnrollable(classId, packageTypeId, memberId);
+    return classId;
   }
 
   /** Reception cancels a PENDING renewal request (MEM-06). */
@@ -482,6 +498,13 @@ const toRenewalView = (r: RenewalRow) => ({
     id: r.desiredPackageTypeId,
     name: r.desiredPackageName,
     priceVnd: r.desiredPriceVnd === null ? null : Number(r.desiredPriceVnd),
+  },
+  class: r.classId && {
+    id: r.classId,
+    name: r.className,
+    branchName: r.classBranchName,
+    weekdays: r.classWeekdays,
+    startTime: r.classStartTime,
   },
   currentMembership: r.currentMembershipId && {
     id: r.currentMembershipId,

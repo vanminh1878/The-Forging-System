@@ -10,6 +10,7 @@ import type { MembershipService } from './membership.service';
 const memberParam = z.object({ memberId: z.string().uuid() });
 const requestBody = z.object({
   packageTypeId: z.string().uuid(),
+  classId: z.string().uuid().optional(),
   note: z.string().trim().max(500).optional(),
 });
 const activateBody = z.object({

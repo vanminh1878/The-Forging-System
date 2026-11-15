@@ -56,6 +56,24 @@ describe('package -> class flow (PKG-03..05)', () => {
   const cancelMs = (id: string) =>
     ctx.api.post(`/api/v1/memberships/${id}/cancel`).set(bearer(admin)).send({ reason: 'Sai gói' });
 
+  const mkClass = async (name: string, capacity: number | null, packageTypeId: string | null = pkg) =>
+    (
+      await ctx.api
+        .post('/api/v1/admin/classes')
+        .set(bearer(admin))
+        .send({
+          branchId: q1,
+          name,
+          sessionTypeCode: 'GROUP',
+          weekdays: [1, 3, 5],
+          startTime: '18:30',
+          durationMinutes: 60,
+          capacity,
+          defaultCoachId: coachId,
+          packageTypeId,
+        })
+    ).body.data.id as string;
+
   beforeAll(async () => {
     ctx = await bootTestApp();
     setClock(fixedClock(MONDAY));
@@ -71,34 +89,14 @@ describe('package -> class flow (PKG-03..05)', () => {
     q1 = (await ownerQuery<{ id: string }>(`SELECT id FROM branches WHERE code = 'Q1'`))[0].id;
     book1 = (await ownerQuery<{ id: string }>(`SELECT id FROM package_types WHERE code = 'BOOK_1'`))[0].id;
     pkg = (
-      await ctx.api
-        .post('/api/v1/admin/package-types')
-        .set(bearer(admin))
-        .send({
-          code: 'WITH_CLASSES',
-          name: 'Gói có lớp',
-          durationDays: 30,
-          totalSessions: 12,
-          priceVnd: 2_000_000,
-        })
+      await ctx.api.post('/api/v1/admin/package-types').set(bearer(admin)).send({
+        code: 'WITH_CLASSES',
+        name: 'Gói có lớp',
+        durationDays: 30,
+        totalSessions: 12,
+        priceVnd: 2_000_000,
+      })
     ).body.data.id;
-    const mkClass = async (name: string, capacity: number | null) =>
-      (
-        await ctx.api
-          .post('/api/v1/admin/classes')
-          .set(bearer(admin))
-          .send({
-            branchId: q1,
-            name,
-            sessionTypeCode: 'GROUP',
-            weekdays: [1, 3, 5],
-            startTime: '18:30',
-            durationMinutes: 60,
-            capacity,
-            defaultCoachId: coachId,
-            packageTypeId: pkg,
-          })
-      ).body.data.id as string;
     classA = await mkClass('Lớp A', 1);
     classB = await mkClass('Lớp B', null);
   });
@@ -270,6 +268,120 @@ describe('package -> class flow (PKG-03..05)', () => {
           membership_id: null,
         },
       ]);
+    });
+  });
+  describe('renewal request with a class (PKG-04)', () => {
+    const request = (token: string, body: object) =>
+      ctx.api.post('/api/v1/me/renewal-requests').set(bearer(token)).send(body);
+
+    it('enforces auth and validates classId', async () => {
+      const m = await registerMember(ctx.api);
+      expect((await ctx.api.post('/api/v1/me/renewal-requests').send({ packageTypeId: pkg })).status).toBe(
+        401,
+      );
+      expect((await request(reception, { packageTypeId: pkg, classId: classB })).status).toBe(403);
+      expect((await request(m.token, { packageTypeId: pkg, classId: 'nope' })).status).toBe(400);
+    });
+
+    it('requires a class when the package has classes, and refuses one when it has none', async () => {
+      const m = await registerMember(ctx.api);
+      const none = await request(m.token, { packageTypeId: pkg });
+      expect([none.status, none.body.error.code, none.body.error.message]).toEqual([
+        400,
+        'CLASS_REQUIRED',
+        'Vui lòng chọn lớp.',
+      ]);
+      const extra = await request(m.token, { packageTypeId: book1, classId: classB });
+      expect([extra.status, extra.body.error.code]).toEqual([422, 'CLASS_NOT_IN_PACKAGE']);
+      const other = await mkClass('Lớp gói khác', null, book1);
+      const wrong = await request(m.token, { packageTypeId: pkg, classId: other });
+      expect([wrong.status, wrong.body.error.code, wrong.body.error.message]).toEqual([
+        422,
+        'CLASS_NOT_IN_PACKAGE',
+        'Lớp không thuộc gói đã chọn.',
+      ]);
+      // the book1 package now has a class: it becomes mandatory there too
+      expect((await request(m.token, { packageTypeId: book1 })).body.error.code).toBe('CLASS_REQUIRED');
+      await ownerQuery(`UPDATE classes SET is_active = false WHERE id = $1`, [other]);
+      expect((await request(m.token, { packageTypeId: book1, classId: other })).body.error.code).toBe(
+        'CLASS_NOT_IN_PACKAGE',
+      );
+      expect(
+        await ownerQuery(`SELECT 1 FROM renewal_requests WHERE member_id = $1`, [m.userId]),
+      ).toHaveLength(0);
+    });
+
+    it('answers CLASS_INACTIVE and CLASS_FULL without creating a request', async () => {
+      const m = await registerMember(ctx.api);
+      const off = await mkClass('Lớp tắt', null);
+      await ownerQuery(`UPDATE classes SET is_active = false WHERE id = $1`, [off]);
+      const inactive = await request(m.token, { packageTypeId: pkg, classId: off });
+      expect([inactive.status, inactive.body.error.code]).toEqual([422, 'CLASS_INACTIVE']);
+
+      const tiny = await mkClass('Lớp một chỗ', 1);
+      const holder = await registerMember(ctx.api);
+      const ms = (await activate(holder.userId, { packageTypeId: book1 })).body.data
+        .membership.id;
+      await ctx.tx(() =>
+        ctx.services.classes.enrollForMembership({
+          classId: tiny,
+          memberId: holder.userId,
+          membershipId: ms,
+          startDate: '2026-10-26',
+          endDate: null,
+          actorId: receptionId,
+        }),
+      );
+      const full = await request(m.token, { packageTypeId: pkg, classId: tiny });
+      expect([full.status, full.body.error.code]).toEqual([409, 'CLASS_FULL']);
+      expect(
+        await ownerQuery(`SELECT 1 FROM renewal_requests WHERE member_id = $1`, [m.userId]),
+      ).toHaveLength(0);
+    });
+
+    it('stores the class on the request and shows it to the learner and reception; no seat is held yet', async () => {
+      const m = await registerMember(ctx.api, { fullName: 'Học Viên Lớp' });
+      const res = await request(m.token, { packageTypeId: pkg, classId: classB, note: ' chọn lớp B ' });
+      expect(res.status).toBe(201);
+      expect(res.body.data).toMatchObject({
+        status: 'PENDING',
+        note: 'chọn lớp B',
+        desiredPackage: { id: pkg },
+        class: {
+          id: classB,
+          name: 'Lớp B',
+          branchName: expect.any(String),
+          weekdays: [1, 3, 5],
+          startTime: '18:30',
+        },
+      });
+      const mine = await ctx.api.get('/api/v1/me/renewal-requests').set(bearer(m.token));
+      expect(mine.body.data[0].class).toMatchObject({ id: classB, name: 'Lớp B' });
+      const inbox = await ctx.api
+        .get('/api/v1/renewal-requests?status=PENDING&q=Học Viên Lớp')
+        .set(bearer(reception));
+      expect(inbox.body.data[0].class).toMatchObject({ id: classB, startTime: '18:30' });
+      expect(await enrollments(m.userId)).toHaveLength(0);
+      const note = await ownerQuery<{ body: string }>(
+        `SELECT body FROM staff_notifications WHERE event_type = 'RENEWAL_REQUEST' ORDER BY created_at DESC LIMIT 1`,
+      );
+      expect(note[0].body).toContain('Lớp B');
+      const audit = await ownerQuery<{ after_data: { classId: string } }>(
+        `SELECT after_data FROM audit_logs WHERE action = 'RENEWAL_REQUESTED' AND entity_id = $1`,
+        [res.body.data.id],
+      );
+      expect(audit[0].after_data.classId).toBe(classB);
+    });
+
+    it('keeps class null for a package without classes', async () => {
+      await ownerQuery(`UPDATE package_types SET is_active = true WHERE code = 'BOOK_2'`);
+      const book2 = (
+        await ownerQuery<{ id: string }>(`SELECT id FROM package_types WHERE code = 'BOOK_2'`)
+      )[0].id;
+      const m = await registerMember(ctx.api);
+      const res = await request(m.token, { packageTypeId: book2 });
+      expect(res.status).toBe(201);
+      expect(res.body.data.class).toBeNull();
     });
   });
 });

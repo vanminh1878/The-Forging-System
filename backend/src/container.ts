@@ -191,6 +191,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     audit,
     services.members,
     points,
+    classes,
   );
   services.memberships = memberships;
   registerJob({
