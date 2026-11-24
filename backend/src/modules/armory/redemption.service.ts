@@ -101,6 +101,30 @@ export class RedemptionService {
     return this.close(order, 'EXPIRED', null, reason, null);
   }
 
+  /** GFT-06: expires overdue uncollected gifts. Called only by the scheduled batch job. */
+  async expirePending(defaultPickupDays: number, now = clock.now(), limit = 100) {
+    const ids = await this.repo.expiredCandidateIds(now, defaultPickupDays, limit);
+    let expired = 0;
+    let skipped = 0;
+    for (const id of ids) {
+      const order = await this.lockOrder(id);
+      if (!['PENDING_PICKUP', 'READY_PICKUP'].includes(order.status)) {
+        skipped++;
+        continue;
+      }
+      const days = order.pickupDays ?? defaultPickupDays;
+      const deadline = new Date(order.requestedAt);
+      deadline.setUTCDate(deadline.getUTCDate() + days);
+      if (deadline > now) {
+        skipped++;
+        continue;
+      }
+      await this.close(order, 'EXPIRED', null, 'Quá hạn nhận quà', null);
+      expired++;
+    }
+    return { expired, skipped };
+  }
+
   private async lockOrder(id: string, ownerId?: string): Promise<RedemptionState> {
     const memberId = await this.repo.memberForOrder(id);
     if (!memberId || (ownerId && ownerId !== memberId)) throw notFound('Redemption');
