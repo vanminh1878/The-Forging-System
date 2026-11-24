@@ -12,6 +12,9 @@ import 'package:hvp_forging/core/widgets/hvp_button.dart';
 import 'package:hvp_forging/core/widgets/hvp_nav_bar.dart';
 import 'package:hvp_forging/features/auth/domain/auth_user.dart';
 import 'package:hvp_forging/features/auth/presentation/providers/auth_providers.dart';
+import 'package:hvp_forging/features/admin_challenges/domain/admin_challenge.dart';
+import 'package:hvp_forging/features/admin_challenges/presentation/admin_challenge_providers.dart';
+import 'package:hvp_forging/features/admin_challenges/presentation/admin_challenges_screen.dart';
 import 'package:hvp_forging/features/auth/presentation/screens/login_screen.dart';
 import 'package:hvp_forging/features/fighter_record/presentation/providers/fighter_record_providers.dart';
 import 'package:hvp_forging/features/profile/presentation/providers/profile_providers.dart';
@@ -21,6 +24,28 @@ import '../helpers/fake_auth_repository.dart';
 import '../features/fighter_record/fixtures.dart';
 import '../features/profile/fixtures.dart';
 import '../helpers/test_harness.dart';
+
+class _FakeAdminChallengeRepository implements AdminChallengeRepository {
+  @override
+  Future<AdminChallengePage> list(
+          {String? query,
+          String? status,
+          String? challengeType,
+          String? context,
+          int page = 1}) async =>
+      const AdminChallengePage(
+          items: <AdminChallenge>[], page: 1, totalPages: 1, total: 0);
+
+  @override
+  Future<AdminChallenge> detail(String id) => throw UnimplementedError();
+  @override
+  Future<void> create(ChallengeInput input) async {}
+  @override
+  Future<void> update(String id, ChallengeInput input, String reason) async {}
+  @override
+  Future<void> setEnabled(String id,
+      {required bool enabled, required String reason}) async {}
+}
 
 Future<ProviderContainer> _pumpApp(
   WidgetTester tester,
@@ -38,6 +63,8 @@ Future<ProviderContainer> _pumpApp(
         sharedPreferencesProvider.overrideWithValue(prefs),
         tokenStoreProvider.overrideWithValue(MemoryTokenStore()),
         authRepositoryProvider.overrideWithValue(repo),
+        adminChallengeRepositoryProvider
+            .overrideWithValue(_FakeAdminChallengeRepository()),
         profileRepositoryProvider.overrideWithValue(FakeProfileRepository()),
         fighterRecordRepositoryProvider
             .overrideWithValue(FakeFighterRecordRepository()),
@@ -118,6 +145,17 @@ void main() {
     });
   }
 
+  testWidgets('admin can open the Challenge tab from the six-item navigation',
+      (tester) async {
+    await _pumpApp(
+        tester, FakeAuthRepository(restored: makeUser(AppRole.admin)));
+
+    await tester.tap(_navLabel('Thử thách'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AdminChallengesScreen).hitTestable(), findsOneWidget);
+  });
+
   testWidgets(
       'profile tab: account card, theme switch persists, logout returns to login',
       (tester) async {
@@ -134,6 +172,8 @@ void main() {
 
     // Theme: dark by default, switch to light and check it was stored.
     expect(container.read(themeModeProvider), ThemeMode.dark);
+    await tester.fling(find.byType(ListView).last, const Offset(0, -400), 1000);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('SÁNG'));
     await tester.pumpAndSettle();
     expect(container.read(themeModeProvider), ThemeMode.light);

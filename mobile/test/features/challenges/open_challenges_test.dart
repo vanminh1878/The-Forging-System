@@ -140,6 +140,7 @@ void main() {
     expect(find.text('Điểm danh mỗi ngày'), findsOneWidget);
     expect(find.text('ĐÃ THAM GIA'), findsOneWidget);
     expect(find.text('+30 DP'), findsOneWidget);
+    expect(find.text('NỘP BẰNG CHỨNG HOÀN THÀNH'), findsOneWidget);
     final weekly = find.text('Hằng tuần');
     await tester.ensureVisible(weekly);
     await tester.tap(weekly);

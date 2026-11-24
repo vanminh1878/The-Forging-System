@@ -110,6 +110,8 @@ class _OpenChallengesScreenState extends ConsumerState<OpenChallengesScreen> {
                       _ChallengeCard(
                         challenge: challenge,
                         submitting: joining.submitting,
+                        onOpenProgress: () =>
+                            context.push(StudentPaths.currentChallenges),
                         onJoin: () async {
                           final ok = await ref
                               .read(joinChallengeActionProvider.notifier)
@@ -156,10 +158,12 @@ class _ChallengeCard extends StatelessWidget {
     required this.challenge,
     required this.submitting,
     required this.onJoin,
+    required this.onOpenProgress,
   });
   final OpenChallenge challenge;
   final bool submitting;
   final VoidCallback onJoin;
+  final VoidCallback onOpenProgress;
 
   @override
   Widget build(BuildContext context) => HvpCard(
@@ -210,6 +214,16 @@ class _ChallengeCard extends StatelessWidget {
                 loading: submitting,
                 onPressed:
                     submitting ? null : () => _confirmJoin(context, onJoin),
+              ),
+            ] else ...<Widget>[
+              const SizedBox(height: 14),
+              HvpButton.secondary(
+                label: challenge.participationStatus == 'JOINED' &&
+                        challenge.completionMethod == 'EVIDENCE'
+                    ? 'Nộp bằng chứng hoàn thành'
+                    : 'Xem tiến độ thử thách',
+                small: true,
+                onPressed: onOpenProgress,
               ),
             ],
           ],
