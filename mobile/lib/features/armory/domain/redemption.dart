@@ -41,4 +41,5 @@ class RedemptionPage {
 abstract interface class RedemptionRepository {
   Future<RedemptionPage> history({String? status, int page = 1});
   Future<ArmoryRedemption> detail(String redemptionId);
+  Future<void> cancel(String redemptionId, {String? reason});
 }

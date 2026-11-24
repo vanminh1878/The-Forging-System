@@ -25,5 +25,6 @@ abstract interface class RedemptionCreateRepository {
   Future<CreatedRedemption> create({
     required String rewardId,
     required String pickupBranchId,
+    required String idempotencyKey,
   });
 }

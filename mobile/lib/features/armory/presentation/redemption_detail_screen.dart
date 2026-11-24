@@ -4,20 +4,69 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/hvp_context.dart';
 import '../../../core/design/hvp_icons.dart';
+import '../../../core/error/api_exception.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/hvp_app_bar.dart';
+import '../../../core/widgets/hvp_bottom_sheet.dart';
+import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
-import '../../../core/widgets/status_chip.dart';
+import '../../../core/widgets/inline_banner.dart';
+import '../../../core/widgets/redemption_status_chip.dart';
 import '../domain/redemption.dart';
 import 'redemption_providers.dart';
 
-class RedemptionDetailScreen extends ConsumerWidget {
+class RedemptionDetailScreen extends ConsumerStatefulWidget {
   const RedemptionDetailScreen({super.key, required this.redemptionId});
   final String redemptionId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RedemptionDetailScreen> createState() =>
+      _RedemptionDetailScreenState();
+}
+
+class _RedemptionDetailScreenState
+    extends ConsumerState<RedemptionDetailScreen> {
+  bool _cancelling = false;
+  String? _cancelError;
+
+  Future<void> _cancel(ArmoryRedemption redemption) async {
+    final confirmed = await showConfirmSheet(
+      context,
+      title: 'Hủy yêu cầu đổi quà',
+      message:
+          'Hủy yêu cầu ${redemption.code}? Marks đang giữ và tồn kho sẽ được hoàn lại.',
+      confirmLabel: 'Hủy yêu cầu',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() {
+      _cancelling = true;
+      _cancelError = null;
+    });
+    try {
+      await ref.read(redemptionRepositoryProvider).cancel(redemption.id);
+      ref.invalidate(redemptionDetailProvider(redemption.id));
+      ref.invalidate(redemptionHistoryProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Đã hủy yêu cầu đổi quà.')));
+      }
+    } on ApiException catch (error) {
+      if (mounted) setState(() => _cancelError = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+            () => _cancelError = 'Không thể hủy yêu cầu. Vui lòng thử lại.');
+      }
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final redemptionId = widget.redemptionId;
     final detail = ref.watch(redemptionDetailProvider(redemptionId));
     return Scaffold(
       appBar: const HvpAppBar(title: 'Chi tiết đổi quà'),
@@ -43,7 +92,7 @@ class RedemptionDetailScreen extends ConsumerWidget {
             Text(redemption.rewardName,
                 style: context.txt.titleL, textAlign: TextAlign.center),
             const SizedBox(height: 10),
-            Center(child: _detailStatusChip(redemption.status)),
+            Center(child: RedemptionStatusChip(status: redemption.status)),
             const SizedBox(height: 20),
             HvpCard(
               child: Column(
@@ -75,6 +124,20 @@ class RedemptionDetailScreen extends ConsumerWidget {
                     ]),
               ),
             ],
+            if (redemption.status == 'PENDING_PICKUP' ||
+                redemption.status == 'READY_PICKUP') ...<Widget>[
+              const SizedBox(height: 16),
+              HvpButton.danger(
+                label: 'Hủy yêu cầu đổi quà',
+                expand: true,
+                loading: _cancelling,
+                onPressed: _cancelling ? null : () => _cancel(redemption),
+              ),
+              if (_cancelError != null) ...<Widget>[
+                const SizedBox(height: 12),
+                InlineBanner(message: _cancelError!),
+              ],
+            ],
           ],
         ),
       ),
@@ -91,13 +154,3 @@ class RedemptionDetailScreen extends ConsumerWidget {
             ]),
       );
 }
-
-StatusChip _detailStatusChip(String status) => switch (status) {
-      'PENDING_PICKUP' =>
-        const StatusChip(label: 'Chờ nhận', tone: ChipTone.warning),
-      'DELIVERED' => const StatusChip(label: 'Đã giao', tone: ChipTone.success),
-      'REJECTED' => const StatusChip(label: 'Từ chối', tone: ChipTone.danger),
-      'CANCELLED' => const StatusChip(label: 'Đã hủy', tone: ChipTone.neutral),
-      'EXPIRED' => const StatusChip(label: 'Hết hạn', tone: ChipTone.neutral),
-      _ => StatusChip(label: status, tone: ChipTone.neutral),
-    };

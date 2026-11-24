@@ -10,12 +10,14 @@ class RedemptionCreateRepositoryImpl implements RedemptionCreateRepository {
   Future<CreatedRedemption> create({
     required String rewardId,
     required String pickupBranchId,
+    required String idempotencyKey,
   }) async {
     final response = await _api.post(
       '/armory/redemptions',
       body: <String, String>{
         'rewardId': rewardId,
         'pickupBranchId': pickupBranchId,
+        'idempotencyKey': idempotencyKey,
       },
     );
     return CreatedRedemption.fromJson(asMap(response.dataMap['redemption']));

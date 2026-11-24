@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -31,6 +33,7 @@ class _RewardDetailState extends ConsumerState<RewardDetail> {
   bool _submitting = false;
   String? _error;
   CreatedRedemption? _created;
+  late final String _idempotencyKey = _uuidV4();
 
   ArmoryReward get reward => widget.reward;
 
@@ -161,6 +164,7 @@ class _RewardDetailState extends ConsumerState<RewardDetail> {
       final created = await ref.read(redemptionCreateRepositoryProvider).create(
             rewardId: reward.id,
             pickupBranchId: branch.id,
+            idempotencyKey: _idempotencyKey,
           );
       if (!mounted) return;
       setState(() => _created = created);
@@ -192,6 +196,16 @@ class _RewardDetailState extends ConsumerState<RewardDetail> {
         'LIFETIME' => 'tài khoản',
         _ => 'chu kỳ',
       };
+}
+
+String _uuidV4() {
+  final random = Random.secure();
+  final bytes = List<int>.generate(16, (_) => random.nextInt(256));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  final hex =
+      bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0')).join();
+  return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
 }
 
 class _Success extends StatelessWidget {

@@ -20,6 +20,9 @@ class FakeRedemptions implements RedemptionRepository {
       throw UnimplementedError();
 
   @override
+  Future<void> cancel(String redemptionId, {String? reason}) async {}
+
+  @override
   Future<RedemptionPage> history({String? status, int page = 1}) async {
     queries.add((status: status, page: page));
     return RedemptionPage(
@@ -77,6 +80,27 @@ void main() {
     expect(result.totalPages, 2);
   });
 
+  test('ARM-05 repository cancels a member redemption with an optional reason',
+      () async {
+    final dio = createApiDio(
+      config: const AppConfig(
+          apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
+      tokens: MemoryTokenStore(const StoredTokens(
+          accessToken: 'member-token', refreshToken: 'refresh')),
+    );
+    final adapter = ScriptedAdapter((_) => okEnvelope(<String, dynamic>{}));
+    dio.httpClientAdapter = adapter;
+
+    await RedemptionRepositoryImpl(ApiClient(dio))
+        .cancel('redemption-1', reason: '  Không thể đến nhận  ');
+
+    expect(adapter.requests.single.path,
+        '/me/armory/redemptions/redemption-1/cancel');
+    expect(adapter.requests.single.method, 'POST');
+    expect(adapter.requests.single.data,
+        <String, dynamic>{'reason': 'Không thể đến nhận'});
+  });
+
   testWidgets('ARM-09 filters redemption history by status', (tester) async {
     final repo = FakeRedemptions();
     await pumpHvp(
@@ -90,8 +114,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Găng tập HVP'), findsOneWidget);
-    expect(find.text('Chờ nhận'), findsOneWidget);
-    await tester.ensureVisible(find.text('Đã giao'));
+    expect(find.text('Chờ duyệt'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Đã giao'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Đã giao'));
     await tester.pumpAndSettle();

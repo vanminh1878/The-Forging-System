@@ -8,6 +8,7 @@ import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/hvp_app_bar.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../../core/widgets/hvp_pagination_bar.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../domain/admin_armory_repository.dart';
@@ -16,7 +17,8 @@ import 'admin_armory_reward_form_screen.dart';
 import 'admin_armory_tiers_screen.dart';
 
 class AdminArmoryManagementScreen extends ConsumerStatefulWidget {
-  const AdminArmoryManagementScreen({super.key, this.initialTab = 0, this.initialTierCode});
+  const AdminArmoryManagementScreen(
+      {super.key, this.initialTab = 0, this.initialTierCode});
   final int initialTab;
   final String? initialTierCode;
 
@@ -55,7 +57,10 @@ class _AdminArmoryManagementScreenState
                     setState(() => _tab = value.first),
               ),
             ),
-            Expanded(child: _tab == 0 ? const _TierList() : _RewardList(initialTierCode: widget.initialTierCode)),
+            Expanded(
+                child: _tab == 0
+                    ? const _TierList()
+                    : _RewardList(initialTierCode: widget.initialTierCode)),
           ],
         ),
       );
@@ -77,7 +82,8 @@ class _TierList extends ConsumerWidget {
         itemBuilder: (_, index) {
           final tier = items[index];
           return HvpCard(
-            onTap: () => context.push(AdminPaths.armoryRewardsForTier(tier.code)),
+            onTap: () =>
+                context.push(AdminPaths.armoryRewardsForTier(tier.code)),
             child: Row(children: <Widget>[
               Icon(HvpIcons.armory, color: context.hvp.gold),
               const SizedBox(width: 12),
@@ -91,14 +97,15 @@ class _TierList extends ConsumerWidget {
                       style: context.txt.bodySmall),
                 ],
               )),
-               IconButton(
-                 tooltip: 'Sửa tier',
-                 icon: Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
-                 onPressed: () async {
-                   await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AdminArmoryTiersScreen(tier: tier)));
-                   ref.invalidate(adminArmoryTiersProvider);
-                 },
-               ),
+              IconButton(
+                tooltip: 'Sửa tier',
+                icon: Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
+                onPressed: () async {
+                  await Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => AdminArmoryTiersScreen(tier: tier)));
+                  ref.invalidate(adminArmoryTiersProvider);
+                },
+              ),
             ]),
           );
         },
@@ -119,48 +126,97 @@ class _RewardListState extends ConsumerState<_RewardList> {
   late String? _tierCode = widget.initialTierCode;
   String _query = '';
   int _page = 1;
-  ({String query, String? tierCode, int page}) get _filter => (query: _query, tierCode: _tierCode, page: _page);
+  ({String query, String? tierCode, int page}) get _filter =>
+      (query: _query, tierCode: _tierCode, page: _page);
 
   @override
   Widget build(BuildContext context) {
     final filter = _filter;
     final tiers = ref.watch(adminArmoryTiersProvider);
     return Column(children: <Widget>[
-      Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 4), child: HvpTextField(
-        label: 'Tìm quà tặng', hint: 'Tên hoặc SKU', prefixIcon: HvpIcons.search,
-        onSubmitted: (value) => setState(() { _query = value.trim(); _page = 1; }),
-      )),
-      SizedBox(height: 52, child: AsyncBody<List<AdminArmoryTier>>(
-        value: tiers, onRetry: () => ref.invalidate(adminArmoryTiersProvider),
-        loading: const SizedBox.shrink(),
-        builder: (_, items) => ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), children: <Widget>[
-          Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: const Text('Tất cả tier'), selected: _tierCode == null, onSelected: (_) => setState(() { _tierCode = null; _page = 1; }))),
-          for (final tier in items) Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(tier.name), selected: _tierCode == tier.code, onSelected: (_) => setState(() { _tierCode = tier.code; _page = 1; }))),
-        ]),
-      )),
-      Expanded(child: AsyncBody<AdminArmoryRewardPage>(
-        value: ref.watch(adminArmoryRewardsProvider(filter)), onRetry: () => ref.invalidate(adminArmoryRewardsProvider(filter)),
+      Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          child: HvpTextField(
+            label: 'Tìm quà tặng',
+            hint: 'Tên hoặc SKU',
+            prefixIcon: HvpIcons.search,
+            onSubmitted: (value) => setState(() {
+              _query = value.trim();
+              _page = 1;
+            }),
+          )),
+      SizedBox(
+          height: 52,
+          child: AsyncBody<List<AdminArmoryTier>>(
+            value: tiers,
+            onRetry: () => ref.invalidate(adminArmoryTiersProvider),
+            loading: const SizedBox.shrink(),
+            builder: (_, items) => ListView(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                children: <Widget>[
+                  Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                          label: const Text('Tất cả tier'),
+                          selected: _tierCode == null,
+                          onSelected: (_) => setState(() {
+                                _tierCode = null;
+                                _page = 1;
+                              }))),
+                  for (final tier in items)
+                    Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                            label: Text(tier.name),
+                            selected: _tierCode == tier.code,
+                            onSelected: (_) => setState(() {
+                                  _tierCode = tier.code;
+                                  _page = 1;
+                                }))),
+                ]),
+          )),
+      Expanded(
+          child: AsyncBody<AdminArmoryRewardPage>(
+        value: ref.watch(adminArmoryRewardsProvider(filter)),
+        onRetry: () => ref.invalidate(adminArmoryRewardsProvider(filter)),
         builder: (_, page) => ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96), itemCount: page.items.length + (page.totalPages > 1 ? 1 : 0),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+          itemCount: page.items.length + (page.totalPages > 1 ? 1 : 0),
           separatorBuilder: (_, __) => const SizedBox(height: 10),
           itemBuilder: (_, index) {
             if (index == page.items.length) {
-              return Wrap(alignment: WrapAlignment.spaceBetween, children: <Widget>[
-                TextButton.icon(onPressed: page.page > 1 ? () => setState(() => _page = page.page - 1) : null, icon: const Icon(HvpIcons.caretLeft), label: const Text('Trang trước')),
-                TextButton.icon(onPressed: page.page < page.totalPages ? () => setState(() => _page = page.page + 1) : null, icon: const Icon(HvpIcons.caretRight), label: const Text('Trang sau')),
-              ]);
+              return HvpPaginationBar(
+                page: page.page,
+                totalPages: page.totalPages,
+                onPageChanged: (value) => setState(() => _page = value),
+              );
             }
             final reward = page.items[index];
-            return HvpCard(onTap: () async {
-              await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => AdminArmoryRewardFormScreen(reward: reward)));
-              ref.invalidate(adminArmoryRewardsProvider(filter));
-            }, child: Row(children: <Widget>[
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-                Text(reward.name, style: context.txt.titleS),
-                Text('${reward.sku} · ${reward.marksCost} Marks · tồn ${reward.stock}', style: context.txt.bodySmall),
-              ])),
-              StatusChip(label: reward.isActive ? 'Đang bán' : 'Ngừng bán', tone: reward.isActive ? ChipTone.success : ChipTone.neutral),
-            ]));
+            return HvpCard(
+                onTap: () async {
+                  await Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) =>
+                          AdminArmoryRewardFormScreen(reward: reward)));
+                  ref.invalidate(adminArmoryRewardsProvider(filter));
+                },
+                child: Row(children: <Widget>[
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                        Text(reward.name, style: context.txt.titleS),
+                        Text(
+                            '${reward.sku} · ${reward.marksCost} Marks · tồn ${reward.stock}',
+                            style: context.txt.bodySmall),
+                      ])),
+                  StatusChip(
+                      label: reward.isActive ? 'Đang bán' : 'Ngừng bán',
+                      tone: reward.isActive
+                          ? ChipTone.success
+                          : ChipTone.neutral),
+                ]));
           },
         ),
       )),
