@@ -18,9 +18,21 @@ import '../domain/app_notification.dart';
 import 'notification_providers.dart';
 import 'notification_target.dart';
 
-/// The learner's inbox: newest first, unread ones stand out, tapping one reads it.
+/// Shared inbox: newest first, unread ones stand out, tapping one reads it.
 class NotificationsScreen extends ConsumerWidget {
-  const NotificationsScreen({super.key});
+  const NotificationsScreen({
+    super.key,
+    this.enableTargets = true,
+    this.enableIndividualRead = true,
+  });
+
+  /// Staff inbox events may not have a member-facing destination. They remain
+  /// readable, but do not redirect a staff member into the student route tree.
+  final bool enableTargets;
+
+  /// Staff inboxes are shared per role, so only "read all" changes their
+  /// shared read state. A tap must not pretend to read one item locally.
+  final bool enableIndividualRead;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,14 +40,16 @@ class NotificationsScreen extends ConsumerWidget {
     final unread = inbox.valueOrNull?.unread ?? 0;
     final notifier = ref.read(notificationsProvider.notifier);
     // Every load, refresh and read leaves the exact unread count here: hand it to the bell without a request.
-    ref.listen<AsyncValue<NotificationsState>>(notificationsProvider, (_, next) {
+    ref.listen<AsyncValue<NotificationsState>>(notificationsProvider,
+        (_, next) {
       final count = next.valueOrNull?.unread;
       if (count != null) ref.read(unreadCountProvider.notifier).setCount(count);
     });
 
     Future<void> readAll() async {
       if (!await notifier.markAllRead() && context.mounted) {
-        HvpToast.show(context, 'Không đánh dấu đã đọc được. Vui lòng thử lại.', type: ToastType.error);
+        HvpToast.show(context, 'Không đánh dấu đã đọc được. Vui lòng thử lại.',
+            type: ToastType.error);
       }
     }
 
@@ -43,7 +57,8 @@ class NotificationsScreen extends ConsumerWidget {
       appBar: HvpAppBar(
         title: 'Thông báo',
         actions: <Widget>[
-          if (unread > 0) TextButton(onPressed: readAll, child: const Text('Đọc tất cả')),
+          if (unread > 0)
+            TextButton(onPressed: readAll, child: const Text('Đọc tất cả')),
         ],
       ),
       body: AsyncBody<NotificationsState>(
@@ -61,27 +76,37 @@ class NotificationsScreen extends ConsumerWidget {
                     EmptyState(
                       icon: HvpIcons.bell,
                       title: 'Chưa có thông báo',
-                      message: 'Thông báo về buổi tập, hạng và chuỗi tập của bạn sẽ hiện ở đây.',
+                      message:
+                          'Thông báo về buổi tập, hạng và chuỗi tập của bạn sẽ hiện ở đây.',
                     ),
                   ],
                 )
               : ListView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, HvpLayout.navClearance),
+                  padding: const EdgeInsets.fromLTRB(
+                      16, 12, 16, HvpLayout.navClearance),
                   itemCount: state.items.length + (state.hasMore ? 1 : 0),
                   itemBuilder: (context, index) {
-                    if (index == state.items.length) return _LoadMoreFooter(state: state, onMore: notifier.loadMore);
+                    if (index == state.items.length) {
+                      return _LoadMoreFooter(
+                          state: state, onMore: notifier.loadMore);
+                    }
                     final item = state.items[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _NotificationTile(
                         item: item,
                         onTap: () async {
-                          final marked = await notifier.markRead(item.id);
+                          final marked = enableIndividualRead
+                              ? await notifier.markRead(item.id)
+                              : true;
                           if (!context.mounted) return;
-                          if (!marked) {
-                            HvpToast.show(context, 'Không đánh dấu đã đọc được. Vui lòng thử lại.', type: ToastType.error);
+                          if (enableIndividualRead && !marked) {
+                            HvpToast.show(context,
+                                'Không đánh dấu đã đọc được. Vui lòng thử lại.',
+                                type: ToastType.error);
                           }
+                          if (!enableTargets) return;
                           // The learner came for the screen: go there even when marking it read failed.
                           final target = notificationTarget(item.eventType);
                           if (target == null) return;
@@ -121,8 +146,11 @@ class _NotificationTile extends StatelessWidget {
           Container(
             width: 36,
             height: 36,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: item.isRead ? c.surfaceHigh : c.goldSoft),
-            child: Icon(notificationIcon(item.eventType), size: 20, color: item.isRead ? c.textMuted : c.gold),
+            decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: item.isRead ? c.surfaceHigh : c.goldSoft),
+            child: Icon(notificationIcon(item.eventType),
+                size: 20, color: item.isRead ? c.textMuted : c.gold),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -131,7 +159,8 @@ class _NotificationTile extends StatelessWidget {
               children: <Widget>[
                 Text(
                   item.title,
-                  style: t.titleS.copyWith(color: item.isRead ? c.textSecondary : c.textPrimary),
+                  style: t.titleS.copyWith(
+                      color: item.isRead ? c.textSecondary : c.textPrimary),
                 ),
                 const SizedBox(height: 2),
                 Text(item.body, style: t.bodySmall),
@@ -147,7 +176,10 @@ class _NotificationTile extends StatelessWidget {
                 key: const ValueKey<String>('unread-dot'),
                 width: 10,
                 height: 10,
-                decoration: BoxDecoration(color: c.gold, shape: BoxShape.circle, border: Border.all(color: c.gold.fade(0.5))),
+                decoration: BoxDecoration(
+                    color: c.gold,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: c.gold.fade(0.5))),
               ),
             ),
         ],
@@ -161,8 +193,14 @@ IconData notificationIcon(String eventType) {
   if (eventType.startsWith('RANK')) return HvpIcons.trophy;
   if (eventType.startsWith('STREAK')) return HvpIcons.fire;
   if (eventType.startsWith('CHALLENGE')) return HvpIcons.flag;
-  if (eventType.startsWith('ARMORY') || eventType.startsWith('REDEEM')) return HvpIcons.gift;
-  if (eventType.startsWith('MEMBERSHIP') || eventType.startsWith('RENEW') || eventType.startsWith('PACKAGE')) return HvpIcons.ticket;
+  if (eventType.startsWith('ARMORY') || eventType.startsWith('REDEEM')) {
+    return HvpIcons.gift;
+  }
+  if (eventType.startsWith('MEMBERSHIP') ||
+      eventType.startsWith('RENEW') ||
+      eventType.startsWith('PACKAGE')) {
+    return HvpIcons.ticket;
+  }
   switch (eventType) {
     case 'SESSION_COMPLETED':
     case 'NEAR_RANK':
@@ -186,7 +224,8 @@ class _LoadMoreFooter extends StatelessWidget {
         if (failed)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: Text(state.loadMoreError!, style: context.txt.bodySmall, textAlign: TextAlign.center),
+            child: Text(state.loadMoreError!,
+                style: context.txt.bodySmall, textAlign: TextAlign.center),
           ),
         HvpButton.secondary(
           label: failed ? 'Thử lại' : 'Xem thêm',

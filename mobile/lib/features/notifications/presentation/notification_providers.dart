@@ -2,12 +2,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/error/error_mapper.dart';
 import '../../../core/network/network_providers.dart';
+import '../../auth/domain/auth_user.dart';
 import '../../auth/presentation/providers/auth_controller.dart';
 import '../data/notification_repository_impl.dart';
 import '../domain/app_notification.dart';
 
 final notificationRepositoryProvider =
-    Provider<NotificationRepository>((ref) => NotificationRepositoryImpl(ref.watch(apiClientProvider)));
+    Provider<NotificationRepository>((ref) {
+  final role = ref.watch(currentUserProvider)?.appRole;
+  return NotificationRepositoryImpl(
+    ref.watch(apiClientProvider),
+    isStaff: role != null && role != AppRole.student,
+  );
+});
 
 /// Loaded pages of the inbox.
 class NotificationsState {

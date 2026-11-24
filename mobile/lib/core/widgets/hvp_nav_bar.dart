@@ -7,7 +7,8 @@ import '../utils/haptics.dart';
 
 /// One destination of [HvpNavBar].
 class HvpNavItem {
-  const HvpNavItem({required this.label, required this.icon, required this.activeIcon});
+  const HvpNavItem(
+      {required this.label, required this.icon, required this.activeIcon});
 
   final String label;
   final IconData icon;
@@ -35,6 +36,7 @@ class HvpNavBar extends StatelessWidget {
   static const double _barHeight = 64;
   static const double _raise = 24;
   static const double _button = 62;
+  static const double _minSlotWidth = 72;
 
   @override
   Widget build(BuildContext context) {
@@ -48,56 +50,73 @@ class HvpNavBar extends StatelessWidget {
         height: totalHeight,
         child: LayoutBuilder(
           builder: (context, box) {
-            final slot = box.maxWidth / items.length;
-            return Stack(
-              clipBehavior: Clip.none,
-              children: <Widget>[
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: _barHeight,
-                  child: DecoratedBox(
-                    decoration: ShapeDecoration(
-                      color: c.isDark ? c.surface : c.surfaceHigh,
-                      shape: ChamferBorder(
-                        cut: 14,
-                        topLeft: true,
-                        topRight: true,
-                        bottomLeft: true,
-                        bottomRight: true,
-                        side: BorderSide(color: c.isDark ? c.borderStrong : c.border),
-                      ),
-                      shadows: <BoxShadow>[
-                        BoxShadow(color: c.shadow.fade(c.isDark ? 0.6 : 0.2), blurRadius: 18, offset: const Offset(0, 6)),
-                      ],
-                    ),
-                    child: Row(
-                      children: <Widget>[
-                        for (var i = 0; i < items.length; i++)
-                          Expanded(
-                            child: _NavButton(
-                              item: items[i],
-                              selected: i == currentIndex,
-                              raised: i == raisedIndex,
-                              onTap: () => _select(i),
+            // Six staff destinations do not fit legibly in a fixed phone-width
+            // bar. Keep every tab reachable instead of shrinking labels/tap areas.
+            final contentWidth = items.length * _minSlotWidth > box.maxWidth
+                ? items.length * _minSlotWidth
+                : box.maxWidth;
+            final slot = contentWidth / items.length;
+            return ClipRect(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: contentWidth,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: <Widget>[
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: _barHeight,
+                        child: DecoratedBox(
+                          decoration: ShapeDecoration(
+                            color: c.isDark ? c.surface : c.surfaceHigh,
+                            shape: ChamferBorder(
+                              cut: 14,
+                              topLeft: true,
+                              topRight: true,
+                              bottomLeft: true,
+                              bottomRight: true,
+                              side: BorderSide(
+                                  color: c.isDark ? c.borderStrong : c.border),
                             ),
+                            shadows: <BoxShadow>[
+                              BoxShadow(
+                                  color: c.shadow.fade(c.isDark ? 0.6 : 0.2),
+                                  blurRadius: 18,
+                                  offset: const Offset(0, 6)),
+                            ],
                           ),
-                      ],
-                    ),
+                          child: Row(
+                            children: <Widget>[
+                              for (var i = 0; i < items.length; i++)
+                                Expanded(
+                                  child: _NavButton(
+                                    item: items[i],
+                                    selected: i == currentIndex,
+                                    raised: i == raisedIndex,
+                                    onTap: () => _select(i),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (hasRaised)
+                        Positioned(
+                          left: slot * raisedIndex! + (slot - _button) / 2,
+                          top: 0,
+                          child: _RaisedButton(
+                            item: items[raisedIndex!],
+                            selected: raisedIndex == currentIndex,
+                            onTap: () => _select(raisedIndex!),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-                if (hasRaised)
-                  Positioned(
-                    left: slot * raisedIndex! + (slot - _button) / 2,
-                    top: 0,
-                    child: _RaisedButton(
-                      item: items[raisedIndex!],
-                      selected: raisedIndex == currentIndex,
-                      onTap: () => _select(raisedIndex!),
-                    ),
-                  ),
-              ],
+              ),
             );
           },
         ),
@@ -112,7 +131,11 @@ class HvpNavBar extends StatelessWidget {
 }
 
 class _NavButton extends StatelessWidget {
-  const _NavButton({required this.item, required this.selected, required this.raised, required this.onTap});
+  const _NavButton(
+      {required this.item,
+      required this.selected,
+      required this.raised,
+      required this.onTap});
 
   final HvpNavItem item;
   final bool selected;
@@ -136,13 +159,15 @@ class _NavButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(2, 6, 2, 6),
           child: Column(
-            mainAxisAlignment: raised ? MainAxisAlignment.end : MainAxisAlignment.center,
+            mainAxisAlignment:
+                raised ? MainAxisAlignment.end : MainAxisAlignment.center,
             children: <Widget>[
               if (!raised) ...<Widget>[
                 AnimatedScale(
                   scale: selected ? 1.12 : 1,
                   duration: const Duration(milliseconds: 180),
-                  child: Icon(selected ? item.activeIcon : item.icon, size: 24, color: color),
+                  child: Icon(selected ? item.activeIcon : item.icon,
+                      size: 24, color: color),
                 ),
                 const SizedBox(height: 3),
               ],
@@ -151,7 +176,11 @@ class _NavButton extends StatelessWidget {
                 child: Text(
                   item.label,
                   maxLines: 1,
-                  style: t.label.copyWith(color: color, fontSize: 12, letterSpacing: 0.8, fontWeight: FontWeight.w700),
+                  style: t.label.copyWith(
+                      color: color,
+                      fontSize: 12,
+                      letterSpacing: 0.8,
+                      fontWeight: FontWeight.w700),
                 ),
               ),
               const SizedBox(height: 3),
@@ -159,7 +188,9 @@ class _NavButton extends StatelessWidget {
                 duration: const Duration(milliseconds: 180),
                 width: selected ? 22 : 0,
                 height: 3,
-                decoration: BoxDecoration(gradient: c.goldGradient, borderRadius: BorderRadius.circular(1)),
+                decoration: BoxDecoration(
+                    gradient: c.goldGradient,
+                    borderRadius: BorderRadius.circular(1)),
               ),
             ],
           ),
@@ -170,7 +201,8 @@ class _NavButton extends StatelessWidget {
 }
 
 class _RaisedButton extends StatelessWidget {
-  const _RaisedButton({required this.item, required this.selected, required this.onTap});
+  const _RaisedButton(
+      {required this.item, required this.selected, required this.onTap});
 
   final HvpNavItem item;
   final bool selected;
@@ -197,9 +229,15 @@ class _RaisedButton extends StatelessWidget {
               topRight: true,
               bottomLeft: true,
               bottomRight: true,
-              side: BorderSide(color: selected ? c.textPrimary : c.bg, width: 3),
+              side:
+                  BorderSide(color: selected ? c.textPrimary : c.bg, width: 3),
             ),
-            shadows: <BoxShadow>[BoxShadow(color: c.gold.fade(0.5), blurRadius: 18, offset: const Offset(0, 4))],
+            shadows: <BoxShadow>[
+              BoxShadow(
+                  color: c.gold.fade(0.5),
+                  blurRadius: 18,
+                  offset: const Offset(0, 4))
+            ],
           ),
           child: Icon(item.activeIcon, size: 30, color: c.onGold),
         ),

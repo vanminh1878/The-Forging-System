@@ -1,9 +1,12 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/design/hvp_icons.dart';
 import '../../core/widgets/coming_soon_page.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/coach_challenges/presentation/challenge_review_tab.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/notifications/presentation/widgets/notification_bell.dart';
 import '../route_paths.dart';
 import '../shell/shell_tab.dart';
 
@@ -12,6 +15,9 @@ import '../shell/shell_tab.dart';
 List<RouteBase> coachRoutes() => <RouteBase>[
       roleShellRoute(
         role: AppRole.coach,
+        actions: const <Widget>[
+          NotificationBell(inboxPath: CoachPaths.notifications)
+        ],
         tabs: <ShellTab>[
           ShellTab(
             path: CoachPaths.today,
@@ -52,7 +58,8 @@ List<RouteBase> coachRoutes() => <RouteBase>[
               title: 'Rank Trial',
               owner: 'feature: coach_rank_trial',
               icon: HvpIcons.trophy,
-              description: 'Hàng chờ chấm Rank Trial (POST /rank-trials/:id/decision).',
+              description:
+                  'Hàng chờ chấm Rank Trial (POST /rank-trials/:id/decision).',
             ),
           ),
           ShellTab(
@@ -67,5 +74,10 @@ List<RouteBase> coachRoutes() => <RouteBase>[
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: CoachPaths.notifications,
+        builder: (context, state) => const NotificationsScreen(
+            enableTargets: false, enableIndividualRead: false),
       ),
     ];

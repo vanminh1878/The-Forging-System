@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/design/hvp_icons.dart';
@@ -11,6 +12,8 @@ import '../../features/reception_gifts/presentation/gift_handover_tab.dart';
 import '../../features/reception_memberships/presentation/screens/member_detail_screen.dart';
 import '../../features/reception_memberships/presentation/screens/reception_memberships_tab.dart';
 import '../../features/reception_stock/presentation/reception_stock_tab.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/notifications/presentation/widgets/notification_bell.dart';
 import '../route_paths.dart';
 import '../shell/shell_tab.dart';
 
@@ -19,6 +22,9 @@ import '../shell/shell_tab.dart';
 List<RouteBase> receptionRoutes() => <RouteBase>[
       roleShellRoute(
         role: AppRole.reception,
+        actions: const <Widget>[
+          NotificationBell(inboxPath: ReceptionPaths.notifications)
+        ],
         tabs: <ShellTab>[
           ShellTab(
             path: ReceptionPaths.checkin,
@@ -75,5 +81,10 @@ List<RouteBase> receptionRoutes() => <RouteBase>[
         builder: (context, state) => MemberDetailScreen(
           memberId: state.pathParameters['memberId'] ?? '',
         ),
+      ),
+      GoRoute(
+        path: ReceptionPaths.notifications,
+        builder: (context, state) => const NotificationsScreen(
+            enableTargets: false, enableIndividualRead: false),
       ),
     ];
