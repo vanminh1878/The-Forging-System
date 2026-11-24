@@ -8,6 +8,8 @@ HVP The Forging System: membership + gamification for a boxing gym chain (packag
 
 The `docs/` folder holds the detailed guides (ARCHITECTURE, BACKEND_GUIDE, MOBILE_GUIDE, TESTING_GUIDE, DEPLOY_DIGITALOCEAN). Read the relevant one before larger changes.
 
+**Mandatory:** before editing any file, read and follow @docs/WORKFLOW_CODE_CHUAN.md (the plan must get the user's "OK" before any code is written).
+
 ## Commands
 
 ```bash
