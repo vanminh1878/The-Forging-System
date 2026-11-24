@@ -142,6 +142,7 @@ void main() {
       }
       // Staff roles reach theme + logout through the app bar account button.
       expect(find.byTooltip('Tài khoản'), findsOneWidget);
+      expect(find.byTooltip('Thông báo'), findsOneWidget);
     });
   }
 

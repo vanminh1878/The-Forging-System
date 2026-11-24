@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/design/hvp_icons.dart';
@@ -13,6 +14,8 @@ import '../../features/class_admin/presentation/screens/class_list_screen.dart';
 import '../../features/reception_memberships/presentation/screens/admin_renewal_requests_screen.dart';
 import '../../features/admin_challenges/presentation/admin_challenge_form_screen.dart';
 import '../../features/admin_challenges/presentation/admin_challenges_screen.dart';
+import '../../features/notifications/presentation/notifications_screen.dart';
+import '../../features/notifications/presentation/widgets/notification_bell.dart';
 import '../../features/staff/presentation/screens/staff_directory_screen.dart';
 import '../route_paths.dart';
 import '../shell/shell_tab.dart';
@@ -22,6 +25,10 @@ import '../shell/shell_tab.dart';
 List<RouteBase> adminRoutes() => <RouteBase>[
       roleShellRoute(
         role: AppRole.admin,
+        actions: const <Widget>[
+          NotificationBell(
+              inboxPath: AdminPaths.notifications, inboxIsTab: true)
+        ],
         tabs: <ShellTab>[
           ShellTab(
             path: AdminPaths.dashboard,
@@ -60,11 +67,8 @@ List<RouteBase> adminRoutes() => <RouteBase>[
             label: 'Thông báo',
             icon: HvpIcons.megaphone,
             activeIcon: HvpIcons.megaphoneFill,
-            builder: (_) => const ComingSoonPage(
-              title: 'Thông báo',
-              owner: 'feature: admin_notifications',
-              icon: HvpIcons.megaphone,
-            ),
+            builder: (_) => const NotificationsScreen(
+                enableTargets: false, enableIndividualRead: false),
           ),
           ShellTab(
             path: AdminPaths.settings,

@@ -73,6 +73,7 @@ abstract final class CoachPaths {
   static const String challenge = '/coach/challenge';
   static const String rankTrial = '/coach/rank-trial';
   static const String history = '/coach/history';
+  static const String notifications = '/coach/notifications';
 }
 
 abstract final class ReceptionPaths {
@@ -96,6 +97,7 @@ abstract final class ReceptionPaths {
       '/reception/memberships/member/$memberId';
   static const String stock = '/reception/stock';
   static const String handover = '/reception/handover';
+  static const String notifications = '/reception/notifications';
 }
 
 abstract final class AdminPaths {
@@ -119,6 +121,8 @@ abstract final class AdminPaths {
   static const String armoryRewardCreate =
       '/admin/settings/armory/rewards/create';
   static const String challengeCreate = '/admin/challenges/create';
-  static const String challengeEditPattern = '/admin/challenges/:challengeId/edit';
-  static String challengeEdit(String challengeId) => '/admin/challenges/$challengeId/edit';
+  static const String challengeEditPattern =
+      '/admin/challenges/:challengeId/edit';
+  static String challengeEdit(String challengeId) =>
+      '/admin/challenges/$challengeId/edit';
 }

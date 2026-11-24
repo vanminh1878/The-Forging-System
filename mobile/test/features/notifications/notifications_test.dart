@@ -23,7 +23,9 @@ import 'package:hvp_forging/features/notifications/presentation/widgets/notifica
 import '../../helpers/scripted_adapter.dart';
 import '../../helpers/test_harness.dart';
 
-AppNotification _n(String id, {bool read = false, String event = 'BROADCAST', String? title}) => AppNotification(
+AppNotification _n(String id,
+        {bool read = false, String event = 'BROADCAST', String? title}) =>
+    AppNotification(
       id: id,
       eventType: event,
       title: title ?? 'Thông báo $id',
@@ -45,8 +47,13 @@ class FakeNotifications implements NotificationRepository {
   @override
   Future<NotificationPage> list({required int page, required int limit}) async {
     pageCalls.add(page);
-    final items = page <= pages.length ? pages[page - 1] : const <AppNotification>[];
-    return NotificationPage(items: items, unread: unread, total: pages.fold<int>(0, (sum, p) => sum + p.length), hasMore: page < pages.length);
+    final items =
+        page <= pages.length ? pages[page - 1] : const <AppNotification>[];
+    return NotificationPage(
+        items: items,
+        unread: unread,
+        total: pages.fold<int>(0, (sum, p) => sum + p.length),
+        hasMore: page < pages.length);
   }
 
   int unreadCalls = 0;
@@ -55,20 +62,31 @@ class FakeNotifications implements NotificationRepository {
   @override
   Future<int> unreadCount() async {
     unreadCalls++;
-    if (failUnreadCount) throw const ApiException(code: ApiErrorCodes.network, message: 'Không có kết nối mạng.');
+    if (failUnreadCount) {
+      throw const ApiException(
+          code: ApiErrorCodes.network, message: 'Không có kết nối mạng.');
+    }
     return unread;
   }
 
   @override
   Future<void> markRead(String id) async {
-    if (failWrites) throw const ApiException(code: ApiErrorCodes.network, message: 'Không có kết nối mạng.');
+    if (failWrites) {
+      throw const ApiException(
+          code: ApiErrorCodes.network, message: 'Không có kết nối mạng.');
+    }
     reads.add(id);
-    if (unread > 0) unread--;
+    if (unread > 0) {
+      unread--;
+    }
   }
 
   @override
   Future<void> markAllRead() async {
-    if (failWrites) throw const ApiException(code: ApiErrorCodes.network, message: 'Không có kết nối mạng.');
+    if (failWrites) {
+      throw const ApiException(
+          code: ApiErrorCodes.network, message: 'Không có kết nối mạng.');
+    }
     readAllCalls++;
     unread = 0;
   }
@@ -82,13 +100,18 @@ Future<void> _pump(WidgetTester tester, FakeNotifications repo) async {
   await tester.pumpAndSettle();
 }
 
-int _dots(WidgetTester tester) => find.byKey(const ValueKey<String>('unread-dot')).evaluate().length;
+int _dots(WidgetTester tester) =>
+    find.byKey(const ValueKey<String>('unread-dot')).evaluate().length;
 
 void main() {
-  test('NTF-02 repository reads the inbox, the unread count, the total and whether another page follows', () async {
+  test(
+      'NTF-02 repository reads the inbox, the unread count, the total and whether another page follows',
+      () async {
     final dio = createApiDio(
-      config: const AppConfig(apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
-      tokens: MemoryTokenStore(const StoredTokens(accessToken: 'member-token', refreshToken: 'refresh')),
+      config: const AppConfig(
+          apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
+      tokens: MemoryTokenStore(const StoredTokens(
+          accessToken: 'member-token', refreshToken: 'refresh')),
     );
     Map<String, dynamic> raw(String id, bool read) => <String, dynamic>{
           'id': id,
@@ -102,15 +125,24 @@ void main() {
     final adapter = ScriptedAdapter((request) {
       if (request.method == 'POST') return okEnvelope(null);
       final page = request.queryParameters['page'] as int;
-      return okEnvelope(<dynamic>[raw('a', false), raw('b', true)],
-          meta: <String, dynamic>{'page': page, 'limit': 2, 'total': 5, 'totalPages': 3, 'unread': 4});
+      return okEnvelope(<dynamic>[
+        raw('a', false),
+        raw('b', true)
+      ], meta: <String, dynamic>{
+        'page': page,
+        'limit': 2,
+        'total': 5,
+        'totalPages': 3,
+        'unread': 4
+      });
     });
     dio.httpClientAdapter = adapter;
     final repo = NotificationRepositoryImpl(ApiClient(dio));
 
     final first = await repo.list(page: 1, limit: 2);
     expect(adapter.requests.last.path, '/me/notifications');
-    expect(adapter.requests.last.queryParameters, <String, dynamic>{'page': 1, 'limit': 2});
+    expect(adapter.requests.last.queryParameters,
+        <String, dynamic>{'page': 1, 'limit': 2});
     expect(first.unread, 4);
     expect(first.total, 5);
     expect(first.hasMore, isTrue); // page 1 of 3
@@ -118,12 +150,51 @@ void main() {
     expect(first.items.first.payload['rank'], 'THE INITIATED');
     expect(first.items.first.createdAt, DateTime.utc(2026, 11, 2, 10));
 
-    expect((await repo.list(page: 3, limit: 2)).hasMore, isFalse); // the last page of 3
+    expect((await repo.list(page: 3, limit: 2)).hasMore,
+        isFalse); // the last page of 3
 
     await repo.markRead('a');
     expect(adapter.requests.last.path, '/me/notifications/a/read');
     await repo.markAllRead();
     expect(adapter.requests.last.path, '/me/notifications/read-all');
+  });
+
+  test(
+      'staff inbox uses staff endpoints instead of the member-only /me endpoints',
+      () async {
+    final dio = createApiDio(
+      config: const AppConfig(
+          apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
+      tokens: MemoryTokenStore(const StoredTokens(
+          accessToken: 'coach-token', refreshToken: 'refresh')),
+    );
+    final adapter = ScriptedAdapter((request) {
+      if (request.path.endsWith('unread-count')) {
+        return okEnvelope(<String, dynamic>{'unread': 2});
+      }
+      if (request.method == 'POST') return okEnvelope(null);
+      return okEnvelope(<Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 9,
+          'eventType': 'CHALLENGE_EVIDENCE_SUBMITTED',
+          'title': 'Có bài nộp mới',
+          'body': 'Hãy duyệt bằng chứng.',
+          'createdAt': '2026-11-02T10:00:00.000Z',
+          'isRead': false,
+        },
+      ], meta: <String, dynamic>{
+        'unread': 2
+      });
+    });
+    dio.httpClientAdapter = adapter;
+    final repo = NotificationRepositoryImpl(ApiClient(dio), isStaff: true);
+
+    await repo.list(page: 1, limit: 20);
+    expect(adapter.requests.last.path, '/staff/notifications');
+    await repo.unreadCount();
+    expect(adapter.requests.last.path, '/staff/notifications');
+    await repo.markAllRead();
+    expect(adapter.requests.last.path, '/staff/notifications/read-all');
   });
 
   test('every event has an icon and unknown ones fall back to the bell', () {
@@ -135,7 +206,8 @@ void main() {
     expect(notificationIcon('SOMETHING_NEW'), HvpIcons.bell);
   });
 
-  testWidgets('lists the notifications and marks the unread ones', (tester) async {
+  testWidgets('lists the notifications and marks the unread ones',
+      (tester) async {
     final repo = FakeNotifications(<List<AppNotification>>[
       <AppNotification>[_n('1'), _n('2', read: true), _n('3')],
     ], unread: 2);
@@ -146,7 +218,9 @@ void main() {
     expect(find.text('Đọc tất cả'), findsOneWidget);
   });
 
-  testWidgets('tapping a notification reads it, and reading the last one hides "Đọc tất cả"', (tester) async {
+  testWidgets(
+      'tapping a notification reads it, and reading the last one hides "Đọc tất cả"',
+      (tester) async {
     final repo = FakeNotifications(<List<AppNotification>>[
       <AppNotification>[_n('1'), _n('2')],
     ], unread: 2);
@@ -158,7 +232,8 @@ void main() {
     expect(_dots(tester), 1);
     expect(find.text('Đọc tất cả'), findsOneWidget);
 
-    await tester.tap(find.text('Thông báo 1')); // already read: nothing more to send
+    await tester
+        .tap(find.text('Thông báo 1')); // already read: nothing more to send
     await tester.pumpAndSettle();
     expect(repo.reads, <String>['1']);
 
@@ -180,7 +255,9 @@ void main() {
     expect(find.text('Đọc tất cả'), findsNothing);
   });
 
-  testWidgets('puts the notification back to unread and says so when the server refuses', (tester) async {
+  testWidgets(
+      'puts the notification back to unread and says so when the server refuses',
+      (tester) async {
     final repo = FakeNotifications(<List<AppNotification>>[
       <AppNotification>[_n('1')],
     ], unread: 1)
@@ -190,40 +267,54 @@ void main() {
     await tester.pumpAndSettle();
     expect(_dots(tester), 1);
     expect(find.text('Đọc tất cả'), findsOneWidget);
-    expect(find.text('Không đánh dấu đã đọc được. Vui lòng thử lại.'), findsOneWidget);
+    expect(find.text('Không đánh dấu đã đọc được. Vui lòng thử lại.'),
+        findsOneWidget);
 
     await tester.pumpAndSettle(const Duration(seconds: 4)); // let the toast go
     await tester.tap(find.text('Đọc tất cả'));
     await tester.pumpAndSettle();
     expect(_dots(tester), 1);
-    expect(find.text('Không đánh dấu đã đọc được. Vui lòng thử lại.'), findsOneWidget);
+    expect(find.text('Không đánh dấu đã đọc được. Vui lòng thử lại.'),
+        findsOneWidget);
   });
 
-  testWidgets('loads the next page on "Xem thêm" and stops when a page comes back short', (tester) async {
-    final first = <AppNotification>[for (var i = 1; i <= 20; i++) _n('a$i', read: true, title: 'Cũ $i')];
-    final second = <AppNotification>[_n('b1', read: true, title: 'Cũ 21'), _n('a20', read: true, title: 'Trùng')];
+  testWidgets(
+      'loads the next page on "Xem thêm" and stops when a page comes back short',
+      (tester) async {
+    final first = <AppNotification>[
+      for (var i = 1; i <= 20; i++) _n('a$i', read: true, title: 'Cũ $i')
+    ];
+    final second = <AppNotification>[
+      _n('b1', read: true, title: 'Cũ 21'),
+      _n('a20', read: true, title: 'Trùng')
+    ];
     final repo = FakeNotifications(<List<AppNotification>>[first, second]);
     await _pump(tester, repo);
 
     // The list builds rows lazily: the footer only exists once scrolled to.
-    await tester.scrollUntilVisible(find.text('XEM THÊM'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('XEM THÊM'), 300,
+        scrollable: find.byType(Scrollable).first);
     await tester.tap(find.text('XEM THÊM'));
     await tester.pumpAndSettle();
     expect(repo.pageCalls, <int>[1, 2]);
-    await tester.scrollUntilVisible(find.text('Cũ 21'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('Cũ 21'), 300,
+        scrollable: find.byType(Scrollable).first);
     expect(find.text('Cũ 21'), findsOneWidget);
     expect(find.text('Trùng'), findsNothing); // already on screen from page 1
     expect(find.text('XEM THÊM'), findsNothing);
   });
 
   testWidgets('says so when there is nothing yet', (tester) async {
-    await _pump(tester, FakeNotifications(<List<AppNotification>>[<AppNotification>[]]));
+    await _pump(tester,
+        FakeNotifications(<List<AppNotification>>[<AppNotification>[]]));
     expect(find.text('CHƯA CÓ THÔNG BÁO'), findsOneWidget);
     expect(find.text('Đọc tất cả'), findsNothing);
   });
 
   group('NTF-04 opening a notification', () {
-    test('maps each event to the screen it is about, and leaves the generic ones without a target', () {
+    test(
+        'maps each event to the screen it is about, and leaves the generic ones without a target',
+        () {
       NotificationTarget? t(String e) => notificationTarget(e);
       expect(t('RANK_EARNED')?.path, StudentPaths.fighterRecord);
       expect(t('RANK_TRIAL_FAILED')?.path, StudentPaths.fighterRecord);
@@ -232,7 +323,8 @@ void main() {
       expect(t('INACTIVE_7D')?.path, StudentPaths.streak);
       expect(t('CHALLENGE')?.path, StudentPaths.challenges);
       expect(t('CHALLENGE_JOINED')?.path, StudentPaths.currentChallenges);
-      expect(t('CHALLENGE_JOIN_APPROVED')?.path, StudentPaths.currentChallenges);
+      expect(
+          t('CHALLENGE_JOIN_APPROVED')?.path, StudentPaths.currentChallenges);
       expect(t('CHALLENGE_COMPLETED')?.path, StudentPaths.currentChallenges);
       expect(t('CHALLENGE_REWARDED')?.path, StudentPaths.currentChallenges);
       expect(t('RENEWAL_COMPLETED')?.path, StudentPaths.membership);
@@ -247,29 +339,43 @@ void main() {
       expect(t('SOMETHING_NEW'), isNull);
     });
 
-    Future<GoRouter> pumpInbox(WidgetTester tester, FakeNotifications repo) async {
+    Future<GoRouter> pumpInbox(
+        WidgetTester tester, FakeNotifications repo) async {
       HvpFonts.useGoogleFonts = false;
       hvpEntranceEnabled = false;
       usePhoneSurface(tester);
       Widget page(String text) => Scaffold(appBar: AppBar(), body: Text(text));
-      final router = GoRouter(initialLocation: StudentPaths.notifications, routes: <RouteBase>[
-        GoRoute(path: StudentPaths.notifications, builder: (_, __) => const NotificationsScreen()),
-        GoRoute(path: StudentPaths.fighterRecord, builder: (_, __) => page('FIGHTER RECORD')),
-        GoRoute(path: StudentPaths.armory, builder: (_, __) => page('ARMORY')),
-      ]);
+      final router = GoRouter(
+          initialLocation: StudentPaths.notifications,
+          routes: <RouteBase>[
+            GoRoute(
+                path: StudentPaths.notifications,
+                builder: (_, __) => const NotificationsScreen()),
+            GoRoute(
+                path: StudentPaths.fighterRecord,
+                builder: (_, __) => page('FIGHTER RECORD')),
+            GoRoute(
+                path: StudentPaths.armory, builder: (_, __) => page('ARMORY')),
+          ]);
       addTearDown(router.dispose);
       await tester.pumpWidget(ProviderScope(
         overrides: [
           currentUserIdProvider.overrideWithValue('member'),
           notificationRepositoryProvider.overrideWithValue(repo),
         ],
-        child: MaterialApp.router(theme: HvpTheme.light(), darkTheme: HvpTheme.dark(), themeMode: ThemeMode.dark, routerConfig: router),
+        child: MaterialApp.router(
+            theme: HvpTheme.light(),
+            darkTheme: HvpTheme.dark(),
+            themeMode: ThemeMode.dark,
+            routerConfig: router),
       ));
       await tester.pumpAndSettle();
       return router;
     }
 
-    testWidgets('reads the notification and opens its screen, and back returns to the inbox', (tester) async {
+    testWidgets(
+        'reads the notification and opens its screen, and back returns to the inbox',
+        (tester) async {
       final repo = FakeNotifications(<List<AppNotification>>[
         <AppNotification>[_n('1', event: 'RANK_EARNED')],
       ], unread: 1);
@@ -293,10 +399,12 @@ void main() {
       await tester.tap(find.text('Thông báo 1'));
       await tester.pumpAndSettle();
       expect(find.text('ARMORY'), findsOneWidget);
-      expect(router.routerDelegate.currentConfiguration.uri.path, StudentPaths.armory);
+      expect(router.routerDelegate.currentConfiguration.uri.path,
+          StudentPaths.armory);
     });
 
-    testWidgets('stays on the inbox for a notification with no screen', (tester) async {
+    testWidgets('stays on the inbox for a notification with no screen',
+        (tester) async {
       final repo = FakeNotifications(<List<AppNotification>>[
         <AppNotification>[_n('1', event: 'BROADCAST')],
       ], unread: 1);
@@ -307,7 +415,9 @@ void main() {
       expect(find.text('Thông báo 1'), findsOneWidget);
     });
 
-    testWidgets('still opens the screen when marking it read fails, and says so', (tester) async {
+    testWidgets(
+        'still opens the screen when marking it read fails, and says so',
+        (tester) async {
       final repo = FakeNotifications(<List<AppNotification>>[
         <AppNotification>[_n('1', event: 'RANK_EARNED')],
       ], unread: 1)
@@ -316,23 +426,30 @@ void main() {
       await tester.tap(find.text('Thông báo 1'));
       await tester.pumpAndSettle();
       expect(find.text('FIGHTER RECORD'), findsOneWidget);
-      expect(find.text('Không đánh dấu đã đọc được. Vui lòng thử lại.'), findsOneWidget);
-      await tester.pumpAndSettle(const Duration(seconds: 4)); // let the toast go
+      expect(find.text('Không đánh dấu đã đọc được. Vui lòng thử lại.'),
+          findsOneWidget);
+      await tester
+          .pumpAndSettle(const Duration(seconds: 4)); // let the toast go
     });
   });
 
   group('NTF-03 bell', () {
     /// A home page with the bell in its app bar, and the inbox one tap away, like the student shell.
-    Future<void> pumpBell(WidgetTester tester, FakeNotifications repo, {String? userId = 'member'}) async {
+    Future<void> pumpBell(WidgetTester tester, FakeNotifications repo,
+        {String? userId = 'member'}) async {
       HvpFonts.useGoogleFonts = false;
       hvpEntranceEnabled = false;
       usePhoneSurface(tester);
       final router = GoRouter(routes: <RouteBase>[
         GoRoute(
           path: '/',
-          builder: (_, __) => Scaffold(appBar: AppBar(actions: const <Widget>[NotificationBell()]), body: const Text('HOME')),
+          builder: (_, __) => Scaffold(
+              appBar: AppBar(actions: const <Widget>[NotificationBell()]),
+              body: const Text('HOME')),
         ),
-        GoRoute(path: StudentPaths.notifications, builder: (_, __) => const NotificationsScreen()),
+        GoRoute(
+            path: StudentPaths.notifications,
+            builder: (_, __) => const NotificationsScreen()),
       ]);
       addTearDown(router.dispose);
       await tester.pumpWidget(ProviderScope(
@@ -340,21 +457,29 @@ void main() {
           currentUserIdProvider.overrideWithValue(userId),
           notificationRepositoryProvider.overrideWithValue(repo),
         ],
-        child: MaterialApp.router(theme: HvpTheme.light(), darkTheme: HvpTheme.dark(), themeMode: ThemeMode.dark, routerConfig: router),
+        child: MaterialApp.router(
+            theme: HvpTheme.light(),
+            darkTheme: HvpTheme.dark(),
+            themeMode: ThemeMode.dark,
+            routerConfig: router),
       ));
       await tester.pumpAndSettle();
     }
 
-    FakeNotifications server({int unread = 3}) => FakeNotifications(<List<AppNotification>>[
+    FakeNotifications server({int unread = 3}) =>
+        FakeNotifications(<List<AppNotification>>[
           <AppNotification>[for (var i = 1; i <= unread; i++) _n('$i')],
         ], unread: unread);
 
     test('the repository reads the unread count', () async {
       final dio = createApiDio(
-        config: const AppConfig(apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
-        tokens: MemoryTokenStore(const StoredTokens(accessToken: 'member-token', refreshToken: 'refresh')),
+        config: const AppConfig(
+            apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
+        tokens: MemoryTokenStore(const StoredTokens(
+            accessToken: 'member-token', refreshToken: 'refresh')),
       );
-      final adapter = ScriptedAdapter((request) => okEnvelope(<String, dynamic>{'unread': 7}));
+      final adapter = ScriptedAdapter(
+          (request) => okEnvelope(<String, dynamic>{'unread': 7}));
       dio.httpClientAdapter = adapter;
       expect(await NotificationRepositoryImpl(ApiClient(dio)).unreadCount(), 7);
       expect(adapter.requests.last.path, '/me/notifications/unread-count');
@@ -371,11 +496,15 @@ void main() {
     });
 
     testWidgets('caps a long count at 99+', (tester) async {
-      await pumpBell(tester, FakeNotifications(<List<AppNotification>>[<AppNotification>[]], unread: 250));
+      await pumpBell(
+          tester,
+          FakeNotifications(<List<AppNotification>>[<AppNotification>[]],
+              unread: 250));
       expect(find.text('99+'), findsOneWidget);
     });
 
-    testWidgets('opens the inbox, and the number follows what was read there', (tester) async {
+    testWidgets('opens the inbox, and the number follows what was read there',
+        (tester) async {
       final repo = server(unread: 3);
       await pumpBell(tester, repo);
 
@@ -404,7 +533,8 @@ void main() {
       expect(tester.widget<Badge>(find.byType(Badge)).isLabelVisible, isFalse);
     });
 
-    testWidgets('looks again every minute and picks up new notifications', (tester) async {
+    testWidgets('looks again every minute and picks up new notifications',
+        (tester) async {
       final repo = server(unread: 1);
       await pumpBell(tester, repo);
       expect(find.text('1'), findsOneWidget);
@@ -426,7 +556,8 @@ void main() {
       expect(find.text('2'), findsOneWidget);
     });
 
-    testWidgets('does not ask the server while nobody is signed in', (tester) async {
+    testWidgets('does not ask the server while nobody is signed in',
+        (tester) async {
       final repo = server(unread: 5);
       await pumpBell(tester, repo, userId: null);
       expect(repo.unreadCalls, 0);
