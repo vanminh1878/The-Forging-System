@@ -1,8 +1,9 @@
 name: Build mobile
 
 # Runs when a merge into main touches mobile/, or manually (Actions tab > Build mobile >
-# Run workflow). Produces files only: no store upload, no Apple/Google account. The .aab is
-# signed with the debug key and the .ipa is unsigned (re-sign it to install on a device).
+# Run workflow). Produces files only: no store upload, no Apple account. The .ipa is unsigned
+# (re-sign it to install on a device). Android is built, signed and uploaded to Google Play
+# by android-release.yml instead.
 # Version = pubspec `version` name + github.run_number as build number.
 on:
   push:
@@ -17,29 +18,6 @@ env:
   TENANT_CODE: ${{ vars.TENANT_CODE }}
 
 jobs:
-  android:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mobile
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
-      - run: flutter pub get
-      - name: Build .aab
-        run: |
-          defines=()
-          [ -n "$API_BASE_URL" ] && defines+=(--dart-define=API_BASE_URL="$API_BASE_URL")
-          [ -n "$TENANT_CODE" ] && defines+=(--dart-define=TENANT_CODE="$TENANT_CODE")
-          flutter build appbundle --release --build-number=${{ github.run_number }} "${defines[@]}"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: hvp-forging-android-aab-${{ github.run_number }}
-          path: mobile/build/app/outputs/bundle/release/app-release.aab
-
   ios:
     runs-on: macos-latest
     defaults:

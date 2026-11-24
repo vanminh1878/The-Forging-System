@@ -1,0 +1,119 @@
+name: Android Play Store
+
+# Runs when a merge into main touches mobile/, or manually (Actions tab > Android Play Store >
+# Run workflow). Checks the app, builds a signed .aab and uploads it to the Google Play
+# "internal" testing track, so testers just update from the Play Store.
+#
+# Repo secrets (Settings > Secrets and variables > Actions > Secrets) - see docs/release/ANDROID_RELEASE.md:
+#   ANDROID_KEYSTORE_BASE64    - upload keystore (.jks) encoded as base64
+#   ANDROID_KEYSTORE_PASSWORD  - keystore password
+#   ANDROID_KEY_ALIAS          - key alias
+#   ANDROID_KEY_PASSWORD       - key password
+#   PLAY_SERVICE_ACCOUNT_JSON  - Google Cloud service account JSON (full file contents)
+# Repo variables (optional, same as the iOS workflow): API_BASE_URL, TENANT_CODE.
+# Version = pubspec `version` name + github.run_number as the build number (versionCode).
+on:
+  push:
+    branches: [main]
+    paths: ["mobile/**"]
+  workflow_dispatch:
+
+# Never run two releases at once, and never cancel one that is already uploading.
+concurrency:
+  group: android-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PACKAGE_NAME: vn.hvp.hvp_forging
+  PLAY_TRACK: internal
+  API_BASE_URL: ${{ vars.API_BASE_URL }}
+  TENANT_CODE: ${{ vars.TENANT_CODE }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Check required secrets
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          missing=0
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS \
+                      ANDROID_KEY_PASSWORD PLAY_SERVICE_ACCOUNT_JSON; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing repo secret $name (see docs/release/ANDROID_RELEASE.md)"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Do not ship a build that fails the same checks as ci.yml.
+      - run: flutter analyze
+      - run: flutter test
+
+      - name: Set up release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          keystore="$RUNNER_TEMP/upload-keystore.jks"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$keystore"
+          # Read by android/app/build.gradle.kts (gitignored file, only exists on this runner).
+          {
+            printf 'storeFile=%s\n' "$keystore"
+            printf 'storePassword=%s\n' "$ANDROID_KEYSTORE_PASSWORD"
+            printf 'keyAlias=%s\n' "$ANDROID_KEY_ALIAS"
+            printf 'keyPassword=%s\n' "$ANDROID_KEY_PASSWORD"
+          } > android/key.properties
+
+      - name: Build signed .aab
+        run: |
+          defines=()
+          [ -n "$API_BASE_URL" ] && defines+=(--dart-define=API_BASE_URL="$API_BASE_URL")
+          [ -n "$TENANT_CODE" ] && defines+=(--dart-define=TENANT_CODE="$TENANT_CODE")
+          flutter build appbundle --release --build-number=${{ github.run_number }} "${defines[@]}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hvp-forging-android-aab-signed-${{ github.run_number }}
+          path: mobile/build/app/outputs/bundle/release/app-release.aab
+
+      - name: Upload to Google Play (${{ env.PLAY_TRACK }})
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: ${{ env.PACKAGE_NAME }}
+          releaseFiles: mobile/build/app/outputs/bundle/release/app-release.aab
+          track: ${{ env.PLAY_TRACK }}
+          status: completed
+
+      - name: Remove signing files
+        if: always()
+        run: rm -f android/key.properties "$RUNNER_TEMP/upload-keystore.jks"
