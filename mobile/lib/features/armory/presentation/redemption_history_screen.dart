@@ -10,6 +10,8 @@ import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/hvp_pagination_bar.dart';
+import '../../../core/widgets/redemption_status_chip.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/redemption.dart';
 import 'redemption_providers.dart';
@@ -41,7 +43,10 @@ class _RedemptionHistoryScreenState
             scrollDirection: Axis.horizontal,
             children: <Widget>[
               _filterChip(null, 'Tất cả'),
-              _filterChip('PENDING_PICKUP', 'Chờ nhận'),
+              _filterChip(
+                  'PENDING_PICKUP', redemptionStatusLabel('PENDING_PICKUP')),
+              _filterChip(
+                  'READY_PICKUP', redemptionStatusLabel('READY_PICKUP')),
               _filterChip('DELIVERED', 'Đã giao'),
               _filterChip('REJECTED', 'Từ chối'),
               _filterChip('CANCELLED', 'Đã hủy'),
@@ -82,28 +87,12 @@ class _RedemptionHistoryScreenState
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _RedemptionCard(redemption: redemption),
                           ),
-                        if (result.totalPages > 1)
-                          Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: <Widget>[
-                                TextButton(
-                                  onPressed: result.page > 1
-                                      ? () =>
-                                          setState(() => page = result.page - 1)
-                                      : null,
-                                  child: const Text('Trang trước'),
-                                ),
-                                Text(
-                                    'Trang ${result.page}/${result.totalPages}',
-                                    style: context.txt.caption),
-                                TextButton(
-                                  onPressed: result.page < result.totalPages
-                                      ? () =>
-                                          setState(() => page = result.page + 1)
-                                      : null,
-                                  child: const Text('Trang sau'),
-                                ),
-                              ]),
+                        HvpPaginationBar(
+                          page: result.page,
+                          totalPages: result.totalPages,
+                          onPageChanged: (value) =>
+                              setState(() => page = value),
+                        ),
                       ],
                     ),
             ),
@@ -153,7 +142,7 @@ class _RedemptionCard extends StatelessWidget {
                         StatusChip(
                             label: '${formatInt(redemption.marksCost)} Marks',
                             tone: ChipTone.gold),
-                        _statusChip(redemption.status),
+                        RedemptionStatusChip(status: redemption.status),
                       ]),
                     ]),
               ),
@@ -172,13 +161,3 @@ class _RedemptionCard extends StatelessWidget {
               Icon(HvpIcons.gift, size: 42, color: context.hvp.gold),
         );
 }
-
-StatusChip _statusChip(String status) => switch (status) {
-      'PENDING_PICKUP' =>
-        const StatusChip(label: 'Chờ nhận', tone: ChipTone.warning),
-      'DELIVERED' => const StatusChip(label: 'Đã giao', tone: ChipTone.success),
-      'REJECTED' => const StatusChip(label: 'Từ chối', tone: ChipTone.danger),
-      'CANCELLED' => const StatusChip(label: 'Đã hủy', tone: ChipTone.neutral),
-      'EXPIRED' => const StatusChip(label: 'Hết hạn', tone: ChipTone.neutral),
-      _ => StatusChip(label: status, tone: ChipTone.neutral),
-    };

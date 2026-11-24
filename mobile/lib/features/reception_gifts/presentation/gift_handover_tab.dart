@@ -9,9 +9,10 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/hvp_pagination_bar.dart';
 import '../../../core/widgets/hvp_text_field.dart';
 import '../../../core/widgets/inline_banner.dart';
-import '../../../core/widgets/status_chip.dart';
+import '../../../core/widgets/redemption_status_chip.dart';
 import '../domain/staff_redemption.dart';
 import 'staff_redemption_providers.dart';
 
@@ -53,8 +54,7 @@ class _GiftHandoverTabState extends ConsumerState<GiftHandoverTab> {
   }
 
   Future<void> _deliver(StaffRedemption item) async {
-    final result =
-        await showHvpSheet<({String? reason, String? evidenceUrl})>(
+    final result = await showHvpSheet<({String? reason, String? evidenceUrl})>(
       context,
       title: 'Xác nhận giao quà',
       builder: (_) => _DeliverySheet(item: item),
@@ -157,31 +157,11 @@ class _GiftHandoverTabState extends ConsumerState<GiftHandoverTab> {
                             onReject: () => _reject(item),
                           ),
                         ),
-                      if (page.totalPages > 1)
-                        Wrap(
-                          alignment: WrapAlignment.spaceBetween,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: <Widget>[
-                            TextButton.icon(
-                              onPressed: page.page > 1
-                                  ? () => setState(
-                                      () => _page = page.page - 1)
-                                  : null,
-                              icon: const Icon(HvpIcons.caretLeft),
-                              label: const Text('Trang trước'),
-                            ),
-                            Text('Trang ${page.page}/${page.totalPages}',
-                                style: context.txt.caption),
-                            TextButton.icon(
-                              onPressed: page.page < page.totalPages
-                                  ? () => setState(
-                                      () => _page = page.page + 1)
-                                  : null,
-                              icon: const Icon(HvpIcons.caretRight),
-                              label: const Text('Trang sau'),
-                            ),
-                          ],
-                        ),
+                      HvpPaginationBar(
+                        page: page.page,
+                        totalPages: page.totalPages,
+                        onPageChanged: (value) => setState(() => _page = value),
+                      ),
                     ],
                   ),
           ),
@@ -223,7 +203,7 @@ class _RedemptionCard extends StatelessWidget {
               Row(children: <Widget>[
                 Expanded(
                     child: Text(item.rewardName, style: context.txt.titleS)),
-                _statusChip(item.status),
+                RedemptionStatusChip(status: item.status),
               ]),
               const SizedBox(height: 4),
               Text('${item.memberFullName} · ${item.memberCode}',
@@ -261,17 +241,6 @@ class _RedemptionCard extends StatelessWidget {
               ]),
             ]),
       );
-
-  StatusChip _statusChip(String status) => switch (status) {
-        'PENDING_PICKUP' =>
-          const StatusChip(label: 'Chờ duyệt', tone: ChipTone.warning),
-        'READY_PICKUP' =>
-          const StatusChip(label: 'Sẵn sàng nhận', tone: ChipTone.success),
-        'DELIVERED' =>
-          const StatusChip(label: 'Đã giao', tone: ChipTone.success),
-        'REJECTED' => const StatusChip(label: 'Từ chối', tone: ChipTone.danger),
-        _ => StatusChip(label: status, tone: ChipTone.neutral),
-      };
 }
 
 class _DeliverySheet extends ConsumerStatefulWidget {

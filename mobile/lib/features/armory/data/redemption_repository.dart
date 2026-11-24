@@ -29,6 +29,14 @@ class RedemptionRepositoryImpl implements RedemptionRepository {
     return _fromJson(response.data);
   }
 
+  @override
+  Future<void> cancel(String redemptionId, {String? reason}) => api.post(
+        '/me/armory/redemptions/$redemptionId/cancel',
+        body: <String, dynamic>{
+          if (reason?.trim().isNotEmpty ?? false) 'reason': reason!.trim(),
+        },
+      );
+
   ArmoryRedemption _fromJson(Object? value) {
     final json = asMap(value);
     return ArmoryRedemption(

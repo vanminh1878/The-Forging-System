@@ -25,7 +25,7 @@ Giao gọi `award()` ARM-04 trừ đúng Marks snapshot; cập nhật status và
 Hủy/từ chối/hết hạn chuyển status, giải phóng Marks giữ, hoàn stock 1 và ghi inventory IN/audit cùng transaction; không tạo ledger hoàn vì chưa debit.
 Thứ tự khóa member → redemption → reward phù hợp ARM-02/ARM-04, và mọi thao tác giữ trong tenant transaction của `handle()`.
 
-`RedemptionService.expire(id, reason)` là hook nội bộ cho scheduler. **Task này chưa đăng ký job/tự động tính deadline**; caller phải kiểm tra deadline trước khi gọi.
+Job `armory-redemption-expiry` chạy mỗi 15 phút khi `ENABLE_SCHEDULER=true`. Job lấy hạn theo `rewards.pickup_days`, fallback `armory.pending_pickup_expiry_days`, rồi khóa và kiểm tra lại deadline/status trước khi chuyển `EXPIRED`.
 Không có endpoint công khai để tùy ý đặt EXPIRED. Không có migration mới.
 
 ## cURL CMD

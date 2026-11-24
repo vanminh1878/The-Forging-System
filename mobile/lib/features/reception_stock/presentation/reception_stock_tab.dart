@@ -11,6 +11,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/hvp_pagination_bar.dart';
 import '../../../core/widgets/hvp_text_field.dart';
 import '../../../core/widgets/hvp_toast.dart';
 import '../../../core/widgets/inline_banner.dart';
@@ -87,10 +88,13 @@ class _StockCatalogTabState extends ConsumerState<_StockCatalogTab> {
   int _page = 1;
 
   Future<void> _adjust(InventoryReward reward, String movementType) async {
-    await showHvpSheet<void>(context, title: movementType == 'IN' ? 'Nhập kho' : 'Xuất kho', builder: (_) => SizedBox(
-      height: 560,
-      child: _StockAdjustTab(reward: reward, movementType: movementType),
-    ));
+    await showHvpSheet<void>(context,
+        title: movementType == 'IN' ? 'Nhập kho' : 'Xuất kho',
+        builder: (_) => SizedBox(
+              height: 560,
+              child:
+                  _StockAdjustTab(reward: reward, movementType: movementType),
+            ));
     if (mounted) ref.invalidate(inventoryRewardsProvider);
   }
 
@@ -98,27 +102,91 @@ class _StockCatalogTabState extends ConsumerState<_StockCatalogTab> {
   Widget build(BuildContext context) {
     final filter = (query: _query, page: _page);
     return Column(children: <Widget>[
-      Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 4), child: HvpTextField(
-        label: 'Tìm quà trong kho', hint: 'Tên hoặc SKU', prefixIcon: HvpIcons.search,
-        onSubmitted: (value) => setState(() { _query = value.trim(); _page = 1; }),
-      )),
-      Expanded(child: AsyncBody<InventoryRewardPage>(
-        value: ref.watch(inventoryRewardsProvider(filter)), onRetry: () => ref.invalidate(inventoryRewardsProvider(filter)),
+      Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          child: HvpTextField(
+            label: 'Tìm quà trong kho',
+            hint: 'Tên hoặc SKU',
+            prefixIcon: HvpIcons.search,
+            onSubmitted: (value) => setState(() {
+              _query = value.trim();
+              _page = 1;
+            }),
+          )),
+      Expanded(
+          child: AsyncBody<InventoryRewardPage>(
+        value: ref.watch(inventoryRewardsProvider(filter)),
+        onRetry: () => ref.invalidate(inventoryRewardsProvider(filter)),
         builder: (_, page) => RefreshIndicator(
-          onRefresh: () async { ref.invalidate(inventoryRewardsProvider(filter)); await ref.read(inventoryRewardsProvider(filter).future); },
-          child: page.items.isEmpty ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const <Widget>[SizedBox(height: 340, child: EmptyState(icon: HvpIcons.package, title: 'Chưa có phần quà', message: 'Danh sách phần quà trong kho sẽ hiện tại đây.'))])
-              : ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, HvpLayout.navClearance), children: <Widget>[
-                  Text('${page.total} phần quà · Trang ${page.page}/${page.totalPages}', style: context.txt.caption), const SizedBox(height: 8),
-                  for (final reward in page.items) Padding(padding: const EdgeInsets.only(bottom: 10), child: HvpCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-                    Row(children: <Widget>[Expanded(child: Text(reward.name, style: context.txt.titleS)), StatusChip(label: reward.isActive ? 'Đang bán' : 'Ngừng bán', tone: reward.isActive ? ChipTone.success : ChipTone.neutral)]),
-                    const SizedBox(height: 4), Text('${reward.sku} · Tồn kho ${formatInt(reward.stock)}', style: context.txt.bodySmall),
-                    const SizedBox(height: 12), Wrap(spacing: 8, children: <Widget>[
-                      HvpButton.primary(label: 'Nhập kho', icon: HvpIcons.plus, small: true, onPressed: () => _adjust(reward, 'IN')),
-                      HvpButton.secondary(label: 'Xuất kho', icon: HvpIcons.close, small: true, onPressed: () => _adjust(reward, 'OUT')),
+          onRefresh: () async {
+            ref.invalidate(inventoryRewardsProvider(filter));
+            await ref.read(inventoryRewardsProvider(filter).future);
+          },
+          child: page.items.isEmpty
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const <Widget>[
+                      SizedBox(
+                          height: 340,
+                          child: EmptyState(
+                              icon: HvpIcons.package,
+                              title: 'Chưa có phần quà',
+                              message:
+                                  'Danh sách phần quà trong kho sẽ hiện tại đây.'))
+                    ])
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                      16, 8, 16, HvpLayout.navClearance),
+                  children: <Widget>[
+                      Text(
+                          '${page.total} phần quà · Trang ${page.page}/${page.totalPages}',
+                          style: context.txt.caption),
+                      const SizedBox(height: 8),
+                      for (final reward in page.items)
+                        Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: HvpCard(
+                                child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: <Widget>[
+                                  Row(children: <Widget>[
+                                    Expanded(
+                                        child: Text(reward.name,
+                                            style: context.txt.titleS)),
+                                    StatusChip(
+                                        label: reward.isActive
+                                            ? 'Đang bán'
+                                            : 'Ngừng bán',
+                                        tone: reward.isActive
+                                            ? ChipTone.success
+                                            : ChipTone.neutral)
+                                  ]),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                      '${reward.sku} · Tồn kho ${formatInt(reward.stock)}',
+                                      style: context.txt.bodySmall),
+                                  const SizedBox(height: 12),
+                                  Wrap(spacing: 8, children: <Widget>[
+                                    HvpButton.primary(
+                                        label: 'Nhập kho',
+                                        icon: HvpIcons.plus,
+                                        small: true,
+                                        onPressed: () => _adjust(reward, 'IN')),
+                                    HvpButton.secondary(
+                                        label: 'Xuất kho',
+                                        icon: HvpIcons.close,
+                                        small: true,
+                                        onPressed: () =>
+                                            _adjust(reward, 'OUT')),
+                                  ]),
+                                ]))),
+                      HvpPaginationBar(
+                          page: page.page,
+                          totalPages: page.totalPages,
+                          onPageChanged: (value) =>
+                              setState(() => _page = value)),
                     ]),
-                  ]))),
-                  if (page.totalPages > 1) _Pager(page: page.page, totalPages: page.totalPages, onPage: (value) => setState(() => _page = value)),
-                ]),
         ),
       )),
     ]);
@@ -177,8 +245,8 @@ class _StockAdjustTabState extends ConsumerState<_StockAdjustTab> {
     });
     ref.invalidate(inventoryRewardsProvider);
     ref.invalidate(inventoryMovementsProvider);
-    HvpToast.success(
-        context, '${inbound ? 'Đã nhập' : 'Đã xuất'} $quantity · ${reward.name}.');
+    HvpToast.success(context,
+        '${inbound ? 'Đã nhập' : 'Đã xuất'} $quantity · ${reward.name}.');
     Navigator.of(context).pop();
   }
 
@@ -261,7 +329,8 @@ class _StockAdjustTabState extends ConsumerState<_StockAdjustTab> {
         ],
         const SizedBox(height: 20),
         HvpButton.primary(
-          label: _movementType == 'IN' ? 'Xác nhận nhập kho' : 'Xác nhận xuất kho',
+          label:
+              _movementType == 'IN' ? 'Xác nhận nhập kho' : 'Xác nhận xuất kho',
           icon: _movementType == 'IN' ? HvpIcons.plus : HvpIcons.close,
           expand: true,
           loading: action.submitting,
@@ -385,12 +454,12 @@ class _StockHistoryTabState extends ConsumerState<_StockHistoryTab> {
                             padding: const EdgeInsets.only(bottom: 10),
                             child: _MovementCard(item: item),
                           ),
-                        if (page.totalPages > 1)
-                          _Pager(
-                            page: page.page,
-                            totalPages: page.totalPages,
-                            onPage: (value) => setState(() => _page = value),
-                          ),
+                        HvpPaginationBar(
+                          page: page.page,
+                          totalPages: page.totalPages,
+                          onPageChanged: (value) =>
+                              setState(() => _page = value),
+                        ),
                       ],
                     ),
             ),
@@ -453,37 +522,6 @@ class _MovementCard extends StatelessWidget {
   }
 }
 
-class _Pager extends StatelessWidget {
-  const _Pager({
-    required this.page,
-    required this.totalPages,
-    required this.onPage,
-  });
-
-  final int page;
-  final int totalPages;
-  final ValueChanged<int> onPage;
-
-  @override
-  Widget build(BuildContext context) => Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: <Widget>[
-          TextButton.icon(
-            onPressed: page > 1 ? () => onPage(page - 1) : null,
-            icon: const Icon(HvpIcons.caretLeft),
-            label: const Text('Trang trước'),
-          ),
-          Text('Trang $page/$totalPages', style: context.txt.caption),
-          TextButton.icon(
-            onPressed: page < totalPages ? () => onPage(page + 1) : null,
-            icon: const Icon(HvpIcons.caretRight),
-            label: const Text('Trang sau'),
-          ),
-        ],
-      );
-}
-
 class _RewardPickerSheet extends ConsumerStatefulWidget {
   const _RewardPickerSheet({this.selectedId});
 
@@ -521,8 +559,7 @@ class _RewardPickerSheetState extends ConsumerState<_RewardPickerSheet> {
             Expanded(
               child: AsyncBody<InventoryRewardPage>(
                 value: ref.watch(inventoryRewardsProvider(filter)),
-                onRetry: () =>
-                    ref.invalidate(inventoryRewardsProvider(filter)),
+                onRetry: () => ref.invalidate(inventoryRewardsProvider(filter)),
                 loading: const Center(child: CircularProgressIndicator()),
                 builder: (_, page) => page.items.isEmpty
                     ? const EmptyState(
@@ -546,17 +583,15 @@ class _RewardPickerSheetState extends ConsumerState<_RewardPickerSheet> {
                                     ? Icon(HvpIcons.checkCircle,
                                         color: context.hvp.gold)
                                     : null,
-                                onTap: () =>
-                                    Navigator.of(context).pop(reward),
+                                onTap: () => Navigator.of(context).pop(reward),
                               ),
                             ),
-                          if (page.totalPages > 1)
-                            _Pager(
-                              page: page.page,
-                              totalPages: page.totalPages,
-                              onPage: (value) =>
-                                  setState(() => _page = value),
-                            ),
+                          HvpPaginationBar(
+                            page: page.page,
+                            totalPages: page.totalPages,
+                            onPageChanged: (value) =>
+                                setState(() => _page = value),
+                          ),
                         ],
                       ),
               ),

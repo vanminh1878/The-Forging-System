@@ -40,6 +40,7 @@ void main() {
     final result = await RedemptionCreateRepositoryImpl(ApiClient(dio)).create(
       rewardId: '11111111-1111-4111-8111-111111111111',
       pickupBranchId: '22222222-2222-4222-8222-222222222222',
+      idempotencyKey: '33333333-3333-4333-8333-333333333333',
     );
 
     expect(adapter.requests.single.path, '/armory/redemptions');
@@ -47,6 +48,7 @@ void main() {
     expect(adapter.requests.single.data, <String, dynamic>{
       'rewardId': '11111111-1111-4111-8111-111111111111',
       'pickupBranchId': '22222222-2222-4222-8222-222222222222',
+      'idempotencyKey': '33333333-3333-4333-8333-333333333333',
     });
     expect(result.code, 'ARM-11111111');
     expect(result.marksCost, 120);

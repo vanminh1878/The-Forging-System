@@ -53,6 +53,7 @@ export interface RedemptionState extends RedemptionView {
   decidedBy: string | null;
   decidedAt: Date | null;
   deliveryEvidenceUrl: string | null;
+  pickupDays?: number | null;
 }
 
 const orderColumns = 'id,redemption_code,reward_id,pickup_branch_id,marks_cost,status,requested_at';
@@ -93,10 +94,24 @@ export class RedemptionRepository {
 
   lockOrder(id: string): Promise<RedemptionState | null> {
     return sql.one<RedemptionState>(
-      `SELECT ${orderColumns},member_id,reason,decided_by,decided_at,delivery_evidence_url
-      FROM redemptions WHERE id=$1 FOR UPDATE`,
+      `SELECT d.id,d.redemption_code,d.reward_id,d.pickup_branch_id,d.marks_cost,d.status,d.requested_at,
+      d.member_id,d.reason,d.decided_by,d.decided_at,d.delivery_evidence_url,
+      r.pickup_days
+      FROM redemptions d JOIN rewards r ON r.id=d.reward_id AND r.tenant_id=d.tenant_id
+      WHERE d.id=$1 FOR UPDATE OF d,r`,
       [id],
     );
+  }
+
+  async expiredCandidateIds(now: Date, defaultPickupDays: number, limit: number): Promise<string[]> {
+    const rows = await sql.many<{ id: string }>(
+      `SELECT d.id FROM redemptions d JOIN rewards r ON r.id=d.reward_id AND r.tenant_id=d.tenant_id
+       WHERE d.status IN ('PENDING_PICKUP','READY_PICKUP')
+         AND d.requested_at + make_interval(days => COALESCE(r.pickup_days,$1::int)) <= $2
+       ORDER BY d.requested_at ASC,d.id ASC LIMIT $3`,
+      [defaultPickupDays, now, limit],
+    );
+    return rows.map((row) => row.id);
   }
 
   async transition(
@@ -133,9 +148,12 @@ export class RedemptionRepository {
       d.requested_at ASC,d.id ASC LIMIT $4 OFFSET $5`,
       [...params, limit, offset],
     );
-    const total = await sql.scalar<number>(`SELECT count(*)::int FROM redemptions d
+    const total = await sql.scalar<number>(
+      `SELECT count(*)::int FROM redemptions d
       JOIN members m ON m.user_id=d.member_id AND m.tenant_id=d.tenant_id
-      JOIN users u ON u.id=d.member_id AND u.tenant_id=d.tenant_id WHERE ${where}`, params);
+      JOIN users u ON u.id=d.member_id AND u.tenant_id=d.tenant_id WHERE ${where}`,
+      params,
+    );
     return { items, total: total ?? 0 };
   }
 
