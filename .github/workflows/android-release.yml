@@ -11,7 +11,7 @@ name: Android Play Store
 #   ANDROID_KEY_PASSWORD       - key password
 #   PLAY_SERVICE_ACCOUNT_JSON  - Google Cloud service account JSON (full file contents)
 # Repo variables (optional, same as the iOS workflow): API_BASE_URL, TENANT_CODE.
-# Version = pubspec `version` name + github.run_number as the build number (versionCode).
+# Version = pubspec `version` name; build number (versionCode) = github.run_number + VERSION_CODE_OFFSET.
 on:
   push:
     branches: [main]
@@ -29,6 +29,9 @@ permissions:
 env:
   PACKAGE_NAME: vn.hvp.hvp_forging
   PLAY_TRACK: internal
+  # versionCode must be higher than every build already on Play (a manual upload used 42).
+  # run_number alone starts at 1, so add a fixed offset. Never lower this value.
+  VERSION_CODE_OFFSET: 100
   API_BASE_URL: ${{ vars.API_BASE_URL }}
   TENANT_CODE: ${{ vars.TENANT_CODE }}
 
@@ -106,7 +109,7 @@ jobs:
           defines=()
           [ -n "$API_BASE_URL" ] && defines+=(--dart-define=API_BASE_URL="$API_BASE_URL")
           [ -n "$TENANT_CODE" ] && defines+=(--dart-define=TENANT_CODE="$TENANT_CODE")
-          flutter build appbundle --release --build-number=${{ github.run_number }} "${defines[@]}"
+          flutter build appbundle --release --build-number=$((GITHUB_RUN_NUMBER + VERSION_CODE_OFFSET)) "${defines[@]}"
 
       - uses: actions/upload-artifact@v4
         with:

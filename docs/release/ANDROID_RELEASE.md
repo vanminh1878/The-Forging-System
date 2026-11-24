@@ -8,7 +8,7 @@ Mỗi lần merge vào `main` có đụng `mobile/**` (hoặc bấm chạy tay �
 
 1. Kiểm tra đủ secret; thiếu secret thì dừng và báo rõ tên secret thiếu.
 2. Chạy `flutter analyze` và `flutter test`. Không qua thì **không** phát hành.
-3. Ký và build `.aab` bản release, `versionCode` = số lần chạy workflow (`github.run_number`).
+3. Ký và build `.aab` bản release, `versionCode` = số lần chạy workflow (`github.run_number`) cộng `VERSION_CODE_OFFSET` (hiện là 100, vì bản upload tay đầu tiên đã dùng mã 42).
 4. Lưu `.aab` thành artifact của lần chạy, đồng thời upload lên track **Thử nghiệm nội bộ** (`internal`) của Google Play.
 5. Xóa keystore và `key.properties` khỏi máy chạy.
 
@@ -59,8 +59,8 @@ Actions > **Android Play Store** > Run workflow. Sau khi xanh, mở Play Console
 | Triệu chứng | Nguyên nhân / cách xử lý |
 | --- | --- |
 | `Missing repo secret ...` | Chưa thêm secret tương ứng (bước 3). |
-| Play báo sai chữ ký (signature / upload key) | Keystore trong secret không phải upload key của bản upload đầu tiên. |
-| `Version code ... has already been used` hoặc thấp hơn bản đã có | `versionCode` phải lớn hơn mọi bản đã upload. Bản thủ công trước đó có versionCode lớn hơn `run_number` thì chạy lại workflow cho đến khi vượt, hoặc nhờ người quản lý repo xử lý. |
+| Play báo sai chữ ký (`signed with the wrong key`) | Keystore trong secret không phải upload key mà Play ghi nhận (thường vì bản upload đầu tiên ký bằng khóa khác, ví dụ debug key). Dùng `keytool -list -v` so SHA1 của keystore với SHA1 Play báo mong đợi. Nếu khác nhau: Play Console > Được bảo vệ bằng Play > Ký ứng dụng > Khoá tải lên > **Yêu cầu đặt lại**, tải lên chứng chỉ `.pem` xuất từ keystore (`keytool -export -rfc`), chờ Google xác nhận rồi chạy lại. |
+| `Version code ... has already been used` hoặc điện thoại không hiện cập nhật | `versionCode` phải lớn hơn mọi bản đã upload. Nếu có bản mới upload tay với mã lớn hơn `run_number + VERSION_CODE_OFFSET`, tăng `VERSION_CODE_OFFSET` trong workflow. Không bao giờ giảm giá trị này. |
 | `The caller does not have permission` | Service account chưa được mời vào Play Console hoặc chưa đủ quyền (bước 2.3). |
 | `Only releases with status draft may be created on draft app` | App chưa hoàn tất thông tin cửa hàng. Hoàn tất trong Play Console, hoặc tạm đổi `status: completed` thành `status: draft` trong workflow. |
 
