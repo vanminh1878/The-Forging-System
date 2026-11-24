@@ -74,6 +74,9 @@ import { CheckinService } from './modules/checkin/checkin.service';
 import { LeaderboardRepository } from './modules/leaderboard/leaderboard.repository';
 import { leaderboardRoutes } from './modules/leaderboard/leaderboard.routes';
 import { LeaderboardService } from './modules/leaderboard/leaderboard.service';
+import { StreakRepository } from './modules/streak/streak.repository';
+import { streakRoutes } from './modules/streak/streak.routes';
+import { StreakService } from './modules/streak/streak.service';
 // [imports:feature-modules] (one line per module, keep alphabetical)
 
 /** Everything the HTTP layer and the scheduled jobs need, wired once at startup. */
@@ -103,6 +106,7 @@ export interface Container {
     leaderboard: LeaderboardService;
     adminArmory: AdminArmoryService;
     inventory: InventoryService;
+    streak: StreakService;
     // [services:feature-modules] (declare as `name: Type;` and assign in the module block below)
   };
   storage: StorageService;
@@ -155,6 +159,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   const challenges = new ChallengeService(new ChallengeRepository(), audit, points, settings, notifications);
   const adminArmory = new AdminArmoryService(new AdminArmoryRepository(), audit);
   const inventory = new InventoryService(new InventoryRepository(), audit);
+  const streak = new StreakService(new StreakRepository(), settings, points, audit);
 
   const services = {
     audit,
@@ -171,6 +176,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     challenges,
     adminArmory,
     inventory,
+    streak,
   } as Container['services'];
 
   registerJob({
@@ -184,6 +190,12 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
       );
       return [`Hết hạn: ${result.expired}`, `Bỏ qua: ${result.skipped}`];
     },
+  });
+  registerJob({
+    key: 'streak-weekly-close',
+    name: 'Chốt chuỗi tập tuần',
+    cron: '5 0 * * 1',
+    run: ({ now }) => streak.closePreviousWeek(now),
   });
 
   // ---- 4. feature modules ----
@@ -237,6 +249,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     challengeRoutes(challenges),
     adminArmoryRoutes(adminArmory),
     inventoryRoutes(inventory),
+    streakRoutes(streak),
     rankRoutes(ranks, directory),
     pointsRoutes(points),
     notificationRoutes(notifications),
