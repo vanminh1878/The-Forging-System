@@ -13,6 +13,8 @@ class ClassSummary {
     this.courseId,
     this.defaultCoachId,
     this.capacity,
+    this.packageTypeId,
+    this.packageName,
   });
 
   final String id;
@@ -33,6 +35,10 @@ class ClassSummary {
   final int? capacity;
   final bool isActive;
   final int enrolledCount;
+
+  /// The package that sells this class; null = not sold as a package.
+  final String? packageTypeId;
+  final String? packageName;
 }
 
 class ClassQuery {
@@ -89,6 +95,7 @@ class ClassDraft {
     this.courseId,
     this.defaultCoachId,
     this.capacity,
+    this.packageTypeId,
   });
 
   factory ClassDraft.of(ClassSummary c) => ClassDraft(
@@ -102,6 +109,7 @@ class ClassDraft {
         durationMinutes: c.durationMinutes,
         capacity: c.capacity,
         isActive: c.isActive,
+        packageTypeId: c.packageTypeId,
       );
 
   final String branchId;
@@ -115,12 +123,16 @@ class ClassDraft {
   final int? capacity;
   final bool isActive;
 
+  /// Null = not part of a package (also clears it on `PATCH`).
+  final String? packageTypeId;
+
   /// Request body of `POST /admin/classes`.
   Map<String, Object?> toJson() => <String, Object?>{
         'branchId': branchId,
         'name': name.trim(),
         'sessionTypeCode': sessionTypeCode,
         'courseId': courseId,
+        'packageTypeId': packageTypeId,
         'defaultCoachId': defaultCoachId,
         'weekdays': weekdays,
         'startTime': startTime,

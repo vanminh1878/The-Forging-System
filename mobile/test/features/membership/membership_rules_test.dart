@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hvp_forging/features/membership/domain/membership_models.dart';
 import 'package:hvp_forging/features/membership/domain/membership_rules.dart';
+import 'package:hvp_forging/features/membership/domain/package_class_option.dart';
 
 MemberPackage _pkg({
   int? total = 36,
@@ -140,5 +141,67 @@ void _renewalRuleTests() {
     expect(
         packageSummary(const PackageType(id: 'a', name: 'a', isTrial: false)),
         'Không giới hạn ngày · Không giới hạn buổi');
+  });
+
+  test('class schedule, seats and place labels', () {
+    expect(endTimeLabel('18:30', 60), '19:30');
+    expect(endTimeLabel('23:30', 60), '00:30');
+    expect(classScheduleLabel(const <int>[5, 1, 3], '18:30', 60),
+        'T2, T4, T6 · 18:30–19:30');
+    expect(classScheduleLabel(const <int>[7], '06:00'), 'CN · 06:00');
+    expect(seatsLabel(3), 'Còn 3 chỗ');
+    expect(seatsLabel(0), 'Hết chỗ');
+    expect(seatsLabel(null), 'Không giới hạn chỗ');
+    expect(
+        classPlaceLabel(const PackageClassOption(
+            id: 'c',
+            name: 'n',
+            branchName: 'HVP Quận 1',
+            coachName: 'Trần Văn B',
+            weekdays: <int>[1],
+            startTime: '18:30',
+            durationMinutes: 60)),
+        'HVP Quận 1 · HLV Trần Văn B');
+    expect(
+        renewalClassLabel(const RenewalClass(
+            id: 'c',
+            name: 'Boxing tối',
+            branchName: 'HVP Quận 1',
+            weekdays: <int>[1, 3],
+            startTime: '18:30')),
+        'Boxing tối · HVP Quận 1 · T2, T4 · 18:30');
+  });
+
+  test('a full class is selectable only when the learner is enrolled in it',
+      () {
+    PackageClassOption c(int? seats, {bool enrolled = false}) =>
+        PackageClassOption(
+            id: 'c',
+            name: 'n',
+            branchName: 'b',
+            weekdays: const <int>[1],
+            startTime: '18:30',
+            durationMinutes: 60,
+            seatsLeft: seats,
+            enrolled: enrolled);
+    expect(c(0).isSelectable, isFalse);
+    expect(c(0, enrolled: true).isSelectable, isTrue);
+    expect(c(2).isSelectable, isTrue);
+    expect(c(null).isSelectable, isTrue);
+    expect(enrolledClassLabel, 'Đang học lớp này');
+  });
+
+  test('PackageClassOption.isFull only for 0 seats left', () {
+    PackageClassOption c(int? seats) => PackageClassOption(
+        id: 'c',
+        name: 'n',
+        branchName: 'b',
+        weekdays: const <int>[1],
+        startTime: '18:30',
+        durationMinutes: 60,
+        seatsLeft: seats);
+    expect(c(0).isFull, isTrue);
+    expect(c(1).isFull, isFalse);
+    expect(c(null).isFull, isFalse);
   });
 }

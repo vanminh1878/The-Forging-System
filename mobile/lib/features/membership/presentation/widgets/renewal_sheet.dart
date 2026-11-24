@@ -8,15 +8,16 @@ import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../../core/widgets/hvp_button.dart';
-import '../../../../core/widgets/hvp_card.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
 import '../../../../core/widgets/hvp_toast.dart';
 import '../../../../core/widgets/inline_banner.dart';
 import '../../../../core/widgets/shimmer_box.dart';
-import '../../../../core/widgets/status_chip.dart';
 import '../../domain/membership_models.dart';
 import '../../domain/membership_rules.dart';
+import '../../domain/package_class_option.dart';
 import '../providers/membership_providers.dart';
+import 'package_class_picker.dart';
+import 'package_tile.dart';
 
 /// MEM-10: opens the "Chọn gói tập" picker.
 Future<void> showRenewalSheet(BuildContext context) => showHvpSheet<void>(
@@ -35,6 +36,10 @@ class RenewalSheet extends ConsumerStatefulWidget {
 class _RenewalSheetState extends ConsumerState<RenewalSheet> {
   final _note = TextEditingController();
   String? _selectedId;
+  PackageClassOption? _class;
+
+  /// Step 2 (choose a class) is open; only for packages with classes.
+  bool _classStep = false;
 
   @override
   void initState() {
@@ -49,26 +54,41 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet> {
     super.dispose();
   }
 
+  void _pick(PackageType p) => setState(() {
+        if (p.id != _selectedId) _class = null;
+        _selectedId = p.id;
+      });
+
   Future<void> _submit(PackageType package) async {
+    final cls = _class;
     final confirmed = await showConfirmSheet(
       context,
       title: 'Gửi yêu cầu gia hạn?',
-      message: '${package.name} · ${priceLabel(package.priceVnd)}',
+      message: <String>[
+        '${package.name} · ${priceLabel(package.priceVnd)}',
+        if (cls != null) 'Lớp: ${cls.name} · ${cls.branchName}',
+      ].join('\n'),
       confirmLabel: 'Gửi yêu cầu',
     );
     if (!confirmed || !mounted) return;
     final ok = await ref.read(renewalSubmitProvider.notifier).run(() async {
       try {
-        await ref
-            .read(membershipRepositoryProvider)
-            .requestRenewal(packageTypeId: package.id, note: _note.text);
+        await ref.read(membershipRepositoryProvider).requestRenewal(
+            packageTypeId: package.id, classId: cls?.id, note: _note.text);
       } on ApiException catch (e) {
-        // Server state moved on: a pending request exists / package left sale.
+        // Server state moved on: a pending request exists / package left sale /
+        // the class filled up or closed.
         if (e.code == 'RENEWAL_PENDING_EXISTS') {
           ref.invalidate(myMembershipProvider);
         } else if (e.code == 'PACKAGE_NOT_AVAILABLE') {
           _selectedId = null;
+          _class = null;
+          _classStep = false;
           ref.invalidate(packageTypesProvider);
+        } else if (e.code == 'CLASS_FULL' || e.code == 'CLASS_INACTIVE') {
+          _class = null;
+          ref.invalidate(packageClassesProvider(
+              (packageTypeId: package.id, memberId: null)));
         }
         rethrow;
       }
@@ -101,91 +121,77 @@ class _RenewalSheetState extends ConsumerState<RenewalSheet> {
         for (final p in packages) {
           if (p.id == _selectedId) selected = p;
         }
+        final inClassStep =
+            _classStep && selected != null && selected.hasClasses;
+        final needsClass = selected != null && selected.hasClasses;
+        final sendReady = selected != null && (!needsClass || _class != null);
+        final sendButton = HvpButton.primary(
+          label: 'Gửi yêu cầu gia hạn',
+          expand: true,
+          loading: submit.submitting,
+          onPressed:
+              !sendReady || submit.submitting ? null : () => _submit(selected!),
+        );
         return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              for (final p in packages) ...<Widget>[
-                _PackageTile(
-                  package: p,
-                  selected: p.id == _selectedId,
-                  onTap: submit.submitting
-                      ? null
-                      : () => setState(() => _selectedId = p.id),
+              if (inClassStep) ...<Widget>[
+                Row(children: <Widget>[
+                  Expanded(
+                      child: Text(selected.name, style: context.txt.titleS)),
+                  TextButton(
+                    onPressed: submit.submitting
+                        ? null
+                        : () => setState(() => _classStep = false),
+                    child: const Text('Đổi gói'),
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                Text('Chọn lớp', style: context.txt.label),
+                const SizedBox(height: 8),
+                PackageClassPicker(
+                  packageTypeId: selected.id,
+                  selectedId: _class?.id,
+                  enabled: !submit.submitting,
+                  onChanged: (c) => setState(() => _class = c),
                 ),
-                const SizedBox(height: 10),
+              ] else
+                for (final p in packages) ...<Widget>[
+                  PackageTile(
+                    package: p,
+                    selected: p.id == _selectedId,
+                    onTap: submit.submitting ? null : () => _pick(p),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              if (!needsClass || inClassStep) ...<Widget>[
+                const SizedBox(height: 4),
+                HvpTextField(
+                  label: 'Ghi chú (không bắt buộc)',
+                  controller: _note,
+                  maxLength: 500,
+                  maxLines: 2,
+                ),
+                if (submit.error != null) ...<Widget>[
+                  const SizedBox(height: 12),
+                  InlineBanner(message: submit.error!),
+                ],
+                const SizedBox(height: 16),
+                sendButton,
+              ] else ...<Widget>[
+                const SizedBox(height: 16),
+                HvpButton.primary(
+                  label: 'Tiếp tục',
+                  expand: true,
+                  onPressed: () => setState(() => _classStep = true),
+                ),
               ],
-              const SizedBox(height: 4),
-              HvpTextField(
-                label: 'Ghi chú (không bắt buộc)',
-                controller: _note,
-                maxLength: 500,
-                maxLines: 2,
-              ),
-              if (submit.error != null) ...<Widget>[
-                const SizedBox(height: 12),
-                InlineBanner(message: submit.error!),
-              ],
-              const SizedBox(height: 16),
-              HvpButton.primary(
-                label: 'Gửi yêu cầu gia hạn',
-                expand: true,
-                loading: submit.submitting,
-                onPressed: selected == null || submit.submitting
-                    ? null
-                    : () => _submit(selected!),
-              ),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-class _PackageTile extends StatelessWidget {
-  const _PackageTile({
-    required this.package,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final PackageType package;
-  final bool selected;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.hvp;
-    final t = context.txt;
-    return HvpCard(
-      accent: selected ? c.gold : null,
-      highlighted: selected,
-      onTap: onTap,
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(package.name, style: t.titleS),
-                if (package.isTrial) ...<Widget>[
-                  const SizedBox(height: 4),
-                  const StatusChip(
-                      label: 'Gói trải nghiệm', tone: ChipTone.gold),
-                ],
-                const SizedBox(height: 4),
-                Text(packageSummary(package), style: t.bodySmall),
-                const SizedBox(height: 4),
-                Text(priceLabel(package.priceVnd),
-                    style: t.titleS.copyWith(color: c.gold)),
-              ],
-            ),
-          ),
-          if (selected) Icon(HvpIcons.checkCircle, color: c.gold),
-        ],
-      ),
     );
   }
 }

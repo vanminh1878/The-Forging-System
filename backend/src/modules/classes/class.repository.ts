@@ -1,9 +1,11 @@
 import { db } from '../../db/database';
 import { sql } from '../../db/sql';
 import { RoleGroup } from '../../shared/roles';
-import type { ClassInput, ClassRow, RosterEntry, SessionInput, SessionRecord, SessionRow, SessionTypeRow } from './class.types';
+import type { ClassInput, ClassRow, PackageClassRow, RosterEntry, SessionInput, SessionRecord, SessionRow, SessionTypeRow } from './class.types';
 
-const COLUMNS = `id, branch_id, name, session_type_code, course_id, default_coach_id, weekdays::int[] AS weekdays,
+const COLUMNS = `id, branch_id, name, session_type_code, course_id, package_type_id,
+  (SELECT p.name FROM package_types p WHERE p.id = classes.package_type_id) AS package_name,
+  default_coach_id, weekdays::int[] AS weekdays,
   to_char(start_time, 'HH24:MI') AS start_time, duration_minutes, capacity, is_active`;
 
 const SESSION_COLUMNS = `id, class_id, branch_id, session_type_code, coach_id, lesson_plan_id, title, starts_at, ends_at,
@@ -14,17 +16,18 @@ export interface ClassFilter {
   branchId?: string;
   sessionTypeCode?: string;
   isActive?: boolean;
+  packageTypeId?: string;
 }
 
 export class ClassRepository {
   async list(f: ClassFilter, limit: number, offset: number): Promise<{ rows: Array<ClassRow & { enrolledCount: number }>; total: number }> {
     const where = `($1::uuid IS NULL OR branch_id = $1) AND ($2::text IS NULL OR session_type_code = $2)
-      AND ($3::boolean IS NULL OR is_active = $3)`;
-    const params = [f.branchId ?? null, f.sessionTypeCode ?? null, f.isActive ?? null];
+      AND ($3::boolean IS NULL OR is_active = $3) AND ($4::uuid IS NULL OR package_type_id = $4)`;
+    const params = [f.branchId ?? null, f.sessionTypeCode ?? null, f.isActive ?? null, f.packageTypeId ?? null];
     const rows = await sql.many<ClassRow & { enrolledCount: number }>(
       `SELECT ${COLUMNS},
          (SELECT COUNT(*)::int FROM class_enrollments e WHERE e.class_id = classes.id AND e.status = 'ACTIVE') AS enrolled_count
-         FROM classes WHERE ${where} ORDER BY name, start_time, id LIMIT $4 OFFSET $5`,
+         FROM classes WHERE ${where} ORDER BY name, start_time, id LIMIT $5 OFFSET $6`,
       [...params, limit, offset],
     );
     const total = await sql.scalar<number>(`SELECT COUNT(*)::int FROM classes WHERE ${where}`, params);
@@ -38,10 +41,10 @@ export class ClassRepository {
 
   async insert(i: ClassInput): Promise<ClassRow> {
     const row = await sql.one<ClassRow>(
-      `INSERT INTO classes (tenant_id, branch_id, name, session_type_code, course_id, default_coach_id, weekdays, start_time, duration_minutes, capacity, is_active)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::smallint[], $8, $9, $10, $11)
+      `INSERT INTO classes (tenant_id, branch_id, name, session_type_code, course_id, default_coach_id, weekdays, start_time, duration_minutes, capacity, is_active, package_type_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::smallint[], $8, $9, $10, $11, $12)
        RETURNING ${COLUMNS}`,
-      [db.currentTenantId(), i.branchId, i.name, i.sessionTypeCode, i.courseId, i.defaultCoachId, i.weekdays, i.startTime, i.durationMinutes, i.capacity, i.isActive],
+      [db.currentTenantId(), i.branchId, i.name, i.sessionTypeCode, i.courseId, i.defaultCoachId, i.weekdays, i.startTime, i.durationMinutes, i.capacity, i.isActive, i.packageTypeId],
     );
     return row as ClassRow;
   }
@@ -49,11 +52,36 @@ export class ClassRepository {
   async update(id: string, i: ClassInput): Promise<ClassRow> {
     const row = await sql.one<ClassRow>(
       `UPDATE classes SET branch_id = $2, name = $3, session_type_code = $4, course_id = $5, default_coach_id = $6,
-         weekdays = $7::smallint[], start_time = $8, duration_minutes = $9, capacity = $10, is_active = $11, updated_at = now()
+         weekdays = $7::smallint[], start_time = $8, duration_minutes = $9, capacity = $10, is_active = $11, package_type_id = $12, updated_at = now()
        WHERE id = $1 RETURNING ${COLUMNS}`,
-      [id, i.branchId, i.name, i.sessionTypeCode, i.courseId, i.defaultCoachId, i.weekdays, i.startTime, i.durationMinutes, i.capacity, i.isActive],
+      [id, i.branchId, i.name, i.sessionTypeCode, i.courseId, i.defaultCoachId, i.weekdays, i.startTime, i.durationMinutes, i.capacity, i.isActive, i.packageTypeId],
     );
     return row as ClassRow;
+  }
+
+  async packageExists(id: string): Promise<boolean> {
+    return !!(await sql.scalar(`SELECT 1 FROM package_types WHERE id = $1`, [id]));
+  }
+
+  /** Active classes of an ACTIVE package with seats left (PKG-02); empty when the package is retired. */
+  packageClasses(packageTypeId: string, today: string, memberId: string | null = null): Promise<PackageClassRow[]> {
+    return sql.many(
+      `SELECT c.id, c.name, c.branch_id, b.name AS branch_name, c.session_type_code, u.full_name AS coach_name,
+              c.weekdays::int[] AS weekdays, to_char(c.start_time, 'HH24:MI') AS start_time, c.duration_minutes, c.capacity,
+              CASE WHEN c.capacity IS NULL THEN NULL
+                   ELSE GREATEST(c.capacity - (SELECT COUNT(*)::int FROM class_enrollments e WHERE e.class_id = c.id AND e.status = 'ACTIVE'
+                     AND (e.end_date IS NULL OR e.end_date >= $2::date)), 0)
+              END AS seats_left,
+              EXISTS (SELECT 1 FROM class_enrollments e WHERE e.class_id = c.id AND e.member_id = $3 AND e.status = 'ACTIVE'
+                        AND (e.end_date IS NULL OR e.end_date >= $2::date)) AS enrolled
+         FROM classes c
+         JOIN package_types p ON p.id = c.package_type_id AND p.is_active
+         JOIN branches b ON b.id = c.branch_id
+         LEFT JOIN users u ON u.id = c.default_coach_id
+        WHERE c.package_type_id = $1 AND c.is_active
+        ORDER BY b.name, c.name, c.id`,
+      [packageTypeId, today, memberId],
+    );
   }
 
   async branchIsActive(id: string): Promise<boolean> {
@@ -84,12 +112,51 @@ export class ClassRepository {
     return !!(await sql.scalar(`SELECT 1 FROM memberships WHERE id = $1 AND member_id = $2`, [membershipId, memberId]));
   }
 
-  async countActive(classId: string): Promise<number> {
-    return (await sql.scalar<number>(`SELECT COUNT(*)::int FROM class_enrollments WHERE class_id = $1 AND status = 'ACTIVE'`, [classId])) ?? 0;
+  /** Seats taken on `today`: ACTIVE enrolments that have not run out (an expired package does not hold a seat). */
+  async countActive(classId: string, today: string): Promise<number> {
+    return (
+      (await sql.scalar<number>(
+        `SELECT COUNT(*)::int FROM class_enrollments WHERE class_id = $1 AND status = 'ACTIVE' AND (end_date IS NULL OR end_date >= $2::date)`,
+        [classId, today],
+      )) ?? 0
+    );
+  }
+
+  async endEnrollmentById(id: string, endDate: string): Promise<void> {
+    await sql.exec(`UPDATE class_enrollments SET status = 'ENDED', end_date = $2 WHERE id = $1`, [id, endDate]);
   }
 
   async hasActiveEnrollment(classId: string, memberId: string): Promise<boolean> {
     return !!(await sql.scalar(`SELECT 1 FROM class_enrollments WHERE class_id = $1 AND member_id = $2 AND status = 'ACTIVE'`, [classId, memberId]));
+  }
+
+  /** The member's ACTIVE enrolment in the class, if any. */
+  findActiveEnrollment(classId: string, memberId: string): Promise<{ id: string; startDate: string; endDate: string | null } | null> {
+    return sql.one(
+      `SELECT id, start_date::text AS start_date, end_date::text AS end_date FROM class_enrollments WHERE class_id = $1 AND member_id = $2 AND status = 'ACTIVE' FOR UPDATE`,
+      [classId, memberId],
+    );
+  }
+
+  async extendEnrollment(id: string, endDate: string | null, membershipId: string): Promise<void> {
+    await sql.exec(`UPDATE class_enrollments SET end_date = $2, membership_id = $3 WHERE id = $1`, [id, endDate, membershipId]);
+  }
+
+  /**
+   * A cancelled package takes its ACTIVE enrolments with it. An enrolment that began before the package
+   * (a same-class renewal extended it) only loses the days the cancelled package added.
+   */
+  cancelEnrollmentsOfMembership(membershipId: string): Promise<Array<{ id: string; classId: string; memberId: string; trimmed: boolean }>> {
+    return sql.many(
+      `UPDATE class_enrollments e
+          SET status = CASE WHEN e.start_date < m.start_date THEN e.status ELSE 'CANCELLED' END,
+              end_date = CASE WHEN e.start_date < m.start_date THEN m.start_date - 1 ELSE e.end_date END,
+              membership_id = CASE WHEN e.start_date < m.start_date THEN NULL ELSE e.membership_id END
+         FROM memberships m
+        WHERE m.id = $1 AND e.membership_id = m.id AND e.status = 'ACTIVE'
+        RETURNING e.id, e.class_id, e.member_id, (e.status = 'ACTIVE') AS trimmed`,
+      [membershipId],
+    );
   }
 
   roster(classId: string): Promise<RosterEntry[]> {

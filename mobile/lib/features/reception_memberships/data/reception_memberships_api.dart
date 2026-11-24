@@ -18,9 +18,12 @@ class ReceptionMembershipsApi {
         if (q != null && q.isNotEmpty) 'q': q,
       });
 
-  Future<ApiEnvelope> approveRenewal(String id, String evidenceUrl) =>
-      _api.post('/renewal-requests/$id/approve',
-          body: <String, dynamic>{'paymentEvidenceUrl': evidenceUrl});
+  Future<ApiEnvelope> approveRenewal(
+          String id, String evidenceUrl, String? classId) =>
+      _api.post('/renewal-requests/$id/approve', body: <String, dynamic>{
+        'paymentEvidenceUrl': evidenceUrl,
+        if (classId != null) 'classId': classId,
+      });
 
   Future<ApiEnvelope> cancelRenewal(String id, String reason) =>
       _api.post('/renewal-requests/$id/cancel',
@@ -37,10 +40,11 @@ class ReceptionMembershipsApi {
 
   Future<ApiEnvelope> packageTypes() => _api.get('/package-types');
 
-  Future<ApiEnvelope> activateMembership(
-          String memberId, String packageTypeId, String evidenceUrl) =>
+  Future<ApiEnvelope> activateMembership(String memberId, String packageTypeId,
+          String evidenceUrl, String? classId) =>
       _api.post('/members/$memberId/memberships', body: <String, dynamic>{
         'packageTypeId': packageTypeId,
+        if (classId != null) 'classId': classId,
         'paymentEvidenceUrl': evidenceUrl
       });
 

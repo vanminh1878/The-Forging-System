@@ -4,7 +4,7 @@ import { clock } from '../../common/utils/clock';
 import { addDays, localDate } from '../../common/utils/time';
 import { env } from '../../config/env';
 import type { MembershipEvent } from '../../shared/events';
-import type { MembershipPort, UsableMembership } from '../../shared/ports';
+import type { ClassPort, MembershipPort, PackageEnrollment, UsableMembership } from '../../shared/ports';
 import { RoleGroup } from '../../shared/roles';
 import type { AuditService } from '../audit/audit.service';
 import { NotificationEvent } from '../notifications/notification.events';
@@ -15,6 +15,7 @@ import type { SettingsService } from '../settings/settings.service';
 import type {
   MembershipRepository,
   MembershipRow,
+  PackageTypeInput,
   PackageTypeRow,
   RenewalFilter,
   RenewalRow,
@@ -30,11 +31,47 @@ export class MembershipService implements MembershipPort {
     private readonly audit: AuditService,
     private readonly members: MemberService,
     private readonly points: PointsPort,
+    private readonly classes: ClassPort,
   ) {}
 
   async listPackageTypes(includeInactive: boolean) {
     const rows = await this.repo.listPackageTypes(includeInactive);
     return rows.map(toPackageTypeView(includeInactive));
+  }
+
+  /** PKG-01: admin creates a package type. */
+  async createPackageType(input: PackageTypeInput, by: string) {
+    const id = await this.repo.insertPackageType(input);
+    if (!id) throw conflict('Mã gói đã tồn tại', 'PACKAGE_CODE_EXISTS');
+    const row = (await this.repo.getPackageType(id))!;
+    await this.audit.record({
+      actorId: by,
+      action: 'PACKAGE_TYPE_CREATED',
+      entityType: 'PACKAGE_TYPE',
+      entityId: id,
+      after: toPackageTypeView(true)(row),
+    });
+    return toAdminPackageView(row);
+  }
+
+  /** PKG-01: admin edits a package type (sold memberships keep their snapshot). */
+  async updatePackageType(id: string, patch: Partial<PackageTypeInput>, by: string) {
+    const before = await this.repo.getPackageType(id);
+    if (!before) throw notFound('Gói tập');
+    const next: PackageTypeInput = { ...before, ...patch, priceVnd: patch.priceVnd !== undefined ? patch.priceVnd : toPrice(before) };
+    if (next.code !== before.code && (await this.repo.packageCodeTaken(next.code, id)))
+      throw conflict('Mã gói đã tồn tại', 'PACKAGE_CODE_EXISTS');
+    await this.repo.updatePackageType(id, next);
+    const row = (await this.repo.getPackageType(id))!;
+    await this.audit.record({
+      actorId: by,
+      action: 'PACKAGE_TYPE_UPDATED',
+      entityType: 'PACKAGE_TYPE',
+      entityId: id,
+      before: toAdminPackageView(before),
+      after: toAdminPackageView(row),
+    });
+    return toAdminPackageView(row);
   }
 
   /** Member status + current package, queued package, pending renewal and the card notice (MEM-02). */
@@ -62,6 +99,13 @@ export class MembershipService implements MembershipPort {
         packageTypeId: pending.desiredPackageTypeId,
         packageName: pending.desiredPackageName,
         priceVnd: pending.desiredPriceVnd === null ? null : Number(pending.desiredPriceVnd),
+        class: pending.classId && {
+          id: pending.classId,
+          name: pending.className,
+          branchName: pending.classBranchName,
+          weekdays: pending.classWeekdays,
+          startTime: pending.classStartTime,
+        },
         note: pending.note,
         createdAt: pending.createdAt,
       },
@@ -71,7 +115,7 @@ export class MembershipService implements MembershipPort {
   }
 
   /** Member asks reception to renew (MEM-03). Approval and cancellation come with MEM-04/MEM-06. */
-  async requestRenewal(memberId: string, input: { packageTypeId: string; note?: string }) {
+  async requestRenewal(memberId: string, input: { packageTypeId: string; classId?: string; note?: string }) {
     const status = await this.repo.memberStatus(memberId);
     if (!status) throw notFound('Học viên');
     if (status === 'INACTIVE')
@@ -83,11 +127,13 @@ export class MembershipService implements MembershipPort {
     if (!pkg || !pkg.isActive)
       throw unprocessable('Gói tập này hiện không còn được bán.', 'PACKAGE_NOT_AVAILABLE');
 
+    const classId = await this.resolveClass(pkg.id, input.classId, memberId);
     const current = await this.repo.findByStatus(memberId, 'ACTIVE');
     const id = await this.repo.insertRenewal({
       memberId,
       currentMembershipId: current?.id ?? null,
       packageTypeId: pkg.id,
+      classId,
       note: input.note?.trim() || null,
     });
     if (!id)
@@ -102,7 +148,7 @@ export class MembershipService implements MembershipPort {
       action: 'RENEWAL_REQUESTED',
       entityType: 'RENEWAL_REQUEST',
       entityId: id,
-      after: { packageTypeId: pkg.id, currentMembershipId: current?.id ?? null, note: input.note ?? null },
+      after: { packageTypeId: pkg.id, classId, currentMembershipId: current?.id ?? null, note: input.note ?? null },
       reason: 'Học viên gửi yêu cầu gia hạn',
     });
     // Rows are written inside this transaction; the notifier schedules the push after commit.
@@ -117,7 +163,7 @@ export class MembershipService implements MembershipPort {
       'RECEPTIONIST',
       NotificationEvent.RENEWAL_REQUEST,
       'Yêu cầu gia hạn mới',
-      `${view.memberName} (${view.memberCode}) xin gia hạn gói ${pkg.name}.`,
+      `${view.memberName} (${view.memberCode}) xin gia hạn gói ${pkg.name}${view.className ? ` — lớp ${view.className}` : ''}.`,
     );
     return toRenewalView(view);
   }
@@ -127,7 +173,7 @@ export class MembershipService implements MembershipPort {
     memberId: string,
     by: string,
     actorRoles: readonly string[],
-    input: { packageTypeId: string; paymentEvidenceUrl?: string; branchId?: string; note?: string },
+    input: { packageTypeId: string; classId?: string; paymentEvidenceUrl?: string; branchId?: string; note?: string },
   ) {
     return this.activatePackage({ memberId, by, actorRoles, ...input });
   }
@@ -137,7 +183,7 @@ export class MembershipService implements MembershipPort {
     id: string,
     by: string,
     actorRoles: readonly string[],
-    input: { paymentEvidenceUrl?: string; packageTypeId?: string; note?: string },
+    input: { paymentEvidenceUrl?: string; packageTypeId?: string; classId?: string; note?: string },
   ) {
     const evidence = checkEvidence(input.paymentEvidenceUrl);
     const rr = await this.repo.lockRenewal(id);
@@ -146,12 +192,15 @@ export class MembershipService implements MembershipPort {
       throw conflict('Yêu cầu này đã được xử lý.', 'RENEWAL_ALREADY_HANDLED');
     const packageTypeId = input.packageTypeId ?? rr.desiredPackageTypeId;
     if (!packageTypeId) throw badRequest('Vui lòng chọn gói tập.', undefined, 'PACKAGE_REQUIRED');
+    // The learner's class is only a default for the package they asked for; the body may override either.
+    const classId = input.classId ?? (packageTypeId === rr.desiredPackageTypeId ? rr.classId ?? undefined : undefined);
 
     const result = await this.activatePackage({
       memberId: rr.memberId,
       by,
       actorRoles,
       packageTypeId,
+      classId,
       paymentEvidenceUrl: evidence,
       note: input.note,
     });
@@ -181,6 +230,7 @@ export class MembershipService implements MembershipPort {
     by: string;
     actorRoles: readonly string[];
     packageTypeId: string;
+    classId?: string;
     paymentEvidenceUrl?: string;
     branchId?: string;
     note?: string;
@@ -192,6 +242,7 @@ export class MembershipService implements MembershipPort {
     if (!pkg) throw notFound('Gói tập');
     if (!pkg.isActive) throw unprocessable('Gói tập này đã ngừng bán.', 'PACKAGE_INACTIVE');
     if (input.branchId && !(await this.repo.branchExists(input.branchId))) throw notFound('Chi nhánh');
+    const classId = await this.resolveClass(pkg.id, input.classId, input.memberId);
     if (await this.repo.findByStatus(input.memberId, 'SCHEDULED'))
       throw conflict(
         'Học viên đã có gói nối tiếp đang chờ kích hoạt.',
@@ -256,6 +307,17 @@ export class MembershipService implements MembershipPort {
       note: input.note?.trim() || null,
     });
     const membership = (await this.repo.findMembership(id))!;
+    // Same transaction as the package: a class error rolls the membership back too.
+    const enrollment: PackageEnrollment | null = classId
+      ? await this.classes.enrollForMembership({
+          classId,
+          memberId: input.memberId,
+          membershipId: id,
+          startDate,
+          endDate,
+          actorId: input.by,
+        })
+      : null;
 
     // MEM-05: early renewal earns Marks once per new package (the key is the new membership id).
     let bonusMarks = 0;
@@ -301,7 +363,21 @@ export class MembershipService implements MembershipPort {
       memberId: input.memberId,
       packageTypeId: pkg.id,
     } satisfies MembershipEvent);
-    return { membership: toMembershipView(membership, true), mode, reactivated, bonusMarks, message };
+    return { membership: toMembershipView(membership, true), enrollment, mode, reactivated, bonusMarks, message };
+  }
+
+  /**
+   * Package -> class rule shared by request, approve and manual activation: a package with active classes needs
+   * one of them, a package without classes takes none. Returns the class to enrol in, or null.
+   */
+  private async resolveClass(packageTypeId: string, classId: string | undefined, memberId: string): Promise<string | null> {
+    if (!(await this.classes.hasActiveClasses(packageTypeId))) {
+      if (classId) throw unprocessable('Lớp không thuộc gói đã chọn.', 'CLASS_NOT_IN_PACKAGE');
+      return null;
+    }
+    if (!classId) throw badRequest('Vui lòng chọn lớp.', undefined, 'CLASS_REQUIRED');
+    await this.classes.checkEnrollable(classId, packageTypeId, memberId);
+    return classId;
   }
 
   /** Reception cancels a PENDING renewal request (MEM-06). */
@@ -447,6 +523,13 @@ const toRenewalView = (r: RenewalRow) => ({
     name: r.desiredPackageName,
     priceVnd: r.desiredPriceVnd === null ? null : Number(r.desiredPriceVnd),
   },
+  class: r.classId && {
+    id: r.classId,
+    name: r.className,
+    branchName: r.classBranchName,
+    weekdays: r.classWeekdays,
+    startTime: r.classStartTime,
+  },
   currentMembership: r.currentMembershipId && {
     id: r.currentMembershipId,
     packageName: r.currentPackageName,
@@ -480,6 +563,9 @@ const toMembershipView = (m: MembershipRow, withEvidence = false) => ({
   ...(withEvidence ? { paymentEvidenceUrl: m.paymentEvidenceUrl } : {}),
 });
 
+const toPrice = (r: PackageTypeRow) => (r.priceVnd === null ? null : Number(r.priceVnd));
+const toAdminPackageView = (r: PackageTypeRow) => ({ ...toPackageTypeView(true)(r), sortOrder: r.sortOrder });
+
 const toPackageTypeView = (withActive: boolean) => (r: PackageTypeRow) => ({
   id: r.id,
   code: r.code,
@@ -490,5 +576,6 @@ const toPackageTypeView = (withActive: boolean) => (r: PackageTypeRow) => ({
   isTrial: r.isTrial,
   priceVnd: r.priceVnd === null ? null : Number(r.priceVnd),
   description: r.description,
+  classCount: r.classCount,
   ...(withActive ? { isActive: r.isActive } : {}),
 });

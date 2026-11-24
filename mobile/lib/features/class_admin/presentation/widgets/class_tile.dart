@@ -59,6 +59,10 @@ class ClassTile extends ConsumerWidget {
                 '${enrolmentLabel(item.enrolledCount, item.capacity)} học viên',
               ].join(' · '),
               style: t.bodySmall),
+          if (item.packageName != null) ...<Widget>[
+            const SizedBox(height: 2),
+            Text('Gói: ${item.packageName}', style: t.bodySmall),
+          ],
         ],
       ),
     );

@@ -4,6 +4,7 @@ import '../../../../core/design/hvp_context.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/hvp_card.dart';
 import '../../../../core/widgets/status_chip.dart';
+import '../../../membership/domain/membership_rules.dart';
 import '../../domain/renewal_models.dart';
 
 /// One renewal request: who, which package at what price, and the actions when it is pending.
@@ -41,6 +42,9 @@ class RenewalCard extends StatelessWidget {
               <String>[request.packageName, if (price != null) price]
                   .join(' · '),
               style: t.body),
+          if (request.classInfo != null)
+            Text('Lớp: ${renewalClassLabel(request.classInfo!)}',
+                style: t.body),
           if (request.currentPackageName != null)
             Text(
               'Gói hiện tại: ${request.currentPackageName}'

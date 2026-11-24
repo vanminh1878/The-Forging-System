@@ -72,12 +72,40 @@ class MemberPackage {
   final bool endingSoon;
 }
 
+/// The class a renewal request asks for (`class` of a renewal request).
+class RenewalClass {
+  const RenewalClass({
+    required this.id,
+    required this.name,
+    required this.branchName,
+    required this.weekdays,
+    required this.startTime,
+  });
+
+  final String id;
+  final String name;
+  final String branchName;
+
+  /// ISO weekdays, 1 = Monday ... 7 = Sunday.
+  final List<int> weekdays;
+
+  /// `HH:mm`.
+  final String startTime;
+}
+
 /// A renewal request waiting for the front desk.
 class PendingRenewal {
-  const PendingRenewal({required this.packageName, required this.createdAt});
+  const PendingRenewal({
+    required this.packageName,
+    required this.createdAt,
+    this.classInfo,
+  });
 
   final String packageName;
   final DateTime? createdAt;
+
+  /// Null when the package has no classes.
+  final RenewalClass? classInfo;
 }
 
 class MyMembership {
@@ -98,24 +126,40 @@ class MyMembership {
   final bool canRenewEarly;
 }
 
-/// A sellable package from `GET /package-types`. Null limits mean unlimited,
-/// a null price means the price is not set yet.
+/// A package from `GET /package-types`. Null limits mean unlimited, a null
+/// price means the price is not set yet. [classCount] is the number of active
+/// classes of the package (0 = no class to choose). [isActive] is only false
+/// in the admin list (`includeInactive=true`).
 class PackageType {
   const PackageType({
     required this.id,
     required this.name,
+    this.code = '',
     this.isTrial = false,
     this.durationDays,
     this.totalSessions,
+    this.sessionsPerWeek,
     this.priceVnd,
+    this.description,
+    this.isActive = true,
+    this.sortOrder = 0,
+    this.classCount = 0,
   });
 
   final String id;
   final String name;
+  final String code;
   final bool isTrial;
   final int? durationDays;
   final int? totalSessions;
+  final int? sessionsPerWeek;
   final int? priceVnd;
+  final String? description;
+  final bool isActive;
+  final int sortOrder;
+  final int classCount;
+
+  bool get hasClasses => classCount > 0;
 }
 
 enum RenewalStatus {
@@ -145,10 +189,12 @@ class RenewalRequest {
     required this.createdAt,
     this.priceVnd,
     this.reason,
+    this.classInfo,
   });
 
   final String id;
   final RenewalStatus status;
+  final RenewalClass? classInfo;
   final String packageName;
   final int? priceVnd;
   final String? reason;

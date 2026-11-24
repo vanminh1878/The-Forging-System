@@ -7,6 +7,7 @@ import '../../data/membership_api.dart';
 import '../../data/membership_repository_impl.dart';
 import '../../domain/membership_models.dart';
 import '../../domain/membership_repository.dart';
+import '../../domain/package_class_option.dart';
 
 /// Tests override this with a fake repository.
 final membershipRepositoryProvider = Provider<MembershipRepository>(
@@ -23,6 +24,15 @@ final myMembershipProvider = FutureProvider.autoDispose<MyMembership>((ref) {
 /// Packages on sale for the picker.
 final packageTypesProvider = FutureProvider.autoDispose<List<PackageType>>(
     (ref) => ref.watch(membershipRepositoryProvider).listPackageTypes());
+
+/// Which package, and (staff only) which learner the `enrolled` flag is for.
+typedef PackageClassesKey = ({String packageTypeId, String? memberId});
+
+/// Active classes of one package, for the "choose a class" step.
+final packageClassesProvider = FutureProvider.autoDispose
+    .family<List<PackageClassOption>, PackageClassesKey>((ref, key) => ref
+        .watch(membershipRepositoryProvider)
+        .listPackageClasses(key.packageTypeId, memberId: key.memberId));
 
 final renewalSubmitProvider =
     NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);

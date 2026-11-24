@@ -98,6 +98,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repo.requests.single.packageTypeId, 'p1');
+    expect(repo.requests.single.classId, isNull);
     expect(repo.requests.single.note, '  tuần sau  ');
     expect(find.text('Đã gửi yêu cầu gia hạn tới lễ tân.'), findsOneWidget);
     expect(find.text('CHỌN GÓI TẬP'), findsNothing);

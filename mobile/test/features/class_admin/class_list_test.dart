@@ -43,6 +43,22 @@ void main() {
           isFalse);
     });
 
+    test('parses packageTypeId / packageName (null when not in a package)',
+        () async {
+      final t = buildRepo((o) => okEnvelope(<dynamic>[
+            <String, dynamic>{
+              ...classJson,
+              'packageTypeId': 'p1',
+              'packageName': 'BOOK I'
+            },
+            classJson,
+          ]));
+      final items = (await t.repo.list(const ClassQuery())).items;
+      expect(items[0].packageTypeId, 'p1');
+      expect(items[0].packageName, 'BOOK I');
+      expect(items[1].packageTypeId, isNull);
+    });
+
     test('coaches merges COACH and HEAD_COACH sorted by name', () async {
       final t = buildRepo((o) => okEnvelope(o.queryParameters['role'] == 'COACH'
           ? <dynamic>[
@@ -73,6 +89,18 @@ void main() {
       expect(find.textContaining('T2, T4, T6 · 06:30'), findsOneWidget);
       expect(find.textContaining('HVP Quận 7 · Coach Mai Nguyễn · 12/20'),
           findsOneWidget);
+    });
+
+    testWidgets('shows the package name when the class belongs to one',
+        (tester) async {
+      final repo = FakeClassRepository()
+        ..onList = (q) async => ClassPage(
+            items: <ClassSummary>[packagedClass, sampleClass],
+            page: 1,
+            total: 2,
+            totalPages: 1);
+      await show(tester, repo);
+      expect(find.text('Gói: BOOK I'), findsOneWidget);
     });
 
     testWidgets('a filter pill reloads with the type code', (tester) async {

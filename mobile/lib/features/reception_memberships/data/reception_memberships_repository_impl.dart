@@ -27,8 +27,9 @@ class ReceptionMembershipsRepositoryImpl
 
   @override
   Future<String> approveRenewal(String id,
-          {required String evidenceUrl}) async =>
-      str((await _api.approveRenewal(id, evidenceUrl)).dataMap, 'message');
+          {required String evidenceUrl, String? classId}) async =>
+      str((await _api.approveRenewal(id, evidenceUrl, classId)).dataMap,
+          'message');
 
   @override
   Future<void> cancelRenewal(String id, {required String reason}) async {
@@ -60,9 +61,12 @@ class ReceptionMembershipsRepositoryImpl
 
   @override
   Future<String> activateMembership(String memberId,
-          {required String packageTypeId, required String evidenceUrl}) async =>
+          {required String packageTypeId,
+          required String evidenceUrl,
+          String? classId}) async =>
       str(
-          (await _api.activateMembership(memberId, packageTypeId, evidenceUrl))
+          (await _api.activateMembership(
+                  memberId, packageTypeId, evidenceUrl, classId))
               .dataMap,
           'message');
 

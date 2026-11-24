@@ -9,8 +9,10 @@ abstract interface class ReceptionMembershipsRepository {
   Future<RenewalPage> renewals(
       {String? q, String status = 'PENDING', int page = 1, int limit = 20});
 
-  /// `POST /renewal-requests/:id/approve`. Returns the message to show.
-  Future<String> approveRenewal(String id, {required String evidenceUrl});
+  /// `POST /renewal-requests/:id/approve`. [classId] overrides the class of
+  /// the request. Returns the message to show.
+  Future<String> approveRenewal(String id,
+      {required String evidenceUrl, String? classId});
 
   /// `POST /renewal-requests/:id/cancel`
   Future<void> cancelRenewal(String id, {required String reason});
@@ -26,7 +28,9 @@ abstract interface class ReceptionMembershipsRepository {
 
   /// `POST /members/:memberId/memberships`. Returns the message to show.
   Future<String> activateMembership(String memberId,
-      {required String packageTypeId, required String evidenceUrl});
+      {required String packageTypeId,
+      required String evidenceUrl,
+      String? classId});
 
   /// `POST /members`
   Future<CreatedMember> createMember(

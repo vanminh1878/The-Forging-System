@@ -10,10 +10,12 @@ import type { MembershipService } from './membership.service';
 const memberParam = z.object({ memberId: z.string().uuid() });
 const requestBody = z.object({
   packageTypeId: z.string().uuid(),
+  classId: z.string().uuid().optional(),
   note: z.string().trim().max(500).optional(),
 });
 const activateBody = z.object({
   packageTypeId: z.string().uuid(),
+  classId: z.string().uuid().optional(),
   paymentEvidenceUrl: z.string().trim().max(1000).optional(),
   branchId: z.string().uuid().optional(),
   note: z.string().trim().max(500).optional(),
@@ -21,6 +23,7 @@ const activateBody = z.object({
 const approveBody = z.object({
   paymentEvidenceUrl: z.string().trim().max(1000).optional(),
   packageTypeId: z.string().uuid().optional(),
+  classId: z.string().uuid().optional(),
   note: z.string().trim().max(500).optional(),
 });
 const cancelBody = z.object({ reason: z.string().trim().max(500).optional() });
@@ -29,6 +32,33 @@ const inboxQuery = paginationQuery.extend({
   status: z.enum(['PENDING', 'COMPLETED', 'CANCELLED']).optional(),
   q: z.string().trim().max(100).optional(),
 });
+const packageFields = {
+  code: z.string().regex(/^[A-Z0-9_]{1,40}$/),
+  name: z.string().trim().min(1).max(120),
+  durationDays: z.number().int().min(1).max(3650).nullable(),
+  totalSessions: z.number().int().min(1).max(1000).nullable(),
+  sessionsPerWeek: z.number().int().min(1).max(14).nullable(),
+  isTrial: z.boolean(),
+  priceVnd: z.number().int().min(0).max(1_000_000_000).nullable(),
+  description: z.string().trim().max(1000).nullable(),
+  isActive: z.boolean(),
+  sortOrder: z.number().int().min(0).max(999),
+};
+const packageCreateBody = z.object({
+  ...packageFields,
+  durationDays: packageFields.durationDays.default(null),
+  totalSessions: packageFields.totalSessions.default(null),
+  sessionsPerWeek: packageFields.sessionsPerWeek.default(null),
+  isTrial: packageFields.isTrial.default(false),
+  priceVnd: packageFields.priceVnd.default(null),
+  description: packageFields.description.default(null),
+  isActive: packageFields.isActive.default(true),
+  sortOrder: packageFields.sortOrder.default(0),
+});
+const packagePatchBody = z
+  .object(packageFields)
+  .partial()
+  .refine((b) => Object.keys(b).length > 0, 'at least one field is required');
 const packageQuery = z.object({ includeInactive: z.enum(['true', 'false']).optional() });
 
 export function membershipRoutes(service: MembershipService): Router {
@@ -45,6 +75,19 @@ export function membershipRoutes(service: MembershipService): Router {
       );
       return ok(await service.listPackageTypes(isAdmin && req.query.includeInactive === 'true'));
     }),
+  );
+
+  r.post(
+    '/admin/package-types',
+    requireRoles(...RoleGroup.ADMINS),
+    validate({ body: packageCreateBody }),
+    handle(async (req) => created(await service.createPackageType(req.body, authOf(req).userId))),
+  );
+  r.patch(
+    '/admin/package-types/:id',
+    requireRoles(...RoleGroup.ADMINS),
+    validate({ params: idParam, body: packagePatchBody }),
+    handle(async (req) => ok(await service.updatePackageType(req.params.id, req.body, authOf(req).userId))),
   );
 
   // Learner home card (HV-03) and the reception view of the same member.
