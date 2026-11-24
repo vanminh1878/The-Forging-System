@@ -31,6 +31,8 @@ const ruleFields = [
   'target',
   'rewardDp',
   'rewardMarks',
+  'joinApproval',
+  'completionMethod',
   'startsAt',
   'endsAt',
 ] as const;
@@ -86,7 +88,11 @@ export class ChallengeService {
     }
     const existing = await this.repo.findParticipation(challengeId, memberId);
     if (existing) throw conflict('Ban da tham gia thu thach nay.', 'CHALLENGE_ALREADY_JOINED');
-    const participation = await this.repo.insertParticipation(challengeId, memberId);
+    const participation = await this.repo.insertParticipation(
+      challengeId,
+      memberId,
+      (challenge.joinApproval ?? 'COACH') === 'COACH' ? 'PENDING_COACH' : 'JOINED',
+    );
     await this.audit.record({
       actorId: memberId,
       action: 'CHALLENGE_JOINED',
@@ -97,12 +103,12 @@ export class ChallengeService {
     await this.notifier?.notifyMember({
       userId: memberId,
       event: NotificationEvent.CHALLENGE_JOINED,
-      title: 'ĐÃ GỬI ĐĂNG KÝ THỬ THÁCH',
-      body: `Bạn đã đăng ký “${challenge.title}”. Chờ Coach duyệt tham gia.`,
+      title: (challenge.joinApproval ?? 'COACH') === 'COACH' ? 'ĐÃ GỬI ĐĂNG KÝ THỬ THÁCH' : 'ĐÃ THAM GIA THỬ THÁCH',
+      body: (challenge.joinApproval ?? 'COACH') === 'COACH' ? `Bạn đã đăng ký “${challenge.title}”. Chờ Coach duyệt tham gia.` : `Bạn đã tham gia “${challenge.title}”.`,
       dedupeKey: `challenge:joined:${participation.id}`,
       payload: { challengeId: challenge.id, participationId: participation.id },
     });
-    await this.notifier?.notifyStaff(
+    if ((challenge.joinApproval ?? 'COACH') === 'COACH') await this.notifier?.notifyStaff(
       'COACH',
       NotificationEvent.CHALLENGE_EVIDENCE,
       'ĐĂNG KÝ THỬ THÁCH MỚI',
@@ -132,7 +138,9 @@ export class ChallengeService {
       userId: after.memberId,
       event: NotificationEvent.CHALLENGE_JOIN_APPROVED,
       title: 'ĐĂNG KÝ THỬ THÁCH ĐÃ ĐƯỢC DUYỆT',
-      body: `Coach đã duyệt “${challenge?.title ?? 'thử thách'}”. Khi hoàn thành, hãy gửi yêu cầu hoàn thành kèm bằng chứng.`,
+      body: challenge?.completionMethod === 'ATTENDANCE'
+        ? `Coach đã duyệt “${challenge.title}”. Hãy hoàn thành các buổi tham gia hợp lệ.`
+        : `Coach đã duyệt “${challenge?.title ?? 'thử thách'}”. Khi hoàn thành, hãy gửi yêu cầu hoàn thành kèm bằng chứng.`,
       dedupeKey: `challenge:join-approved:${after.id}`,
       payload: { challengeId: after.challengeId, participationId: after.id },
     });
@@ -169,7 +177,7 @@ export class ChallengeService {
           userId: participation.memberId,
           event: NotificationEvent.CHALLENGE_COMPLETED,
           title: 'HOÀN THÀNH THỬ THÁCH',
-          body: `Bạn đã hoàn thành “${challenge?.title ?? 'thử thách'}”. Hãy nộp bằng chứng để Coach duyệt phần thưởng.`,
+          body: `Bạn đã hoàn thành “${challenge?.title ?? 'thử thách'}”. Coach sẽ xác nhận và phát thưởng.`,
           dedupeKey: `challenge:completed:${participation.id}`,
           payload: { challengeId: participation.challengeId, participationId: participation.id },
         });
@@ -192,6 +200,11 @@ export class ChallengeService {
       );
     }
     const evidenceUrl = this.requireEvidence(input.evidenceUrl);
+    const challenge = await this.repo.find(participation.challengeId);
+    if (!challenge) throw notFound('Challenge');
+    if ((challenge.completionMethod ?? 'EVIDENCE') !== 'EVIDENCE') {
+      throw conflict('Thử thách này được hoàn thành theo điểm danh.', 'CHALLENGE_EVIDENCE_NOT_ALLOWED');
+    }
     if (participation.evidenceUrl === evidenceUrl) return participation;
     const after = await this.repo.submitCompletionEvidence(participation.id, evidenceUrl, clock.now());
     await this.audit.record({
@@ -202,7 +215,6 @@ export class ChallengeService {
       before: participation,
       after,
     });
-    const challenge = await this.repo.find(participation.challengeId);
     await this.notifier?.notifyStaff(
       'COACH',
       NotificationEvent.CHALLENGE_EVIDENCE,
@@ -223,10 +235,10 @@ export class ChallengeService {
     if (participation.status !== 'AWAITING_COACH') {
       throw conflict('Participation chưa sẵn sàng để Coach duyệt.', 'CHALLENGE_NOT_AWAITING_REVIEW');
     }
-    if (!participation.evidenceUrl)
-      throw conflict('Học viên chưa nộp bằng chứng.', 'CHALLENGE_EVIDENCE_REQUIRED');
     const challenge = await this.repo.find(participation.challengeId, true);
     if (!challenge) throw notFound('Challenge');
+    if ((challenge.completionMethod ?? 'EVIDENCE') === 'EVIDENCE' && !participation.evidenceUrl)
+      throw conflict('Học viên chưa nộp bằng chứng.', 'CHALLENGE_EVIDENCE_REQUIRED');
 
     if (!this.points || !this.settings) throw new Error('Challenge reward dependencies are not configured.');
     const now = clock.now();
@@ -301,6 +313,8 @@ export class ChallengeService {
       target: patch.target ?? before.target,
       rewardDp: patch.rewardDp ?? before.rewardDp,
       rewardMarks: patch.rewardMarks ?? before.rewardMarks,
+      joinApproval: patch.joinApproval ?? before.joinApproval ?? 'COACH',
+      completionMethod: patch.completionMethod ?? before.completionMethod ?? 'EVIDENCE',
       startsAt: patch.startsAt === undefined ? before.startsAt : new Date(patch.startsAt),
       endsAt: patch.endsAt === undefined ? before.endsAt : new Date(patch.endsAt),
     };
@@ -341,7 +355,7 @@ export class ChallengeService {
     if (input.enabled) {
       if (before.status === 'CANCELLED')
         throw conflict('Thử thách đã bị hủy, không thể mở lại.', 'CHALLENGE_CANCELLED');
-      this.validateDates(before);
+      this.validateDates({ ...before, joinApproval: before.joinApproval ?? 'COACH', completionMethod: before.completionMethod ?? 'EVIDENCE' });
       if (before.endsAt.getTime() <= clock.now().getTime()) {
         throw conflict('Thử thách đã hết hạn, không thể bật.', 'CHALLENGE_EXPIRED');
       }

@@ -18,6 +18,7 @@ class CurrentChallengeRepositoryImpl implements CurrentChallengeRepository {
         id: str(json, 'id'),
         participationId: str(json, 'participationId'),
         title: str(json, 'title'),
+        description: strOrNull(json, 'description'),
         challengeType: str(json, 'challengeType'),
         target: intOf(json, 'target'),
         rewardDp: intOf(json, 'rewardDp'),
@@ -27,12 +28,14 @@ class CurrentChallengeRepositoryImpl implements CurrentChallengeRepository {
         participationStatus: str(json, 'participationStatus'),
         progressValue: intOf(json, 'progressValue'),
         evidenceUrl: strOrNull(json, 'evidenceUrl'),
+        completionMethod: strOrNull(json, 'completionMethod') ?? 'EVIDENCE',
       );
     }).toList(growable: false);
   }
 
   @override
-  Future<void> submitEvidence(String challengeId, String evidenceUrl) => _api.post(
+  Future<void> submitEvidence(String challengeId, String evidenceUrl) =>
+      _api.post(
         '/me/challenges/$challengeId/evidence',
         body: <String, dynamic>{'evidenceUrl': evidenceUrl},
       );

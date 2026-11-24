@@ -13,14 +13,14 @@ const valid = {
 describe('Challenge validation', () => {
   it('normalizes a code and supplies draft field defaults', () => {
     const result = createChallengeBody.parse({ title: ' Test ', code: ' test_oct ', challengeType: 'WEEKLY', startsAt: valid.startsAt, endsAt: valid.endsAt });
-    expect(result).toMatchObject({ title: 'Test', code: 'TEST_OCT', context: 'SESSION', target: 1, rewardDp: 0, rewardMarks: 0, description: null });
+    expect(result).toMatchObject({ title: 'Test', code: 'TEST_OCT', context: 'SESSION', target: 1, rewardDp: 0, rewardMarks: 0, description: null, joinApproval: 'COACH', completionMethod: 'EVIDENCE' });
   });
 
   it.each([
     { target: 0 }, { target: 1.5 }, { rewardDp: -1 }, { rewardMarks: 2_147_483_648 },
     { challengeType: 'YEARLY' }, { context: 'CUSTOM' }, { startsAt: 'not-a-date' },
     { startsAt: '2026-10-01T00:00:00' }, { status: 'OPEN' }, { tenantId: 'other' },
-    { title: ' ' }, { code: 'invalid code' },
+    { title: ' ' }, { code: 'invalid code' }, { joinApproval: 'MANAGER' }, { completionMethod: 'PHOTO' },
   ])('rejects invalid create payload %j', (patch) => {
     expect(createChallengeBody.safeParse({ ...valid, ...patch }).success).toBe(false);
   });

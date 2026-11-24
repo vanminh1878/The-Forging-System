@@ -46,6 +46,7 @@ void main() {
         <String, dynamic>{
           'id': 'challenge-joined',
           'title': 'Bao cát bền bỉ',
+          'description': 'Hoàn thành năm buổi tập.',
           'challengeType': 'WEEKLY',
           'target': 5,
           'rewardDp': 50,
@@ -78,6 +79,7 @@ void main() {
         <String, dynamic>{'page': 1, 'limit': 100});
     expect(items, hasLength(1));
     expect(items.single.progressValue, 2);
+    expect(items.single.description, 'Hoàn thành năm buổi tập.');
     expect(items.single.progress, closeTo(0.4, 0.001));
   });
 
@@ -122,7 +124,7 @@ void main() {
         <String, dynamic>{'evidenceUrl': 'http://test.local/files/proof.jpg'});
   });
 
-  testWidgets('CHL-06 lets a learner open the evidence sheet when awaiting review',
+  testWidgets('CHL-06 lets a joined learner open the evidence sheet',
       (tester) async {
     await pumpHvp(
       tester,
@@ -135,12 +137,36 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('CHỜ XÁC NHẬN'), findsOneWidget);
-    await tester.tap(find.text('NỘP BẰNG CHỨNG'));
+    expect(find.text('ĐÃ THAM GIA'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('YÊU CẦU HOÀN THÀNH'), 120);
+    await tester.tap(find.text('YÊU CẦU HOÀN THÀNH'));
     await tester.pumpAndSettle();
 
-    expect(find.text('GỬI BẰNG CHỨNG'), findsOneWidget);
+    expect(find.text('GỬI YÊU CẦU HOÀN THÀNH'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('CHL-10 explains attendance progress without an evidence CTA',
+      (tester) async {
+    final challenge = CurrentChallenge(
+      id: 'challenge-attendance',
+      participationId: 'participation-attendance',
+      title: 'Đi tập đều',
+      challengeType: 'WEEKLY',
+      target: 5,
+      rewardDp: 50,
+      rewardMarks: 25,
+      endsAt: DateTime.utc(2026, 11, 10, 12),
+      participationStatus: 'JOINED',
+      progressValue: 2,
+      completionMethod: 'ATTENDANCE',
+    );
+
+    await pumpHvp(tester, CurrentChallengeCard(challenge: challenge));
+
+    expect(find.text('Tiến độ tự động tăng khi điểm danh buổi tập hợp lệ.'),
+        findsOneWidget);
+    expect(find.text('YÊU CẦU HOÀN THÀNH'), findsNothing);
   });
 }
 
@@ -156,7 +182,7 @@ class _AwaitingCoachChallenges implements CurrentChallengeRepository {
           rewardDp: 50,
           rewardMarks: 25,
           endsAt: DateTime.utc(2026, 11, 10, 12),
-          participationStatus: 'AWAITING_COACH',
+          participationStatus: 'JOINED',
           progressValue: 5,
         ),
       ];

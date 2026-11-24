@@ -8,6 +8,7 @@ class ChallengeReview {
     required this.target,
     required this.status,
     required this.evidenceUrl,
+    this.completionMethod = 'EVIDENCE',
   });
 
   final String participationId;
@@ -18,6 +19,7 @@ class ChallengeReview {
   final int target;
   final String status;
   final String? evidenceUrl;
+  final String completionMethod;
 }
 
 class ChallengeReviewPage {
@@ -34,7 +36,8 @@ class ChallengeReviewPage {
 }
 
 abstract interface class ChallengeReviewRepository {
-  Future<ChallengeReviewPage> list({String? status, String? evidence, String? query, int page = 1});
+  Future<ChallengeReviewPage> list(
+      {String? status, String? evidence, String? query, int page = 1});
   Future<void> approveJoin(String participationId);
   Future<void> approve(String participationId);
 }

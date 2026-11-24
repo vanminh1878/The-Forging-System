@@ -16,4 +16,5 @@ final currentChallengesProvider =
   return ref.watch(currentChallengeRepositoryProvider).list();
 });
 
-final challengeEvidenceActionProvider = NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
+final challengeEvidenceActionProvider =
+    NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);

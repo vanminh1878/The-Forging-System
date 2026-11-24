@@ -2,7 +2,7 @@ import { db } from '../../db/database';
 import { sql } from '../../db/sql';
 import type { ChallengeFilter, CreateChallengeInput, StaffParticipationFilter } from './challenge.validation';
 
-export interface ChallengeView extends Omit<CreateChallengeInput, 'startsAt' | 'endsAt'> {
+export interface ChallengeView extends Omit<CreateChallengeInput, 'startsAt' | 'endsAt' | 'joinApproval' | 'completionMethod'> {
   id: string;
   startsAt: Date;
   endsAt: Date;
@@ -10,6 +10,8 @@ export interface ChallengeView extends Omit<CreateChallengeInput, 'startsAt' | '
   createdBy: string | null;
   createdAt: Date;
   updatedAt: Date;
+  joinApproval?: 'AUTO' | 'COACH';
+  completionMethod?: 'ATTENDANCE' | 'EVIDENCE';
 }
 
 export interface OpenChallengeView extends ChallengeView {
@@ -45,6 +47,7 @@ export interface ChallengeProgressUpdate {
 export interface StaffChallengeParticipationView extends ChallengeParticipationView {
   challengeTitle: string;
   challengeType: string;
+  completionMethod: 'ATTENDANCE' | 'EVIDENCE';
   target: number;
   memberCode: string;
   memberFullName: string;
@@ -57,7 +60,7 @@ export type ChallengeWrite = Omit<CreateChallengeInput, 'startsAt' | 'endsAt'> &
   endsAt: Date;
 };
 const columns = `id, code, title, description, challenge_type, context, target, reward_dp,
-  reward_marks, starts_at, ends_at, status, created_by, created_at, updated_at`;
+  reward_marks, starts_at, ends_at, join_approval, completion_method, status, created_by, created_at, updated_at`;
 
 export class ChallengeRepository {
   find(id: string, lock = false): Promise<ChallengeView | null> {
@@ -81,8 +84,8 @@ export class ChallengeRepository {
   async create(input: ChallengeWrite, actorId: string): Promise<ChallengeView> {
     const row = await sql.one<ChallengeView>(
       `INSERT INTO challenges
-      (tenant_id,code,title,description,challenge_type,context,target,reward_dp,reward_marks,starts_at,ends_at,status,created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'DRAFT',$12) RETURNING ${columns}`,
+      (tenant_id,code,title,description,challenge_type,context,target,reward_dp,reward_marks,starts_at,ends_at,join_approval,completion_method,status,created_by)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'DRAFT',$14) RETURNING ${columns}`,
       [db.currentTenantId(), ...this.values(input), actorId],
     );
     return row!;
@@ -92,7 +95,7 @@ export class ChallengeRepository {
     const row = await sql.one<ChallengeView>(
       `UPDATE challenges SET
       code=$2,title=$3,description=$4,challenge_type=$5,context=$6,target=$7,reward_dp=$8,reward_marks=$9,
-      starts_at=$10,ends_at=$11,updated_at=now() WHERE id=$1 RETURNING ${columns}`,
+      starts_at=$10,ends_at=$11,join_approval=$12,completion_method=$13,updated_at=now() WHERE id=$1 RETURNING ${columns}`,
       [id, ...this.values(input)],
     );
     return row!;
@@ -183,11 +186,11 @@ export class ChallengeRepository {
     );
   }
 
-  async insertParticipation(challengeId: string, memberId: string): Promise<ChallengeParticipationView> {
+  async insertParticipation(challengeId: string, memberId: string, status: 'PENDING_COACH' | 'JOINED'): Promise<ChallengeParticipationView> {
     const row = await sql.one<ChallengeParticipationView>(
       `INSERT INTO challenge_participations (tenant_id, challenge_id, member_id, status)
-      VALUES ($1,$2,$3,'PENDING_COACH') RETURNING id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, updated_at`,
-      [db.currentTenantId(), challengeId, memberId],
+      VALUES ($1,$2,$3,$4) RETURNING id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, updated_at`,
+      [db.currentTenantId(), challengeId, memberId, status],
     );
     return row!;
   }
@@ -208,6 +211,7 @@ export class ChallengeRepository {
         FROM challenge_participations p
         JOIN challenges c ON c.id=p.challenge_id
         WHERE p.member_id=$1 AND p.status='JOINED' AND c.status='OPEN'
+          AND c.completion_method='ATTENDANCE'
           AND c.context=$3 AND c.starts_at <= $4 AND c.ends_at > $4
       ), recorded AS (
         INSERT INTO challenge_progress_events
@@ -311,7 +315,7 @@ export class ChallengeRepository {
     const params = [filter.status ?? null, filter.evidence ?? null, filter.q ?? null];
     const select = `p.id,p.challenge_id,p.member_id,p.status,p.progress_value,p.evidence_url,p.evidence_at,p.joined_at,
       p.completed_at,p.confirmed_by,p.confirmed_at,p.is_limited,p.rewarded_at,p.updated_at,
-      c.title AS challenge_title,c.challenge_type,c.target,m.member_code,u.full_name AS member_full_name`;
+       c.title AS challenge_title,c.challenge_type,c.completion_method,c.target,m.member_code,u.full_name AS member_full_name`;
     const from = `challenge_participations p JOIN challenges c ON c.id=p.challenge_id
       JOIN members m ON m.user_id=p.member_id JOIN users u ON u.id=p.member_id`;
     const items = await sql.many<StaffChallengeParticipationView>(
@@ -335,6 +339,8 @@ export class ChallengeRepository {
       input.rewardMarks,
       input.startsAt,
       input.endsAt,
+      input.joinApproval,
+      input.completionMethod,
     ];
   }
 }

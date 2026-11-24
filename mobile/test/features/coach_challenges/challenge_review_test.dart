@@ -15,23 +15,28 @@ class _FakeChallengeReviews implements ChallengeReviewRepository {
   int approved = 0;
 
   @override
-  Future<ChallengeReviewPage> list({String? status, String? evidence, String? query, int page = 1}) async => ChallengeReviewPage(
-    page: page,
-    totalPages: 1,
-    total: 1,
-    items: <ChallengeReview>[
-        const ChallengeReview(
-          participationId: 'participation-1',
-          challengeTitle: 'Bao cát bền bỉ',
-          memberFullName: 'Nguyễn Văn A',
-          memberCode: 'HVP0001',
-          progressValue: 5,
-          target: 5,
-          status: 'AWAITING_COACH',
-          evidenceUrl: null,
-        ),
-      ],
-  );
+  Future<ChallengeReviewPage> list(
+          {String? status,
+          String? evidence,
+          String? query,
+          int page = 1}) async =>
+      ChallengeReviewPage(
+        page: page,
+        totalPages: 1,
+        total: 1,
+        items: <ChallengeReview>[
+          const ChallengeReview(
+            participationId: 'participation-1',
+            challengeTitle: 'Bao cát bền bỉ',
+            memberFullName: 'Nguyễn Văn A',
+            memberCode: 'HVP0001',
+            progressValue: 5,
+            target: 5,
+            status: 'AWAITING_COACH',
+            evidenceUrl: null,
+          ),
+        ],
+      );
 
   @override
   Future<void> approve(String participationId) async => approved++;
@@ -41,9 +46,11 @@ class _FakeChallengeReviews implements ChallengeReviewRepository {
 }
 
 void main() {
-  test('CHL-06 lists filtered Challenge participations for the coach', () async {
+  test('CHL-06 lists filtered Challenge participations for the coach',
+      () async {
     final dio = createApiDio(
-      config: const AppConfig(apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
+      config: const AppConfig(
+          apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
       tokens: MemoryTokenStore(const StoredTokens(
           accessToken: 'coach-token', refreshToken: 'refresh-token')),
     );
@@ -59,31 +66,41 @@ void main() {
           'status': 'AWAITING_COACH',
           'evidenceUrl': 'http://test.local/files/proof.jpg',
         },
-      ], meta: <String, dynamic>{'page': 2, 'limit': 20, 'total': 21, 'totalPages': 2}),
+      ], meta: <String, dynamic>{
+        'page': 2,
+        'limit': 20,
+        'total': 21,
+        'totalPages': 2
+      }),
     );
     dio.httpClientAdapter = adapter;
 
     final result = await ChallengeReviewRepositoryImpl(ApiClient(dio)).list(
-      status: 'AWAITING_COACH', evidence: 'SUBMITTED', query: 'HVP0001', page: 2,
+      status: 'AWAITING_COACH',
+      evidence: 'SUBMITTED',
+      query: 'HVP0001',
+      page: 2,
     );
 
     expect(adapter.requests.single.path, '/staff/challenges/participations');
     expect(adapter.requests.single.queryParameters, <String, dynamic>{
       'status': 'AWAITING_COACH',
       'evidence': 'SUBMITTED',
-        'q': 'HVP0001',
-        'page': 2,
-        'limit': 20,
+      'q': 'HVP0001',
+      'page': 2,
+      'limit': 20,
     });
     expect(result.totalPages, 2);
     expect(result.items.single.challengeTitle, 'Bao cát bền bỉ');
     expect(result.items.single.memberFullName, 'Nguyễn Văn A');
-    expect(result.items.single.evidenceUrl, 'http://test.local/files/proof.jpg');
+    expect(
+        result.items.single.evidenceUrl, 'http://test.local/files/proof.jpg');
   });
 
   test('CHL-06 approves the participation by id', () async {
     final dio = createApiDio(
-      config: const AppConfig(apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
+      config: const AppConfig(
+          apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
       tokens: MemoryTokenStore(const StoredTokens(
           accessToken: 'coach-token', refreshToken: 'refresh-token')),
     );
@@ -92,13 +109,15 @@ void main() {
     );
     dio.httpClientAdapter = adapter;
 
-    await ChallengeReviewRepositoryImpl(ApiClient(dio)).approve('participation-1');
+    await ChallengeReviewRepositoryImpl(ApiClient(dio))
+        .approve('participation-1');
 
     expect(adapter.requests.single.path,
         '/staff/challenges/participations/participation-1/approve');
   });
 
-  testWidgets('CHL-06 shows the waiting submission for the coach', (tester) async {
+  testWidgets('CHL-06 shows the waiting submission for the coach',
+      (tester) async {
     final fake = _FakeChallengeReviews();
     await pumpHvp(
       tester,
@@ -112,7 +131,8 @@ void main() {
     expect(find.text('Duyệt Challenge'), findsOneWidget);
     expect(find.text('Bao cát bền bỉ'), findsOneWidget);
     expect(find.text('Nguyễn Văn A · HVP0001'), findsOneWidget);
-    expect(find.text('Tiến độ: 5 / 5'), findsOneWidget);
+    expect(find.text('5 / 5'), findsOneWidget);
+    expect(find.text('CHỜ DUYỆT HOÀN THÀNH'), findsOneWidget);
     expect(find.text('Học viên chưa nộp ảnh minh chứng.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

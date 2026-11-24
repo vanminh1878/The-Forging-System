@@ -13,6 +13,8 @@ class OpenChallenge {
     this.participationId,
     this.participationStatus,
     this.progressValue,
+    this.joinApproval = 'COACH',
+    this.completionMethod = 'EVIDENCE',
   });
 
   final String id;
@@ -28,6 +30,8 @@ class OpenChallenge {
   final String? participationId;
   final String? participationStatus;
   final int? progressValue;
+  final String joinApproval;
+  final String completionMethod;
 }
 
 class OpenChallengePage {

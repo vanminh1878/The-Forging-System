@@ -10,10 +10,14 @@ import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_button.dart';
+import '../../../core/widgets/hvp_bottom_sheet.dart';
+import '../../../core/widgets/hvp_pagination_bar.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/inline_banner.dart';
-import '../../../core/widgets/status_chip.dart';
 import '../domain/open_challenge.dart';
 import 'open_challenge_providers.dart';
+import 'helpers/challenge_ui_helpers.dart';
+import 'widgets/challenge_summary_header.dart';
 
 class OpenChallengesScreen extends ConsumerStatefulWidget {
   const OpenChallengesScreen({super.key});
@@ -72,7 +76,7 @@ class _OpenChallengesScreenState extends ConsumerState<OpenChallengesScreen> {
               ],
             ),
           ),
-           Expanded(
+          Expanded(
             child: AsyncBody<OpenChallengePage>(
               value: challenges,
               onRetry: () => ref.invalidate(openChallengesProvider(query)),
@@ -119,24 +123,11 @@ class _OpenChallengesScreenState extends ConsumerState<OpenChallengesScreen> {
                       ),
                       const SizedBox(height: 10),
                     ],
-                    if (result.totalPages > 1)
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        children: <Widget>[
-                          TextButton(
-                            onPressed: result.page > 1
-                                ? () => setState(() => _page = result.page - 1)
-                                : null,
-                            child: const Text('Trang trước'),
-                          ),
-                          TextButton(
-                            onPressed: result.page < result.totalPages
-                                ? () => setState(() => _page = result.page + 1)
-                                : null,
-                            child: const Text('Trang sau'),
-                          ),
-                        ],
-                      ),
+                    HvpPaginationBar(
+                      page: result.page,
+                      totalPages: result.totalPages,
+                      onPageChanged: (p) => setState(() => _page = p),
+                    ),
                   ],
                 ),
               ),
@@ -177,45 +168,31 @@ class _ChallengeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                StatusChip(
-                  label: _typeLabel(challenge.challengeType),
-                  tone: ChipTone.gold,
-                ),
-                StatusChip(
-                  label: _statusLabel(challenge.participationStatus),
-                  tone: _statusTone(challenge.participationStatus),
-                ),
-              ],
+            ChallengeSummaryHeader(
+              typeLabel: challengeTypeLabel(challenge.challengeType),
+              statusLabel:
+                  participationStatusLabel(challenge.participationStatus),
+              statusTone:
+                  participationStatusTone(challenge.participationStatus),
+              title: challenge.title,
+              description: challenge.description,
             ),
-            const SizedBox(height: 12),
-            Text(challenge.title, style: context.txt.titleS),
-            if (challenge.description?.isNotEmpty == true) ...<Widget>[
-              const SizedBox(height: 4),
-              Text(challenge.description!, style: context.txt.bodySmall),
-            ],
             const SizedBox(height: 12),
             Wrap(
               spacing: 12,
               runSpacing: 6,
               children: <Widget>[
-                _detail(
-                  context,
-                  HvpIcons.flag,
-                  'Mục tiêu: ${formatInt(challenge.target)}',
+                IconLabel(
+                  icon: HvpIcons.flag,
+                  label: 'Mục tiêu: ${formatInt(challenge.target)}',
                 ),
-                _detail(
-                  context,
-                  HvpIcons.star,
-                  '+${formatInt(challenge.rewardDp)} DP',
+                IconLabel(
+                  icon: HvpIcons.star,
+                  label: '+${formatInt(challenge.rewardDp)} DP',
                 ),
-                _detail(
-                  context,
-                  HvpIcons.coins,
-                  '+${formatInt(challenge.rewardMarks)} Marks',
+                IconLabel(
+                  icon: HvpIcons.coins,
+                  label: '+${formatInt(challenge.rewardMarks)} Marks',
                 ),
               ],
             ),
@@ -231,43 +208,21 @@ class _ChallengeCard extends StatelessWidget {
                 icon: HvpIcons.plus,
                 small: true,
                 loading: submitting,
-                onPressed: submitting ? null : onJoin,
+                onPressed:
+                    submitting ? null : () => _confirmJoin(context, onJoin),
               ),
             ],
           ],
         ),
       );
 
-  Widget _detail(BuildContext context, IconData icon, String text) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(icon, size: 16, color: context.hvp.gold),
-          const SizedBox(width: 4),
-          Text(text, style: context.txt.bodySmall),
-        ],
-      );
-
-  String _typeLabel(String value) => switch (value) {
-        'DAILY' => 'Hằng ngày',
-        'WEEKLY' => 'Hằng tuần',
-        'MONTHLY' => 'Hằng tháng',
-        'EVENT' => 'Sự kiện',
-        _ => value,
-      };
-
-  String _statusLabel(String? value) => switch (value) {
-        'JOINED' => 'Đã tham gia',
-        'AWAITING_COACH' => 'Chờ xác nhận',
-        'REWARDED' => 'Đã nhận thưởng',
-        'EXPIRED' => 'Đã hết hạn',
-        _ => 'Chưa tham gia',
-      };
-
-  ChipTone _statusTone(String? value) => switch (value) {
-        'REWARDED' => ChipTone.success,
-        'AWAITING_COACH' => ChipTone.warning,
-        'EXPIRED' => ChipTone.danger,
-        'JOINED' => ChipTone.info,
-        _ => ChipTone.neutral,
-      };
+  Future<void> _confirmJoin(BuildContext context, VoidCallback onJoin) async {
+    final confirmed = await showConfirmSheet(
+      context,
+      title: 'Tham gia thử thách',
+      message: 'Xác nhận tham gia thử thách này?',
+      confirmLabel: 'Tham gia',
+    );
+    if (confirmed) onJoin();
+  }
 }

@@ -111,6 +111,7 @@ describe('CHL-06 evidence and coach approval', () => {
     findParticipation: vi.fn(),
     findParticipationById: vi.fn(),
     find: vi.fn(),
+    insertParticipation: vi.fn(),
     submitCompletionEvidence: vi.fn(),
     approveJoin: vi.fn(),
     lockMember: vi.fn(),
@@ -193,6 +194,39 @@ describe('CHL-06 evidence and coach approval', () => {
         evidenceUrl: 'https://outside.example/proof.jpg',
       }),
     ).rejects.toMatchObject({ code: 'INVALID_CHALLENGE_EVIDENCE' });
+  });
+
+  it.each([
+    ['AUTO', 'JOINED', false],
+    ['COACH', 'PENDING_COACH', true],
+  ] as const)('uses %s join approval to create %s participation', async (joinApproval, status, notifiesCoach) => {
+    const workflowChallenge = { ...challenge, joinApproval };
+    const joined = { ...participation, status };
+    repo.find.mockResolvedValue(workflowChallenge);
+    repo.findParticipation.mockResolvedValue(null);
+    repo.insertParticipation.mockResolvedValue(joined);
+    setClock(fixedClock(new Date('2026-10-15T12:00:00Z')));
+
+    await expect(service.join(event.memberId, challenge.id)).resolves.toEqual(joined);
+
+    expect(repo.insertParticipation).toHaveBeenCalledWith(challenge.id, event.memberId, status);
+    expect(notifier.notifyStaff).toHaveBeenCalledTimes(notifiesCoach ? 1 : 0);
+  });
+
+  it('rejects evidence for an attendance Challenge and allows Coach reward without evidence', async () => {
+    const attendanceChallenge = { ...challenge, completionMethod: 'ATTENDANCE' as const };
+    repo.findParticipation.mockResolvedValue({ ...awaiting, status: 'JOINED' });
+    repo.find.mockResolvedValue(attendanceChallenge);
+    await expect(service.submitEvidence(event.memberId, awaiting.challengeId, {
+      evidenceUrl: `${env.PUBLIC_BASE_URL.replace(/\/$/, '')}/files/challenges/proof.jpg`,
+    })).rejects.toMatchObject({ code: 'CHALLENGE_EVIDENCE_NOT_ALLOWED' });
+
+    repo.findParticipationById.mockResolvedValue(awaiting);
+    repo.rewardedThisMonth.mockResolvedValue(0);
+    settings.getNumber.mockResolvedValue(2);
+    points.award.mockResolvedValue({ duplicate: false, transaction: {} });
+    repo.approveParticipation.mockResolvedValue({ ...awaiting, status: 'REWARDED' });
+    await expect(service.approveEvidence(awaiting.id, event.confirmedBy)).resolves.toMatchObject({ duplicate: false });
   });
 
   it('lets Coach approve a pending registration before evidence can be sent', async () => {
