@@ -1,14 +1,11 @@
 name: Build mobile
 
-# Runs when a merge into main touches mobile/, or manually (Actions tab > Build mobile >
-# Run workflow). Produces files only: no store upload, no Apple account. The .ipa is unsigned
-# (re-sign it to install on a device). Android is built, signed and uploaded to Google Play
-# by android-release.yml instead.
+# Manual only (Actions tab > Build mobile > Run workflow). It no longer runs on push to main
+# because it is a slow macOS build whose unsigned .ipa is rarely needed. Produces files only:
+# no store upload, no Apple account. The .ipa is unsigned (re-sign it to install on a device).
+# Android is built, signed and uploaded to Google Play by android-release.yml instead.
 # Version = pubspec `version` name + github.run_number as build number.
 on:
-  push:
-    branches: [main]
-    paths: ["mobile/**"]
   workflow_dispatch:
 
 # Optional repo variables (Settings > Secrets and variables > Actions > Variables);
