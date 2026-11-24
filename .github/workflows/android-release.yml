@@ -67,12 +67,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      # Pinned: newer Flutter stable deprecates package:flutter/material.dart, which makes
-      # `flutter analyze` fail. Bump this together with the code when migrating.
+      # Pinned to the 3.44 line on purpose:
+      #  - Flutter 3.47+ deprecates package:flutter/material.dart, so `flutter analyze` fails.
+      #  - Flutter 3.41 is too old for android/ (AGP 9.1.1, android.builtInKotlin=false): the
+      #    `kotlin {}` block in app/build.gradle.kts does not compile there.
+      # Bump this together with the code (material_ui migration) when moving to 3.47+.
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version: "3.41.4"
+          flutter-version: "3.44.9"
           cache: true
 
       - run: flutter pub get
