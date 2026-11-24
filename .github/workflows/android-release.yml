@@ -40,7 +40,9 @@ jobs:
       run:
         working-directory: mobile
     steps:
+      # Runs before checkout, so it must not use the default working directory (mobile/ does not exist yet).
       - name: Check required secrets
+        working-directory: ${{ github.workspace }}
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -114,6 +116,8 @@ jobs:
           track: ${{ env.PLAY_TRACK }}
           status: completed
 
+      # Runs even when an earlier step failed (possibly before checkout), so avoid the mobile/ default.
       - name: Remove signing files
         if: always()
-        run: rm -f android/key.properties "$RUNNER_TEMP/upload-keystore.jks"
+        working-directory: ${{ github.workspace }}
+        run: rm -f mobile/android/key.properties "$RUNNER_TEMP/upload-keystore.jks"
