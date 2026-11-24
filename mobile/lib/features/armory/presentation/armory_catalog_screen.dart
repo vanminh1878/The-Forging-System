@@ -11,6 +11,7 @@ import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_bottom_sheet.dart';
+import '../../../core/widgets/hvp_pagination_bar.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/catalog.dart';
 import '../domain/wallet.dart';
@@ -102,24 +103,12 @@ class _ArmoryCatalogScreenState extends ConsumerState<ArmoryCatalogScreen> {
                               Padding(
                                   padding: const EdgeInsets.only(bottom: 10),
                                   child: _RewardCard(reward: reward)),
-                            if (result.totalPages > 1)
-                              Wrap(
-                                  alignment: WrapAlignment.spaceBetween,
-                                  children: <Widget>[
-                                    TextButton(
-                                        onPressed: result.page > 1
-                                            ? () => setState(
-                                                () => page = result.page - 1)
-                                            : null,
-                                        child: const Text('Trang trước')),
-                                    TextButton(
-                                        onPressed: result.page <
-                                                result.totalPages
-                                            ? () => setState(
-                                                () => page = result.page + 1)
-                                            : null,
-                                        child: const Text('Trang sau')),
-                                  ]),
+                            HvpPaginationBar(
+                              page: result.page,
+                              totalPages: result.totalPages,
+                              onPageChanged: (value) =>
+                                  setState(() => page = value),
+                            ),
                           ])))),
         ]);
   }

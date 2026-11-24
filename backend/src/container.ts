@@ -173,6 +173,19 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     inventory,
   } as Container['services'];
 
+  registerJob({
+    key: 'armory-redemption-expiry',
+    name: 'Quá hạn nhận quà Armory',
+    cron: '*/15 * * * *',
+    run: async ({ now }) => {
+      const result = await redemptions.expirePending(
+        await settings.getNumber('armory.pending_pickup_expiry_days'),
+        now,
+      );
+      return [`Hết hạn: ${result.expired}`, `Bỏ qua: ${result.skipped}`];
+    },
+  });
+
   // ---- 4. feature modules ----
   // Each module registers itself here by adding ONE block: instantiate its repositories/services,
   // register event listeners, and push its router. Never reach into another module's repository;
