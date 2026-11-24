@@ -321,7 +321,8 @@ Huỷ gói `SCHEDULED` (lễ tân được) hoặc `ACTIVE` (chỉ Admin). Trả
 ### Ghi chú FE
 
 - Hộp thư yêu cầu: nút "Huỷ yêu cầu" mở hộp thoại nhập lý do (bắt buộc). 409 `RENEWAL_ALREADY_HANDLED`: tải lại hộp thư.
-- Màn gói của học viên (lễ tân): nút "Huỷ gói nối tiếp" cho cả lễ tân/admin; nút "Huỷ gói đang hoạt động" chỉ hiện cho Admin. Hiển thị `error.message` cho các lỗi 403/409/422; sau khi thành công tải lại `GET /members/:memberId/membership`.
+- Màn gói của học viên: gói `SCHEDULED` hiển thị là "Gói sắp kích hoạt" (tự bắt đầu khi gói hiện tại hết hạn, thời hạn không bị mất); nút gửi yêu cầu là "Đăng ký thêm gói".
+- Màn gói của học viên (lễ tân): nút "Huỷ gói sắp kích hoạt" cho cả lễ tân/admin; nút "Huỷ gói đang hoạt động" chỉ hiện cho Admin. Hiển thị `error.message` cho các lỗi 403/409/422; sau khi thành công tải lại `GET /members/:memberId/membership`.
 
 ## MEM-07 — MembershipPort và sự kiện (dành cho dev nội bộ, không có endpoint)
 

@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/branch_picker.dart';
 import '../../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../../core/widgets/hvp_button.dart';
+import '../../../../core/widgets/hvp_field_decoration.dart';
+import '../../../../core/widgets/hvp_limit_field.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
+import '../../../../core/widgets/hvp_time_field.dart';
 import '../../../../core/widgets/hvp_toast.dart';
 import '../../../../core/widgets/inline_banner.dart';
 import '../../domain/class_models.dart';
@@ -39,6 +44,7 @@ class _SessionFormSheetState extends ConsumerState<SessionFormSheet> {
   String? _coachId;
   DateTime? _day;
   bool _exam = false;
+  bool _unlimited = true;
   bool _submitted = false;
   String? _pastError;
 
@@ -102,9 +108,7 @@ class _SessionFormSheetState extends ConsumerState<SessionFormSheet> {
       title: _title.text,
       isExam: _exam,
       coachId: _coachId,
-      capacity: _capacity.text.trim().isEmpty
-          ? null
-          : int.parse(_capacity.text.trim()),
+      capacity: _unlimited ? null : int.parse(_capacity.text.trim()),
       notes: _notes.text,
     );
     final ok = await ref
@@ -133,12 +137,17 @@ class _SessionFormSheetState extends ConsumerState<SessionFormSheet> {
                 HvpTextField(
                     label: 'Tiêu đề',
                     controller: _title,
+                    required: true,
                     maxLength: 200,
+                    textCapitalization: TextCapitalization.sentences,
                     validator: validateSessionTitle),
                 gap,
                 DropdownButtonFormField<String>(
                   initialValue: _type,
-                  decoration: const InputDecoration(labelText: 'LOẠI'),
+                  isExpanded: true,
+                  dropdownColor: context.hvp.surfaceHigh,
+                  style: context.txt.bodyL,
+                  decoration: hvpFieldDecoration(context, label: 'Loại'),
                   items: [
                     for (final t in sessionTypes)
                       DropdownMenuItem(value: t.code, child: Text(t.label))
@@ -155,7 +164,10 @@ class _SessionFormSheetState extends ConsumerState<SessionFormSheet> {
                 DropdownButtonFormField<String?>(
                   initialValue:
                       coaches.any((c) => c.id == _coachId) ? _coachId : null,
-                  decoration: const InputDecoration(labelText: 'COACH'),
+                  isExpanded: true,
+                  dropdownColor: context.hvp.surfaceHigh,
+                  style: context.txt.bodyL,
+                  decoration: hvpFieldDecoration(context, label: 'Coach'),
                   items: [
                     const DropdownMenuItem<String?>(
                         value: null, child: Text('Người tạo buổi')),
@@ -169,26 +181,36 @@ class _SessionFormSheetState extends ConsumerState<SessionFormSheet> {
                 HvpTextField(
                     label: 'Ngày',
                     controller: _date,
+                    required: true,
                     readOnly: true,
+                    suffixIcon: HvpIcons.calendar,
                     onTap: _pickDay),
                 if (_submitted && _day == null)
                   _error(context, 'Vui lòng chọn ngày.'),
                 gap,
-                HvpTextField(
-                    label: 'Giờ (HH:mm)',
+                HvpTimeField(
+                    label: 'Giờ bắt đầu',
                     controller: _time,
+                    required: true,
                     validator: validateStartTime),
                 gap,
                 HvpTextField(
                     label: 'Thời lượng (phút)',
                     controller: _duration,
+                    required: true,
+                    maxLength: 3,
                     keyboardType: TextInputType.number,
+                    inputFormatters: <TextInputFormatter>[
+                      FilteringTextInputFormatter.digitsOnly
+                    ],
                     validator: validateSessionDuration),
                 gap,
-                HvpTextField(
-                    label: 'Sĩ số (trống = không giới hạn)',
+                HvpLimitField(
+                    label: 'Sĩ số tối đa',
+                    unlimitedLabel: 'Không giới hạn sĩ số',
                     controller: _capacity,
-                    keyboardType: TextInputType.number,
+                    unlimited: _unlimited,
+                    onUnlimitedChanged: (v) => setState(() => _unlimited = v),
                     validator: validateCapacity),
                 gap,
                 HvpTextField(

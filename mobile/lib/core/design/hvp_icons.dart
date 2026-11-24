@@ -71,6 +71,12 @@ abstract final class HvpIcons {
   static const IconData image = Icons.image;
   static const IconData pencil = Icons.edit;
   static const IconData plus = Icons.add;
+  static const IconData clock = Icons.schedule;
+  static const IconData userPlus = Icons.person_add_alt_1;
+  static const IconData calendarCheck = Icons.event_available;
+  static const IconData branchAdd = Icons.add_business;
+  static const IconData storefront = Icons.storefront_outlined;
+  static const IconData frozen = Icons.ac_unit;
   static const IconData trash = Icons.delete_outline;
   static const IconData retry = Icons.refresh;
   static const IconData caretRight = Icons.chevron_right;

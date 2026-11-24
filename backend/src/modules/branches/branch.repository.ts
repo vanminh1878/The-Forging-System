@@ -1,3 +1,4 @@
+import { db } from '../../db/database';
 import { sql } from '../../db/sql';
 import type { Branch, BranchInput } from './branch.types';
 
@@ -19,6 +20,20 @@ export class BranchRepository {
 
   findByCode(code: string): Promise<{ id: string } | null> {
     return sql.one(`SELECT id FROM branches WHERE code = $1`, [code]);
+  }
+
+  /**
+   * Next free sequential code (CN001, CN002, ...). The advisory lock serialises concurrent creates of one tenant
+   * until the surrounding transaction commits, so two admins never get the same number.
+   */
+  async nextCode(): Promise<string> {
+    await sql.exec(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
+      `branch-code:${db.currentTenantId()}`,
+    ]);
+    const n = await sql.scalar<number>(
+      `SELECT COALESCE(MAX(substring(code FROM '^CN([0-9]{1,6})$')::int), 0) + 1 FROM branches WHERE code ~ '^CN[0-9]{1,6}$'`,
+    );
+    return `CN${String(n ?? 1).padStart(3, '0')}`;
   }
 
   insert(i: BranchInput & { code: string; name: string }): Promise<Branch & { qrVersion: string | null }> {

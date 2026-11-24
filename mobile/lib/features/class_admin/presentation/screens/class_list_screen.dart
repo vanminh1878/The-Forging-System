@@ -8,6 +8,7 @@ import '../../../../core/design/hvp_context.dart';
 import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/empty_state.dart';
+import '../../../../core/widgets/hvp_button.dart';
 import '../../../../core/widgets/hvp_refresh.dart';
 import '../../domain/class_models.dart';
 import '../../domain/session_types.dart';
@@ -17,8 +18,16 @@ import '../widgets/class_tile.dart';
 import '../widgets/session_form_sheet.dart';
 
 /// CLS-06: admin class list (tab "Đào tạo") with session type filter pills.
+///
+/// With [readOnly] (reception tab "Lớp học") nothing can be created or edited;
+/// tapping a class opens [detailPath].
 class ClassListScreen extends ConsumerStatefulWidget {
-  const ClassListScreen({super.key});
+  const ClassListScreen({super.key, this.readOnly = false, this.detailPath});
+
+  final bool readOnly;
+
+  /// Route of one class; defaults to the admin class detail.
+  final String Function(String classId)? detailPath;
 
   @override
   ConsumerState<ClassListScreen> createState() => _ClassListScreenState();
@@ -38,17 +47,26 @@ class _ClassListScreenState extends ConsumerState<ClassListScreen> {
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Row(children: <Widget>[
-              Expanded(child: Text('LỚP HỌC', style: context.txt.titleL)),
-              IconButton(
-                  tooltip: 'Tạo buổi',
-                  icon: const Icon(HvpIcons.calendar),
-                  onPressed: () => showSessionForm(context)),
-              IconButton(
-                  tooltip: 'Tạo lớp',
-                  icon: const Icon(HvpIcons.plus),
-                  onPressed: () => showClassForm(context)),
-            ]),
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text('LỚP HỌC', style: context.txt.titleL),
+                  if (!widget.readOnly) ...<Widget>[
+                    const SizedBox(height: 10),
+                    Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
+                      HvpButton.primary(
+                          label: 'Tạo lớp',
+                          icon: HvpIcons.book,
+                          small: true,
+                          onPressed: () => showClassForm(context)),
+                      HvpButton.secondary(
+                          label: 'Tạo buổi',
+                          icon: HvpIcons.calendarCheck,
+                          small: true,
+                          onPressed: () => showSessionForm(context)),
+                    ]),
+                  ],
+                ]),
           ),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -80,11 +98,14 @@ class _ClassListScreenState extends ConsumerState<ClassListScreen> {
                       Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: ClassTile(
-                              onTap: () =>
-                                  context.push(AdminPaths.classDetail(item.id)),
+                              onTap: () => context.push((widget.detailPath ??
+                                  AdminPaths.classDetail)(item.id)),
                               item: item,
-                              onEdit: () =>
-                                  showClassForm(context, existing: item))),
+                              showCoach: !widget.readOnly,
+                              onEdit: widget.readOnly
+                                  ? null
+                                  : () =>
+                                      showClassForm(context, existing: item))),
                     if (page.totalPages > 1)
                       Wrap(
                           alignment: WrapAlignment.spaceBetween,

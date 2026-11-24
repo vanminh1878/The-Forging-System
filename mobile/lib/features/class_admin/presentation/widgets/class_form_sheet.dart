@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/hvp_context.dart';
 import '../../../../core/widgets/branch_picker.dart';
+import '../../../../core/widgets/form_focus.dart';
 import '../../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../../core/widgets/hvp_button.dart';
+import '../../../../core/widgets/hvp_field_decoration.dart';
+import '../../../../core/widgets/hvp_limit_field.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
+import '../../../../core/widgets/hvp_time_field.dart';
 import '../../../../core/widgets/hvp_toast.dart';
 import '../../../../core/widgets/inline_banner.dart';
 import '../../../courses/presentation/course_providers.dart';
@@ -38,6 +43,10 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
       TextEditingController(text: '${widget.existing?.durationMinutes ?? 60}');
   late final _capacity =
       TextEditingController(text: widget.existing?.capacity?.toString() ?? '');
+  final _nameFocus = FocusNode();
+  final _timeFocus = FocusNode();
+  final _durationFocus = FocusNode();
+  final _capacityFocus = FocusNode();
   late String? _branchId = widget.existing?.branchId;
   late String _type =
       widget.existing?.sessionTypeCode ?? sessionTypes.first.code;
@@ -45,6 +54,9 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
   late String? _coachId = widget.existing?.defaultCoachId;
   late final Set<int> _weekdays = <int>{...?widget.existing?.weekdays};
   late bool _active = widget.existing?.isActive ?? true;
+
+  /// "Không giới hạn sĩ số": a new class starts unlimited, as before.
+  late bool _unlimited = widget.existing?.capacity == null;
   bool _submitted = false;
 
   @override
@@ -64,14 +76,30 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
     ]) {
       c.dispose();
     }
+    for (final f in <FocusNode>[
+      _nameFocus,
+      _timeFocus,
+      _durationFocus,
+      _capacityFocus
+    ]) {
+      f.dispose();
+    }
     super.dispose();
   }
 
   Future<void> _submit() async {
     setState(() => _submitted = true);
-    if (!(_formKey.currentState?.validate() ?? false) ||
-        _branchId == null ||
-        _weekdays.isEmpty) {
+    final valid = (_formKey.currentState?.validate() ?? false) &&
+        _branchId != null &&
+        _weekdays.isNotEmpty;
+    if (!valid) {
+      focusFirstInvalid(<(FocusNode, String? Function())>[
+        (_nameFocus, () => validateClassName(_name.text)),
+        (_timeFocus, () => validateStartTime(_time.text)),
+        (_durationFocus, () => validateDuration(_duration.text)),
+        if (!_unlimited)
+          (_capacityFocus, () => validateCapacity(_capacity.text)),
+      ]);
       return;
     }
     final draft = ClassDraft(
@@ -83,9 +111,7 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
       weekdays: _weekdays.toList()..sort(),
       startTime: _time.text.trim(),
       durationMinutes: int.parse(_duration.text.trim()),
-      capacity: _capacity.text.trim().isEmpty
-          ? null
-          : int.parse(_capacity.text.trim()),
+      capacity: _unlimited ? null : int.parse(_capacity.text.trim()),
       isActive: _active,
     );
     final existing = widget.existing;
@@ -117,6 +143,7 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
     final coaches =
         ref.watch(classCoachesProvider).valueOrNull ?? const <ClassCoach>[];
     final courses = ref.watch(coursesProvider).valueOrNull ?? const [];
+    final c = context.hvp;
     const gap = SizedBox(height: 14);
     return Material(
         type: MaterialType.transparency,
@@ -130,12 +157,19 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
                   HvpTextField(
                       label: 'Tên lớp',
                       controller: _name,
+                      focusNode: _nameFocus,
+                      required: true,
                       maxLength: 120,
+                      textCapitalization: TextCapitalization.sentences,
+                      textInputAction: TextInputAction.next,
                       validator: validateClassName),
                   gap,
                   DropdownButtonFormField<String>(
                     initialValue: _type,
-                    decoration: const InputDecoration(labelText: 'LOẠI'),
+                    isExpanded: true,
+                    dropdownColor: c.surfaceHigh,
+                    style: context.txt.bodyL,
+                    decoration: hvpFieldDecoration(context, label: 'Loại'),
                     items: [
                       for (final t in sessionTypes)
                         DropdownMenuItem(value: t.code, child: Text(t.label))
@@ -147,7 +181,10 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
                     initialValue: courses.any((c) => c.id == _courseId)
                         ? _courseId
                         : null,
-                    decoration: const InputDecoration(labelText: 'KHÓA'),
+                    isExpanded: true,
+                    dropdownColor: c.surfaceHigh,
+                    style: context.txt.bodyL,
+                    decoration: hvpFieldDecoration(context, label: 'Khóa học'),
                     items: [
                       const DropdownMenuItem<String?>(
                           value: null, child: Text('Không gắn khóa')),
@@ -161,7 +198,10 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
                   DropdownButtonFormField<String?>(
                     initialValue:
                         coaches.any((c) => c.id == _coachId) ? _coachId : null,
-                    decoration: const InputDecoration(labelText: 'COACH'),
+                    isExpanded: true,
+                    dropdownColor: c.surfaceHigh,
+                    style: context.txt.bodyL,
+                    decoration: hvpFieldDecoration(context, label: 'Coach'),
                     items: [
                       const DropdownMenuItem<String?>(
                           value: null, child: Text('Chưa có coach')),
@@ -178,7 +218,8 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
                   if (_submitted && _branchId == null)
                     _error(context, 'Vui lòng chọn chi nhánh.'),
                   gap,
-                  Text('NGÀY TRONG TUẦN', style: context.txt.label),
+                  Text('Ngày trong tuần *', style: context.txt.bodySmall),
+                  const SizedBox(height: 6),
                   Wrap(spacing: 8, children: <Widget>[
                     for (var d = 1; d <= 7; d++)
                       FilterChip(
@@ -191,26 +232,48 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
                   if (_submitted && _weekdays.isEmpty)
                     _error(context, 'Chọn ít nhất một ngày.'),
                   gap,
-                  HvpTextField(
-                      label: 'Giờ (HH:mm)',
-                      controller: _time,
-                      validator: validateStartTime),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Expanded(
+                        child: HvpTimeField(
+                            label: 'Giờ bắt đầu',
+                            controller: _time,
+                            focusNode: _timeFocus,
+                            required: true,
+                            textInputAction: TextInputAction.next,
+                            validator: validateStartTime),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: HvpTextField(
+                            label: 'Thời lượng (phút)',
+                            controller: _duration,
+                            focusNode: _durationFocus,
+                            required: true,
+                            maxLength: 4,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: <TextInputFormatter>[
+                              FilteringTextInputFormatter.digitsOnly
+                            ],
+                            validator: validateDuration),
+                      ),
+                    ],
+                  ),
                   gap,
-                  HvpTextField(
-                      label: 'Thời lượng (phút)',
-                      controller: _duration,
-                      keyboardType: TextInputType.number,
-                      validator: validateDuration),
-                  gap,
-                  HvpTextField(
-                      label: 'Sĩ số (trống = không giới hạn)',
+                  HvpLimitField(
+                      label: 'Sĩ số tối đa',
+                      unlimitedLabel: 'Không giới hạn sĩ số',
                       controller: _capacity,
-                      keyboardType: TextInputType.number,
+                      focusNode: _capacityFocus,
+                      unlimited: _unlimited,
+                      onUnlimitedChanged: (v) => setState(() => _unlimited = v),
                       validator: validateCapacity),
                   SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       title: Text('Đang hoạt động', style: context.txt.body),
                       value: _active,
+                      activeThumbColor: c.gold,
                       onChanged: (v) => setState(() => _active = v)),
                   if (submit.error != null)
                     InlineBanner(message: submit.error!),

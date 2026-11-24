@@ -74,6 +74,10 @@ abstract final class CoachPaths {
   static const String rankTrial = '/coach/rank-trial';
   static const String history = '/coach/history';
   static const String notifications = '/coach/notifications';
+
+  // Pushed screens
+  static const String classDetailPattern = '/coach/classes/:id';
+  static String classDetail(String id) => '/coach/classes/$id';
 }
 
 abstract final class ReceptionPaths {
@@ -97,6 +101,10 @@ abstract final class ReceptionPaths {
       '/reception/memberships/member/$memberId';
   static const String stock = '/reception/stock';
   static const String handover = '/reception/handover';
+  static const String classes = '/reception/classes';
+  static const String classDetailPattern = '/reception/classes/:id';
+  static String classDetail(String id) => '/reception/classes/$id';
+  static const String profile = '/reception/profile';
   static const String notifications = '/reception/notifications';
 }
 

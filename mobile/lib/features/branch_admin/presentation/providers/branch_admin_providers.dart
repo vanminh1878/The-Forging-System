@@ -1,4 +1,6 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/branch/branch.dart';
 import '../../../../core/network/network_providers.dart';
@@ -7,7 +9,7 @@ import '../../../auth/presentation/providers/auth_controller.dart';
 import '../../data/branch_admin_api.dart';
 import '../../data/branch_admin_repository_impl.dart';
 import '../../domain/branch_admin_repository.dart';
-import '../../domain/branch_qr.dart';
+import '../screens/branch_map_picker_screen.dart';
 
 /// Tests override this with a fake repository.
 final branchAdminRepositoryProvider = Provider<BranchAdminRepository>(
@@ -40,13 +42,10 @@ final branchFormSubmitProvider =
 final branchStatusSubmitProvider =
     NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
 
-/// The printable QR of one branch.
-final branchStaticQrProvider =
-    FutureProvider.autoDispose.family<BranchQr, String>((ref, branchId) {
-  ref.watch(currentUserIdProvider);
-  return ref.watch(branchAdminRepositoryProvider).getQr(branchId);
-});
-
-/// Submit state of the rotate-QR dialog.
-final branchRotateSubmitProvider =
-    NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
+/// Opens the map and resolves to the picked position (null when cancelled).
+/// Tests override it, because the real map needs network tiles.
+final branchMapPickerProvider =
+    Provider<Future<LatLng?> Function(BuildContext, LatLng?)>(
+  (ref) => (context, initial) =>
+      BranchMapPickerScreen.open(context, initial: initial),
+);

@@ -13,11 +13,19 @@ import '../class_providers.dart';
 
 /// One class in the list: name, schedule, branch, coach and enrolment.
 class ClassTile extends ConsumerWidget {
-  const ClassTile({super.key, required this.item, this.onTap, this.onEdit});
+  const ClassTile(
+      {super.key,
+      required this.item,
+      this.onTap,
+      this.onEdit,
+      this.showCoach = true});
 
   final ClassSummary item;
   final VoidCallback? onTap;
   final VoidCallback? onEdit;
+
+  /// Names the class's coach. Only admins may list staff, so other roles turn it off.
+  final bool showCoach;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,11 +35,13 @@ class ClassTile extends ConsumerWidget {
         .valueOrNull
         ?.where((b) => b.id == item.branchId)
         .firstOrNull;
-    final coach = ref
-        .watch(classCoachesProvider)
-        .valueOrNull
-        ?.where((c) => c.id == item.defaultCoachId)
-        .firstOrNull;
+    final coach = showCoach
+        ? ref
+            .watch(classCoachesProvider)
+            .valueOrNull
+            ?.where((c) => c.id == item.defaultCoachId)
+            .firstOrNull
+        : null;
     return HvpCard(
       onTap: onTap,
       child: Column(

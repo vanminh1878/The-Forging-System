@@ -124,7 +124,7 @@ void main() {
         containsPair('q', 'lan'));
     expect(find.text('BOOK I · hết hạn 30/11/2026'), findsOneWidget);
     expect(find.text('HOẠT ĐỘNG'), findsOneWidget);
-    expect(find.text('ĐÓNG BĂNG'), findsOneWidget);
+    expect(find.text('ĐÃ ĐÓNG BĂNG'), findsOneWidget);
     expect(find.text('CHƯA CÓ GÓI'), findsOneWidget);
 
     mode = 'empty';
@@ -154,7 +154,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('lan@example.com'), findsOneWidget);
-    expect(find.text('ĐÓNG BĂNG'), findsOneWidget);
+    expect(find.text('ĐÃ ĐÓNG BĂNG'), findsOneWidget);
     expect(find.text('Lý do: Đi công tác'), findsOneWidget);
     expect(find.text('BOOK I'), findsOneWidget);
     expect(find.text('BOOK II'), findsOneWidget);
@@ -196,7 +196,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('HUỶ GÓI ĐANG HOẠT ĐỘNG'), findsNothing);
-    await tester.tap(find.text('HUỶ GÓI NỐI TIẾP'));
+    await tester.tap(find.text('HUỶ GÓI SẮP KÍCH HOẠT'));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(HvpButton, 'HUỶ GÓI'));
     await tester.pump();

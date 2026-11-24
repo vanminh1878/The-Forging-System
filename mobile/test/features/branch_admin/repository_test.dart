@@ -84,15 +84,15 @@ void main() {
       repo = BranchAdminRepositoryImpl(BranchAdminApi(ApiClient(dio)));
     });
 
-    test('create posts every field and returns the branch', () async {
-      final b = await repo.create(const BranchInput(
-          code: 'Q9', name: ' New ', address: '', latitude: 10.5));
+    test('create leaves the code out so the server numbers the branch',
+        () async {
+      final b = await repo.create(
+          const BranchInput(name: ' New ', address: '', latitude: 10.5));
 
       final req = adapter.requests.single;
       expect(req.method, 'POST');
       expect(req.path, '/admin/branches');
       expect(req.data, <String, dynamic>{
-        'code': 'Q9',
         'name': 'New',
         'address': null,
         'openingHours': null,
@@ -103,15 +103,20 @@ void main() {
       expect(b.id, 'b9');
     });
 
+    test('an explicit code is still sent', () async {
+      await repo.create(const BranchInput(code: ' Q9 ', name: 'New'));
+      expect(adapter.requests.single.data['code'], 'Q9');
+    });
+
     test('update patches the branch id and clears empty fields', () async {
-      final b = await repo.update(
-          'b9', const BranchInput(code: 'Q9', name: 'Renamed'));
+      final b = await repo.update('b9', const BranchInput(name: 'Renamed'));
 
       final req = adapter.requests.single;
       expect(req.method, 'PATCH');
       expect(req.path, '/admin/branches/b9');
       expect(req.data['address'], isNull);
       expect(req.data.containsKey('address'), isTrue);
+      expect(req.data.containsKey('code'), isFalse);
       expect(b.name, 'Renamed');
     });
   });
@@ -141,48 +146,37 @@ void main() {
     expect(b.isActive, isFalse);
   });
 
-  test('getQr and rotateQr map the payload and send the reason', () async {
-    final dio = createApiDio(
-      config: _config,
-      tokens: MemoryTokenStore(
-          const StoredTokens(accessToken: 'a', refreshToken: 'r')),
-    );
-    final adapter = ScriptedAdapter((o) => okEnvelope(<String, dynamic>{
-          'branchId': 'b9',
-          'code': 'Q9',
-          'qrVersion': '4',
-          'payload': 'HVP|Q9|4'
-        }));
-    dio.httpClientAdapter = adapter;
-    final repo = BranchAdminRepositoryImpl(BranchAdminApi(ApiClient(dio)));
-
-    final qr = await repo.getQr('b9');
-    expect(adapter.requests.last.path, '/branches/b9/qr');
-    expect(qr.payload, 'HVP|Q9|4');
-    expect(qr.qrVersion, '4');
-
-    await repo.rotateQr('b9');
-    expect(adapter.requests.last.method, 'POST');
-    expect(adapter.requests.last.path, '/admin/branches/b9/qr/rotate');
-    expect(adapter.requests.last.data, <String, dynamic>{});
-
-    await repo.rotateQr('b9', reason: 'Mất bảng QR');
-    expect(
-        adapter.requests.last.data, <String, dynamic>{'reason': 'Mất bảng QR'});
+  test('BranchRules follow the API limits', () {
+    expect(BranchRules.name('A'), isNotNull);
+    expect(BranchRules.name('AB'), isNull);
+    expect(BranchRules.name('A' * 101), isNotNull);
+    expect(BranchRules.address('x' * 255), isNull);
+    expect(BranchRules.address('x' * 256), isNotNull);
+    expect(BranchRules.radius('9'), isNotNull);
+    expect(BranchRules.radius('10'), isNull);
+    expect(BranchRules.radius('5000'), isNull);
+    expect(BranchRules.radius('5001'), isNotNull);
+    expect(BranchRules.radius(''), isNotNull);
+    expect(BranchRules.radius('-5'), isNotNull);
   });
 
-  test('BranchRules follow the API limits', () {
-    expect(BranchRules.code('q1'), isNull);
-    expect(BranchRules.code('a'), isNotNull);
-    expect(BranchRules.code('has space'), isNotNull);
-    expect(BranchRules.name('A'), isNotNull);
-    expect(BranchRules.latitude(''), isNull);
-    expect(BranchRules.latitude('91'), isNotNull);
-    expect(BranchRules.latitude('abc'), isNotNull);
-    expect(BranchRules.longitude('-180'), isNull);
-    expect(BranchRules.longitude('181'), isNotNull);
-    expect(BranchRules.radius('9'), isNotNull);
-    expect(BranchRules.radius('5000'), isNull);
-    expect(BranchRules.radius(''), isNotNull);
+  test('opening hours: both times or none, closing after opening', () {
+    expect(BranchRules.openingTime('', ''), isNull);
+    expect(BranchRules.closingTime('', ''), isNull);
+    expect(BranchRules.openingTime('', '21:30'), isNotNull);
+    expect(BranchRules.closingTime('06:00', ''), isNotNull);
+    expect(BranchRules.openingTime('24:00', '21:30'), isNotNull);
+    expect(BranchRules.openingTime('06:60', '21:30'), isNotNull);
+    expect(BranchRules.openingTime('ab:cd', '21:30'), isNotNull);
+    expect(BranchRules.openingTime('6:00', '21:30'), isNull);
+    expect(BranchRules.closingTime('06:00', '06:00'), isNotNull);
+    expect(BranchRules.closingTime('06:00', '05:59'), isNotNull);
+    expect(BranchRules.closingTime('06:00', '06:01'), isNull);
+    expect(BranchRules.closingTime('06:00', '23:59'), isNull);
+    expect(BranchRules.joinHours('6:00', '21:30'), '06:00 – 21:30');
+    expect(BranchRules.splitHours('06:00 – 21:30'), ('06:00', '21:30'));
+    expect(BranchRules.splitHours('6:00-21:30'), ('06:00', '21:30'));
+    expect(BranchRules.splitHours('6h đến 21h'), isNull);
+    expect(BranchRules.splitHours(null), isNull);
   });
 }

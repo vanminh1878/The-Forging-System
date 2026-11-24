@@ -136,7 +136,9 @@ void main() {
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(find.text('01/11/2026'), findsOneWidget);
     expect(find.text('02/11/2026 → 01/02/2027'), findsOneWidget);
-    expect(find.text('Gói nối tiếp tự kích hoạt khi gói hiện tại hết hạn.'),
+    expect(
+        find.text(
+            'Gói này tự kích hoạt khi gói hiện tại hết hạn, thời hạn không bị mất.'),
         findsOneWidget);
     expect(find.text('Đã gửi yêu cầu · chờ lễ tân xác nhận'), findsOneWidget);
     expect(find.text('CHỜ DUYỆT'), findsOneWidget);

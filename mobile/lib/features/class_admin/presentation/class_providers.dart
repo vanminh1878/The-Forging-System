@@ -16,6 +16,13 @@ final classPageProvider =
   return ref.watch(classRepositoryProvider).list(query);
 });
 
+/// The signed-in coach's own classes.
+final coachClassesProvider =
+    FutureProvider.autoDispose<List<ClassSummary>>((ref) {
+  ref.watch(currentUserIdProvider);
+  return ref.watch(classRepositoryProvider).coachClasses();
+});
+
 final classCoachesProvider =
     FutureProvider.autoDispose<List<ClassCoach>>((ref) {
   ref.watch(currentUserIdProvider);

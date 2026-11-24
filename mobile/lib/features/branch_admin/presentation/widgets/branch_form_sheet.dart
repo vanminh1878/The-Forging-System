@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/branch/branch.dart';
 import '../../../../core/design/hvp_context.dart';
-import '../../../../core/error/api_exception.dart';
+import '../../../../core/design/hvp_icons.dart';
+import '../../../../core/widgets/form_focus.dart';
 import '../../../../core/widgets/hvp_button.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
+import '../../../../core/widgets/hvp_time_field.dart';
 import '../../../../core/widgets/hvp_toast.dart';
 import '../../../../core/widgets/inline_banner.dart';
 import '../../domain/branch_input.dart';
 import '../providers/branch_admin_providers.dart';
-import '../screens/branch_static_qr_screen.dart';
 import 'branch_reason_sheet.dart';
 
-/// BR-05: add a branch, or edit [branch].
+/// BR-05: add a branch, or edit [branch]. The code is assigned by the server
+/// (CN001, CN002...) and shown read-only; the position is picked on a map.
 class BranchFormSheet extends ConsumerStatefulWidget {
   const BranchFormSheet({super.key, this.branch});
 
@@ -25,20 +28,35 @@ class BranchFormSheet extends ConsumerStatefulWidget {
 }
 
 class _BranchFormSheetState extends ConsumerState<BranchFormSheet> {
+  static const String _codePending = 'Tự động tạo khi lưu';
+
   final _formKey = GlobalKey<FormState>();
-  late final _code = TextEditingController(text: widget.branch?.code);
+  late final _code =
+      TextEditingController(text: widget.branch?.code ?? _codePending);
   late final _name = TextEditingController(text: widget.branch?.name);
   late final _address = TextEditingController(text: widget.branch?.address);
-  late final _hours = TextEditingController(text: widget.branch?.openingHours);
-  late final _lat =
-      TextEditingController(text: widget.branch?.latitude?.toString());
-  late final _lng =
-      TextEditingController(text: widget.branch?.longitude?.toString());
+  late final _open = TextEditingController(text: _hours?.$1);
+  late final _close = TextEditingController(text: _hours?.$2);
+  late final _position = TextEditingController(text: _positionText());
   late final _radius = TextEditingController(
       text: (widget.branch?.geofenceRadiusM ?? 100).toString());
+  final _nameFocus = FocusNode();
+  final _openFocus = FocusNode();
+  final _closeFocus = FocusNode();
+  final _radiusFocus = FocusNode();
 
-  /// BRANCH_CODE_TAKEN, shown under the code field until it is edited.
-  String? _codeTaken;
+  late final (String, String)? _hours =
+      BranchRules.splitHours(widget.branch?.openingHours);
+
+  /// Old free-text opening hours that cannot be shown in the two pickers. They
+  /// are kept as they are until the admin picks new times.
+  late final String? _legacyHours =
+      _hours == null && (widget.branch?.openingHours ?? '').trim().isNotEmpty
+          ? widget.branch!.openingHours!.trim()
+          : null;
+
+  late double? _lat = widget.branch?.latitude;
+  late double? _lng = widget.branch?.longitude;
 
   @override
   void initState() {
@@ -53,42 +71,85 @@ class _BranchFormSheetState extends ConsumerState<BranchFormSheet> {
       _code,
       _name,
       _address,
-      _hours,
-      _lat,
-      _lng,
+      _open,
+      _close,
+      _position,
       _radius
     ]) {
       c.dispose();
     }
+    for (final f in <FocusNode>[
+      _nameFocus,
+      _openFocus,
+      _closeFocus,
+      _radiusFocus
+    ]) {
+      f.dispose();
+    }
     super.dispose();
   }
 
+  String _positionText() {
+    final lat = widget.branch?.latitude;
+    final lng = widget.branch?.longitude;
+    return lat == null || lng == null ? '' : _format(lat, lng);
+  }
+
+  static String _format(double lat, double lng) =>
+      '${lat.toStringAsFixed(6)}, ${lng.toStringAsFixed(6)}';
+
+  Future<void> _pickPosition() async {
+    final lat = _lat;
+    final lng = _lng;
+    final picked = await ref.read(branchMapPickerProvider)(
+        context, lat == null || lng == null ? null : LatLng(lat, lng));
+    if (picked == null || !mounted) return;
+    setState(() {
+      _lat = picked.latitude;
+      _lng = picked.longitude;
+      _position.text = _format(_lat!, _lng!);
+    });
+  }
+
+  void _clearPosition() => setState(() {
+        _lat = null;
+        _lng = null;
+        _position.clear();
+      });
+
+  /// "06:00 – 21:30"; the old free text when no new time was picked; else null.
+  String? _openingHours() {
+    final o = _open.text.trim();
+    final c = _close.text.trim();
+    if (o.isEmpty && c.isEmpty) return _legacyHours;
+    return BranchRules.joinHours(o, c);
+  }
+
   Future<void> _submit() async {
-    setState(() => _codeTaken = null);
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final valid = _formKey.currentState?.validate() ?? false;
+    if (!valid) {
+      focusFirstInvalid(<(FocusNode, String? Function())>[
+        (_nameFocus, () => BranchRules.name(_name.text)),
+        (_openFocus, () => BranchRules.openingTime(_open.text, _close.text)),
+        (_closeFocus, () => BranchRules.closingTime(_open.text, _close.text)),
+        (_radiusFocus, () => BranchRules.radius(_radius.text)),
+      ]);
+      return;
+    }
     final input = BranchInput(
-      code: _code.text.trim().toUpperCase(),
       name: _name.text,
       address: _address.text,
-      openingHours: _hours.text,
-      latitude: BranchRules.parseCoordinate(_lat.text),
-      longitude: BranchRules.parseCoordinate(_lng.text),
+      openingHours: _openingHours(),
+      latitude: _lat,
+      longitude: _lng,
       geofenceRadiusM: int.parse(_radius.text.trim()),
     );
     final repo = ref.read(branchAdminRepositoryProvider);
     final editing = widget.branch;
     final ok = await ref.read(branchFormSubmitProvider.notifier).run(() async {
-      try {
-        editing == null
-            ? await repo.create(input)
-            : await repo.update(editing.id, input);
-      } on ApiException catch (e) {
-        if (e.code == 'BRANCH_CODE_TAKEN' && mounted) {
-          setState(() => _codeTaken = e.message);
-          _formKey.currentState?.validate();
-        }
-        rethrow;
-      }
+      editing == null
+          ? await repo.create(input)
+          : await repo.update(editing.id, input);
     });
     if (!mounted || !ok) return;
     ref.invalidate(adminBranchesProvider);
@@ -119,31 +180,9 @@ class _BranchFormSheetState extends ConsumerState<BranchFormSheet> {
     Navigator.of(context).pop();
   }
 
-  /// BR-06: warns that printed codes stop working, rotates, then closes the form.
-  Future<void> _rotateQr(Branch branch) async {
-    final repo = ref.read(branchAdminRepositoryProvider);
-    final done = await showReasonSheet(
-      context,
-      title: 'Đổi mã QR',
-      warning: 'Mã QR đã in sẽ không còn dùng được. '
-          'Bạn cần in lại mã mới cho chi nhánh này.',
-      confirmLabel: 'Đổi mã QR',
-      required: false,
-      submit: branchRotateSubmitProvider,
-      onConfirm: (reason) => repo.rotateQr(branch.id, reason: reason),
-    );
-    if (!mounted || done != true) return;
-    ref.invalidate(adminBranchesProvider);
-    HvpToast.success(context, 'Đã đổi mã QR check-in.');
-    Navigator.of(context).pop();
-  }
-
   @override
   Widget build(BuildContext context) {
     final submit = ref.watch(branchFormSubmitProvider);
-    // The code error sits under its field, so the banner skips it.
-    final fieldErrors = submit.fieldErrors;
-    final banner = _codeTaken != null ? null : submit.error;
     const gap = SizedBox(height: 14);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -153,72 +192,96 @@ class _BranchFormSheetState extends ConsumerState<BranchFormSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             HvpTextField(
-              label: 'Mã chi nhánh',
-              controller: _code,
-              maxLength: 20,
-              inputFormatters: <TextInputFormatter>[_UpperCase()],
+              label: 'Tên chi nhánh',
+              controller: _name,
+              focusNode: _nameFocus,
+              required: true,
+              maxLength: 100,
+              textCapitalization: TextCapitalization.words,
               textInputAction: TextInputAction.next,
-              onChanged: (_) {
-                if (_codeTaken != null) setState(() => _codeTaken = null);
-              },
               validator: (v) =>
-                  BranchRules.code(v) ?? _codeTaken ?? fieldErrors['code'],
+                  BranchRules.name(v) ?? submit.fieldErrors['name'],
             ),
             gap,
             HvpTextField(
-                label: 'Tên chi nhánh',
-                controller: _name,
-                maxLength: 100,
-                textInputAction: TextInputAction.next,
-                validator: BranchRules.name),
+              label: 'Mã chi nhánh',
+              controller: _code,
+              enabled: false,
+              maxLength: 20,
+              helper: 'Hệ thống tự tạo, không sửa được.',
+            ),
             gap,
             HvpTextField(
-                label: 'Địa chỉ',
-                controller: _address,
-                maxLength: 255,
-                textInputAction: TextInputAction.next,
-                validator: BranchRules.address),
-            gap,
-            HvpTextField(
-                label: 'Giờ mở cửa',
-                hint: '06:00 – 21:30',
-                controller: _hours,
-                maxLength: 100,
-                textInputAction: TextInputAction.next,
-                validator: BranchRules.openingHours),
+              label: 'Địa chỉ',
+              controller: _address,
+              maxLength: 255,
+              textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.next,
+              validator: BranchRules.address,
+            ),
             gap,
             Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Expanded(
-                    child: HvpTextField(
-                        label: 'Vĩ độ',
-                        controller: _lat,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true, signed: true),
-                        textInputAction: TextInputAction.next,
-                        validator: BranchRules.latitude),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: HvpTimeField(
+                    label: 'Giờ mở cửa',
+                    controller: _open,
+                    focusNode: _openFocus,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) => BranchRules.openingTime(v, _close.text),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: HvpTextField(
-                        label: 'Kinh độ',
-                        controller: _lng,
-                        keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true, signed: true),
-                        textInputAction: TextInputAction.next,
-                        validator: BranchRules.longitude),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: HvpTimeField(
+                    label: 'Giờ đóng cửa',
+                    controller: _close,
+                    focusNode: _closeFocus,
+                    textInputAction: TextInputAction.next,
+                    validator: (v) => BranchRules.closingTime(_open.text, v),
                   ),
-                ]),
+                ),
+              ],
+            ),
+            if (_legacyHours != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                    'Giờ đang lưu: $_legacyHours. Chọn giờ mở và đóng cửa để thay thế.',
+                    style: context.txt.caption),
+              ),
             gap,
             HvpTextField(
-                label: 'Bán kính check-in (m)',
-                controller: _radius,
-                keyboardType: TextInputType.number,
-                validator: BranchRules.radius),
-            if (banner != null) ...<Widget>[
+              label: 'Vị trí (vĩ độ, kinh độ)',
+              hint: 'Chạm để chọn trên bản đồ',
+              controller: _position,
+              readOnly: true,
+              suffixIcon: HvpIcons.mapPin,
+              onTap: _pickPosition,
+            ),
+            if (_lat != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                    onPressed: _clearPosition, child: const Text('Xóa vị trí')),
+              ),
+            gap,
+            HvpTextField(
+              label: 'Bán kính check-in (m)',
+              controller: _radius,
+              focusNode: _radiusFocus,
+              required: true,
+              maxLength: 4,
+              keyboardType: TextInputType.number,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly
+              ],
+              validator: BranchRules.radius,
+            ),
+            if (submit.error != null) ...<Widget>[
               const SizedBox(height: 16),
-              InlineBanner(message: banner),
+              InlineBanner(message: submit.error!),
             ],
             const SizedBox(height: 24),
             HvpButton.primary(
@@ -238,34 +301,9 @@ class _BranchFormSheetState extends ConsumerState<BranchFormSheet> {
                   onChanged: (v) => _toggleActive(widget.branch!, v),
                 ),
               ),
-            if (widget.branch != null) ...<Widget>[
-              Text('Mã QR: phiên bản ${widget.branch!.qrVersion ?? '1'}',
-                  style: context.txt.caption),
-              const SizedBox(height: 8),
-              HvpButton.secondary(
-                  label: 'Xem mã QR để in',
-                  expand: true,
-                  onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                          builder: (_) => BranchStaticQrScreen(
-                              branchId: widget.branch!.id,
-                              branchName: widget.branch!.name)))),
-              const SizedBox(height: 8),
-              HvpButton.danger(
-                  label: 'Đổi mã QR',
-                  expand: true,
-                  onPressed: () => _rotateQr(widget.branch!)),
-            ],
           ],
         ),
       ),
     );
   }
-}
-
-class _UpperCase extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-          TextEditingValue oldValue, TextEditingValue newValue) =>
-      newValue.copyWith(text: newValue.text.toUpperCase());
 }

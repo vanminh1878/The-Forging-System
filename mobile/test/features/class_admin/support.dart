@@ -83,6 +83,17 @@ class FakeClassRepository implements ClassRepository {
             totalPages: 1);
   }
 
+  List<ClassSummary> coachList = const <ClassSummary>[sampleClass];
+  Object? coachListError;
+  var coachListCalls = 0;
+
+  @override
+  Future<List<ClassSummary>> coachClasses() async {
+    coachListCalls++;
+    if (coachListError != null) throw coachListError!;
+    return coachList;
+  }
+
   final created = <ClassDraft>[];
   final updated = <Map<String, Object?>>[];
   Object? createError;
@@ -111,9 +122,11 @@ class FakeClassRepository implements ClassRepository {
         fullName: 'Nguyễn Văn A'),
   ];
 
+  ClassSummary detailSummary = sampleClass;
+
   @override
   Future<ClassDetail> detail(String id) async =>
-      ClassDetail(summary: sampleClass, roster: roster);
+      ClassDetail(summary: detailSummary, roster: roster);
 
   @override
   Future<void> enrol(String classId, String memberId) async {

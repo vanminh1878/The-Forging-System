@@ -54,7 +54,8 @@ class MemberDetailScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                 ],
                 if (membership.scheduled != null) ...<Widget>[
-                  _panel(context, ref, 'Gói nối tiếp', membership.scheduled!,
+                  _panel(
+                      context, ref, 'Gói sắp kích hoạt', membership.scheduled!,
                       scheduled: true, isAdmin: isAdmin),
                   const SizedBox(height: 12),
                 ],
@@ -109,7 +110,8 @@ class MemberDetailScreen extends ConsumerWidget {
     return PackagePanel(
       title: title,
       package: package,
-      cancelLabel: scheduled ? 'Huỷ gói nối tiếp' : 'Huỷ gói đang hoạt động',
+      cancelLabel:
+          scheduled ? 'Huỷ gói sắp kích hoạt' : 'Huỷ gói đang hoạt động',
       onCancel: allowed
           ? () => askCancelPackage(context, ref,
               memberId: memberId,

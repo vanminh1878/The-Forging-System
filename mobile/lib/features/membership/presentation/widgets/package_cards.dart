@@ -110,7 +110,7 @@ class ScheduledPackageCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const StatusChip(label: 'Gói nối tiếp', tone: ChipTone.info),
+          const StatusChip(label: 'Gói sắp kích hoạt', tone: ChipTone.info),
           const SizedBox(height: 8),
           Text(package.name, style: t.titleS),
           const SizedBox(height: 6),
@@ -118,7 +118,8 @@ class ScheduledPackageCard extends StatelessWidget {
           Text(total == null ? 'Không giới hạn số buổi' : '$total buổi',
               style: t.bodySmall),
           const SizedBox(height: 8),
-          Text('Gói nối tiếp tự kích hoạt khi gói hiện tại hết hạn.',
+          Text(
+              'Gói này tự kích hoạt khi gói hiện tại hết hạn, thời hạn không bị mất.',
               style: t.caption),
         ],
       ),

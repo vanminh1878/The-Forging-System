@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 /// Design tokens. The ONLY place with colour literals for the app chrome;
 /// feature widgets read them through `context.hvp`.
 ///
-/// Two themes only: [dark] ("ringside after dark": deep forest green + belt gold,
-/// taken from the approved prototype) and [light] (warm paper + gold).
+/// Two themes only: [dark] ("ringside after dark": deep indigo + ember orange,
+/// palette B) and [light] (lavender paper + orange). The `gold*` tokens hold the
+/// orange accent and the `pine*` tokens the indigo panels; names are kept so
+/// feature widgets do not change.
 @immutable
 class HvpColors extends ThemeExtension<HvpColors> {
   const HvpColors({
@@ -55,7 +57,7 @@ class HvpColors extends ThemeExtension<HvpColors> {
   final Color goldDeep;
   final Color goldSoft;
 
-  /// Brand green (the "ring canvas"): hero panels, spotlight, selected states.
+  /// Brand indigo (the "ring canvas"): hero panels, spotlight, selected states.
   final Color pine;
   final Color pineDeep;
   final Color pineGlow;
@@ -77,75 +79,75 @@ class HvpColors extends ThemeExtension<HvpColors> {
   final Color onRed;
   final Color shadow;
 
-  /// Default theme: deep green felt, belt-gold accents, red-corner highlights.
+  /// Default theme: deep indigo, ember-orange accents, red-corner highlights.
   static const HvpColors dark = HvpColors(
     isDark: true,
-    bg: Color(0xFF0C1A16),
-    bgDeep: Color(0xFF07100D),
-    surface: Color(0xFF13261F),
-    surfaceHigh: Color(0xFF1A332B),
-    surfaceHighest: Color(0xFF234239),
-    border: Color(0xFF2A4B40),
-    borderStrong: Color(0xFF3D6556),
-    gold: Color(0xFFE8C278),
-    goldBright: Color(0xFFF7DE9E),
-    goldDeep: Color(0xFFC79A3B),
-    goldSoft: Color(0x2EE8C278),
-    pine: Color(0xFF1F7D5C),
-    pineDeep: Color(0xFF0E3A2C),
-    pineGlow: Color(0xFF3FBF8A),
-    red: Color(0xFFEA5A43),
-    redDeep: Color(0xFFA32A1E),
-    redSoft: Color(0x29EA5A43),
+    bg: Color(0xFF1A1733),
+    bgDeep: Color(0xFF100E26),
+    surface: Color(0xFF24204A),
+    surfaceHigh: Color(0xFF2D2958),
+    surfaceHighest: Color(0xFF383366),
+    border: Color(0xFF3A3566),
+    borderStrong: Color(0xFF524C8A),
+    gold: Color(0xFFFF7A2F),
+    goldBright: Color(0xFFFFA066),
+    goldDeep: Color(0xFFE05A12),
+    goldSoft: Color(0x2EFF7A2F),
+    pine: Color(0xFF4A44A8),
+    pineDeep: Color(0xFF262266),
+    pineGlow: Color(0xFF7C75E0),
+    red: Color(0xFFEF4B5F),
+    redDeep: Color(0xFFB3243A),
+    redSoft: Color(0x29EF4B5F),
     emerald: Color(0xFF62C792),
     emeraldSoft: Color(0x2E62C792),
-    amber: Color(0xFFE8C278),
-    amberSoft: Color(0x29E8C278),
+    amber: Color(0xFFFFC266),
+    amberSoft: Color(0x29FFC266),
     info: Color(0xFF8DBBDA),
     infoSoft: Color(0x298DBBDA),
-    textPrimary: Color(0xFFEEF5F0),
-    textSecondary: Color(0xFFC3D3CA),
-    textMuted: Color(0xFF93AA9F),
-    onGold: Color(0xFF1C1204),
+    textPrimary: Color(0xFFEFEDFB),
+    textSecondary: Color(0xFFC9C5EA),
+    textMuted: Color(0xFF9C97C9),
+    onGold: Color(0xFF1C0A02),
     onRed: Color(0xFFFFFFFF),
     shadow: Color(0xFF000000),
   );
 
-  /// Warm paper variant of the approved prototype.
+  /// Lavender paper variant of palette B.
   static const HvpColors light = HvpColors(
     isDark: false,
-    bg: Color(0xFFF5EEDC),
-    bgDeep: Color(0xFFEBDFBE),
-    surface: Color(0xFFFFFDF7),
-    surfaceHigh: Color(0xFFFBF3DE),
-    surfaceHighest: Color(0xFFF3E7C9),
-    border: Color(0xFFDDD0AE),
-    borderStrong: Color(0xFFC2B283),
-    gold: Color(0xFFB7841E),
-    goldBright: Color(0xFFE0A92E),
-    goldDeep: Color(0xFF8F6512),
-    goldSoft: Color(0x24B7841E),
-    pine: Color(0xFF1F7D5C),
-    pineDeep: Color(0xFF0E3A2C),
-    pineGlow: Color(0xFF2FA374),
-    red: Color(0xFFC0302A),
-    redDeep: Color(0xFF9A2A22),
-    redSoft: Color(0x1FC0302A),
+    bg: Color(0xFFF4F2FB),
+    bgDeep: Color(0xFFE6E2F5),
+    surface: Color(0xFFFFFFFF),
+    surfaceHigh: Color(0xFFF0EEF9),
+    surfaceHighest: Color(0xFFE4E0F3),
+    border: Color(0xFFD3CFE8),
+    borderStrong: Color(0xFFB3ADD6),
+    gold: Color(0xFFC94A05),
+    goldBright: Color(0xFFF0792A),
+    goldDeep: Color(0xFF9F3600),
+    goldSoft: Color(0x24C94A05),
+    pine: Color(0xFF3B3590),
+    pineDeep: Color(0xFF1E1A5C),
+    pineGlow: Color(0xFF5B54C9),
+    red: Color(0xFFC0243C),
+    redDeep: Color(0xFF8E1B2C),
+    redSoft: Color(0x1FC0243C),
     emerald: Color(0xFF256B45),
     emeraldSoft: Color(0x1F256B45),
     amber: Color(0xFFB06A0F),
     amberSoft: Color(0x29B06A0F),
     info: Color(0xFF2A5D82),
     infoSoft: Color(0x1F2A5D82),
-    textPrimary: Color(0xFF231705),
-    textSecondary: Color(0xFF5B4A2E),
-    textMuted: Color(0xFF8C7A57),
-    onGold: Color(0xFF1C1204),
+    textPrimary: Color(0xFF1A1633),
+    textSecondary: Color(0xFF4A4570),
+    textMuted: Color(0xFF7A74A0),
+    onGold: Color(0xFFFFFFFF),
     onRed: Color(0xFFFFFFFF),
-    shadow: Color(0xFF4A3407),
+    shadow: Color(0xFF2A2457),
   );
 
-  /// Belt gold: the primary call-to-action fill.
+  /// Ember orange: the primary call-to-action fill.
   LinearGradient get goldGradient => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -158,7 +160,7 @@ class HvpColors extends ThemeExtension<HvpColors> {
         colors: <Color>[red, redDeep],
       );
 
-  /// Green hero panels (rank card, wordmark plate).
+  /// Indigo hero panels (rank card, wordmark plate).
   LinearGradient get pineGradient => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,

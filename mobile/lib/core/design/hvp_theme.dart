@@ -56,6 +56,16 @@ abstract final class HvpTheme {
         iconTheme: IconThemeData(color: c.gold),
         actionsIconTheme: IconThemeData(color: c.gold),
       ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: c.gold,
+        unselectedLabelColor: c.textMuted,
+        labelStyle: t.titleS,
+        unselectedLabelStyle: t.titleS,
+        indicatorColor: c.gold,
+        indicatorSize: TabBarIndicatorSize.label,
+        dividerColor: c.border,
+        overlayColor: WidgetStatePropertyAll<Color>(c.goldSoft),
+      ),
       dividerTheme: DividerThemeData(color: c.border, thickness: 1, space: 1),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: c.surface,
@@ -69,14 +79,18 @@ abstract final class HvpTheme {
         contentTextStyle: t.body,
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: c.gold, textStyle: t.titleS),
+        style:
+            TextButton.styleFrom(foregroundColor: c.gold, textStyle: t.titleS),
       ),
-      listTileTheme: ListTileThemeData(iconColor: c.gold, textColor: c.textPrimary),
+      listTileTheme:
+          ListTileThemeData(iconColor: c.gold, textColor: c.textPrimary),
       tooltipTheme: TooltipThemeData(
-        decoration: BoxDecoration(color: c.surfaceHighest, border: Border.all(color: c.borderStrong)),
+        decoration: BoxDecoration(
+            color: c.surfaceHighest, border: Border.all(color: c.borderStrong)),
         textStyle: t.body,
       ),
-      textSelectionTheme: TextSelectionThemeData(cursorColor: c.gold, selectionHandleColor: c.gold),
+      textSelectionTheme: TextSelectionThemeData(
+          cursorColor: c.gold, selectionHandleColor: c.gold),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: c.gold),
       splashFactory: InkRipple.splashFactory,
     );
