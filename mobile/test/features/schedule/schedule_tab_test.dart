@@ -14,6 +14,7 @@ import 'package:hvp_forging/features/schedule/domain/schedule_models.dart';
 import 'package:hvp_forging/features/schedule/domain/schedule_query.dart';
 import 'package:hvp_forging/features/schedule/presentation/providers/schedule_providers.dart';
 import 'package:hvp_forging/features/schedule/presentation/screens/schedule_tab.dart';
+import 'package:hvp_forging/features/schedule/presentation/widgets/month_grid.dart';
 
 import '../../helpers/test_harness.dart';
 import 'fixtures.dart';
@@ -174,6 +175,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.queries.last.view, ScheduleView.week);
     expect(find.text('02/03 – 08/03'), findsOneWidget);
+  });
+
+  testWidgets(
+      'month view: the grid and the sessions are one scrollable page and the last session clears the bottom bar',
+      (tester) async {
+    final repo = FakeScheduleRepository()
+      ..onSchedule = (_) async => ScheduleResult(items: <ScheduleItem>[
+            for (var i = 1; i <= 6; i++)
+              sampleItem('s$i', date: '2026-03-1$i', title: 'Buổi số $i'),
+          ]);
+    await _pump(tester, repo);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Tháng'));
+    await tester.pumpAndSettle();
+
+    // the month grid lives inside the same ListView as the session cards
+    final list = find.byType(ListView).first;
+    expect(find.descendant(of: list, matching: find.byType(MonthGrid)),
+        findsOneWidget);
+
+    await tester.drag(list, const Offset(0, -3000));
+    await tester.pumpAndSettle();
+    final last = find.textContaining('Buổi số 6');
+    expect(last, findsOneWidget);
+    final viewport = tester.getRect(find.byType(Scaffold).first);
+    // HvpLayout.navClearance keeps the bottom 108dp free for the floating bar
+    expect(
+        tester.getRect(last).bottom, lessThanOrEqualTo(viewport.bottom - 100));
   });
 
   testWidgets(

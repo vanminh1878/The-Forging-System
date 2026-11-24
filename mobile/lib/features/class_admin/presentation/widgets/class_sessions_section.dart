@@ -17,9 +17,13 @@ import '../class_providers.dart';
 
 /// Upcoming sessions of a class, with cancel on those that can still be cancelled.
 class ClassSessionsSection extends ConsumerWidget {
-  const ClassSessionsSection({super.key, required this.classId});
+  const ClassSessionsSection(
+      {super.key, required this.classId, this.readOnly = false});
 
   final String classId;
+
+  /// Coach and reception only look at the sessions; cancelling is the admin's job here.
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -41,7 +45,8 @@ class ClassSessionsSection extends ConsumerWidget {
                         style: context.txt.bodySmall));
               }
               return Column(children: <Widget>[
-                for (final s in list) _SessionRow(session: s, classId: classId),
+                for (final s in list)
+                  _SessionRow(session: s, classId: classId, readOnly: readOnly),
               ]);
             },
           ),
@@ -50,14 +55,16 @@ class ClassSessionsSection extends ConsumerWidget {
 }
 
 class _SessionRow extends ConsumerWidget {
-  const _SessionRow({required this.session, required this.classId});
+  const _SessionRow(
+      {required this.session, required this.classId, required this.readOnly});
 
   final ClassSession session;
   final String classId;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cancellable =
+    final cancellable = !readOnly &&
         canCancelSession(session.status, session.startsAt, DateTime.now());
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -71,6 +78,7 @@ class _SessionRow extends ConsumerWidget {
           style: context.txt.bodySmall),
       trailing: cancellable
           ? TextButton(
+              style: TextButton.styleFrom(foregroundColor: context.hvp.red),
               onPressed: () => _cancel(context, ref),
               child: const Text('Huỷ buổi'))
           : StatusChip(

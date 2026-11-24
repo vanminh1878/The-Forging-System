@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/design/hvp_icons.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/branch_qr/presentation/branch_qr_route.dart';
+import '../../features/class_admin/presentation/screens/class_detail_screen.dart';
+import '../../features/class_admin/presentation/screens/class_list_screen.dart';
 import '../../features/reception_checkin/domain/member_hit.dart';
 import '../../features/reception_checkin/presentation/assisted_checkin_screen.dart';
 import '../../features/reception_checkin/presentation/member_today_screen.dart';
@@ -15,13 +17,15 @@ import '../../features/reception_stock/presentation/reception_stock_tab.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/notifications/presentation/widgets/notification_bell.dart';
 import '../route_paths.dart';
+import '../shell/profile_tab.dart';
 import '../shell/shell_tab.dart';
 
-/// Reception routes (tabs: Check-in, Gói tập, Kho quà, Giao quà).
+/// Reception routes (tabs: Check-in, Gói tập, Lớp học, Kho quà, Giao quà, Hồ sơ).
 /// Replace a tab's `builder` with the feature screen when it is implemented.
 List<RouteBase> receptionRoutes() => <RouteBase>[
       roleShellRoute(
         role: AppRole.reception,
+        accountInAppBar: false,
         actions: const <Widget>[
           NotificationBell(inboxPath: ReceptionPaths.notifications)
         ],
@@ -41,6 +45,14 @@ List<RouteBase> receptionRoutes() => <RouteBase>[
             builder: (_) => const ReceptionMembershipsTab(),
           ),
           ShellTab(
+            path: ReceptionPaths.classes,
+            label: 'Lớp học',
+            icon: HvpIcons.users,
+            activeIcon: HvpIcons.usersFill,
+            builder: (_) => const ClassListScreen(
+                readOnly: true, detailPath: ReceptionPaths.classDetail),
+          ),
+          ShellTab(
             path: ReceptionPaths.stock,
             label: 'Kho quà',
             icon: HvpIcons.package,
@@ -53,6 +65,13 @@ List<RouteBase> receptionRoutes() => <RouteBase>[
             icon: HvpIcons.gift,
             activeIcon: HvpIcons.giftFill,
             builder: (_) => const GiftHandoverTab(),
+          ),
+          ShellTab(
+            path: ReceptionPaths.profile,
+            label: 'Hồ sơ',
+            icon: HvpIcons.user,
+            activeIcon: HvpIcons.userFill,
+            builder: (_) => const ProfileTab(studentSections: false),
           ),
         ],
       ),
@@ -81,6 +100,11 @@ List<RouteBase> receptionRoutes() => <RouteBase>[
         builder: (context, state) => MemberDetailScreen(
           memberId: state.pathParameters['memberId'] ?? '',
         ),
+      ),
+      GoRoute(
+        path: ReceptionPaths.classDetailPattern,
+        builder: (context, state) => ClassDetailScreen(
+            classId: state.pathParameters['id']!, readOnly: true),
       ),
       GoRoute(
         path: ReceptionPaths.notifications,

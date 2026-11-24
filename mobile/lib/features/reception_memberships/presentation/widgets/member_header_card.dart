@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/design/hvp_context.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../../../core/widgets/hvp_avatar.dart';
 import '../../../../core/widgets/hvp_card.dart';
 import '../../../reception_checkin/presentation/widgets/member_card.dart';
 import '../../domain/member_models.dart';
+import 'member_avatar.dart';
 
 /// Who the learner is, their account status and why it is not active.
 class MemberHeaderCard extends StatelessWidget {
@@ -28,7 +28,11 @@ class MemberHeaderCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          HvpAvatar(url: profile.avatarUrl, name: profile.fullName, size: 56),
+          MemberAvatar(
+              url: profile.avatarUrl,
+              name: profile.fullName,
+              size: 56,
+              frozen: profile.status == 'FROZEN'),
           const SizedBox(width: 14),
           Expanded(
             child: Column(

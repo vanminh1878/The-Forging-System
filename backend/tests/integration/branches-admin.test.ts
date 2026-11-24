@@ -72,6 +72,24 @@ describe('branches: admin create / edit / status', () => {
     expect(dup.body.error.code).toBe('BRANCH_CODE_TAKEN');
   });
 
+  it('assigns the next sequential code when none is sent, even for concurrent creates', async () => {
+    const first = await post('/admin/branches', admin, { name: 'Tự sinh mã 1' });
+    expect(first.status).toBe(201);
+    expect(first.body.data.code).toBe('CN001');
+    const batch = await Promise.all(
+      ['Song song A', 'Song song B', 'Song song C'].map((name) => post('/admin/branches', admin, { name })),
+    );
+    expect(batch.map((r) => r.status)).toEqual([201, 201, 201]);
+    const codes = batch.map((r) => r.body.data.code as string).sort();
+    expect(codes).toEqual(['CN002', 'CN003', 'CN004']);
+    // Legacy codes such as Q1 do not disturb the sequence, and an explicit code still works.
+    expect((await post('/admin/branches', admin, { code: 'cn009', name: 'Mã tay' })).body.data.code).toBe(
+      'CN009',
+    );
+    expect((await post('/admin/branches', admin, { name: 'Sau mã tay' })).body.data.code).toBe('CN010');
+    expect((await post('/admin/branches', member, { name: 'Học viên thử' })).status).toBe(403);
+  });
+
   it('patches partially, clears nullable fields, keeps code unique', async () => {
     const q7 = (await ownerQuery<{ id: string }>(`SELECT id FROM branches WHERE code = 'Q7'`))[0].id;
     const patch = (body: object, id = q7) =>

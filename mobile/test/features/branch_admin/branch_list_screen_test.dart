@@ -8,7 +8,6 @@ import 'package:hvp_forging/core/widgets/hvp_button.dart';
 import 'package:hvp_forging/features/auth/presentation/providers/auth_controller.dart';
 import 'package:hvp_forging/features/branch_admin/domain/branch_admin_repository.dart';
 import 'package:hvp_forging/features/branch_admin/domain/branch_input.dart';
-import 'package:hvp_forging/features/branch_admin/domain/branch_qr.dart';
 import 'package:hvp_forging/features/branch_admin/presentation/providers/branch_admin_providers.dart';
 import 'package:hvp_forging/features/branch_admin/presentation/screens/branch_list_screen.dart';
 
@@ -33,13 +32,6 @@ class _FakeRepo implements BranchAdminRepository {
   Future<Branch> setActive(String branchId,
           {required bool isActive, required String reason}) =>
       throw UnimplementedError();
-
-  @override
-  Future<BranchQr> getQr(String branchId) => throw UnimplementedError();
-
-  @override
-  Future<BranchQr> rotateQr(String branchId, {String? reason}) =>
-      throw UnimplementedError();
 }
 
 Future<void> _pump(
@@ -61,7 +53,6 @@ const _active = Branch(
   name: 'The Corner',
   address: '12 Nguyễn Huệ',
   openingHours: '06:00 – 21:30',
-  qrVersion: '3',
 );
 const _inactive =
     Branch(id: 'b2', code: 'Q2', name: 'Chi nhánh cũ', isActive: false);
@@ -73,7 +64,7 @@ void main() {
 
     expect(find.text('The Corner'), findsOneWidget);
     expect(find.text('12 Nguyễn Huệ · 06:00 – 21:30'), findsOneWidget);
-    expect(find.text('Mã QR: phiên bản 3'), findsOneWidget);
+    expect(find.textContaining('Mã QR'), findsNothing);
     expect(find.text('ĐANG HOẠT ĐỘNG'), findsOneWidget);
     expect(find.text('Chi nhánh cũ'), findsNothing);
 
@@ -82,7 +73,6 @@ void main() {
 
     expect(find.text('Chi nhánh cũ'), findsOneWidget);
     expect(find.text('NGỪNG HOẠT ĐỘNG'), findsOneWidget);
-    expect(find.textContaining('Mã QR'), findsOneWidget);
   });
 
   testWidgets('empty list shows the empty state', (tester) async {

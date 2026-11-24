@@ -29,6 +29,14 @@ class ClassRepositoryImpl implements ClassRepository {
   }
 
   @override
+  Future<List<ClassSummary>> coachClasses() async {
+    final response = await _api.get('/coach/classes');
+    return response.dataList
+        .map((e) => coachClassFromJson(asMap(e)))
+        .toList(growable: false);
+  }
+
+  @override
   Future<ClassSummary> create(ClassDraft draft) async => classSummaryFromJson(
       (await _api.post('/admin/classes', body: draft.toJson())).dataMap);
 

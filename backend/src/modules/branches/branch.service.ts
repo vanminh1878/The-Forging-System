@@ -41,9 +41,12 @@ export class BranchService {
     if (hit && hit.id !== exceptId) throw conflict('Mã chi nhánh đã tồn tại', 'BRANCH_CODE_TAKEN');
   }
 
-  async create(input: BranchInput & { code: string; name: string }, by: string): Promise<Branch> {
-    await this.assertCodeFree(input.code);
-    const row = await this.repo.insert(input);
+  /** Without `code` the next sequential one (CN001, CN002, ...) is assigned. */
+  async create(input: BranchInput & { name: string }, by: string): Promise<Branch> {
+    let code = input.code;
+    if (code === undefined) code = await this.repo.nextCode();
+    else await this.assertCodeFree(code);
+    const row = await this.repo.insert({ ...input, code });
     await this.audit.record({
       actorId: by,
       action: 'BRANCH_CREATED',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/shell/theme_mode_selector.dart';
 import '../../../../core/design/chamfer_border.dart';
 import '../../../../core/design/color_utils.dart';
 import '../../../../core/design/hvp_backdrop.dart';
@@ -42,10 +43,12 @@ class AuthScaffold extends StatelessWidget {
         slashes: false,
         child: Column(
           children: <Widget>[
-            HvpLogoHeader(showBack: showBack),
+            HvpLogoHeader(
+                showBack: showBack, trailing: const ThemeModeToggle()),
             Expanded(
               child: CustomScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 slivers: <Widget>[
                   SliverFillRemaining(
                     hasScrollBody: false,
@@ -64,16 +67,21 @@ class AuthScaffold extends StatelessWidget {
                                 const SizedBox(height: 28),
                                 Semantics(
                                   header: true,
-                                  child: Text(title.toUpperCase(), style: t.displayM),
+                                  child: Text(title.toUpperCase(),
+                                      style: t.displayM),
                                 ).entrance(0),
                               ],
                               if (subtitle != null)
                                 Padding(
-                                  padding: EdgeInsets.only(top: spotlightTitle ? 16 : 8),
+                                  padding: EdgeInsets.only(
+                                      top: spotlightTitle ? 16 : 8),
                                   child: Text(
                                     subtitle!,
-                                    style: t.bodySmall.copyWith(color: context.hvp.textMuted),
-                                    textAlign: spotlightTitle ? TextAlign.center : TextAlign.start,
+                                    style: t.bodySmall
+                                        .copyWith(color: context.hvp.textMuted),
+                                    textAlign: spotlightTitle
+                                        ? TextAlign.center
+                                        : TextAlign.start,
                                   ),
                                 ),
                               const SizedBox(height: 24),
@@ -131,7 +139,11 @@ class _SpotlightTitle extends StatelessWidget {
                     bottomLeft: true,
                     side: BorderSide(color: c.gold, width: 1.8),
                   ),
-                  shadows: c.isDark ? <BoxShadow>[BoxShadow(color: c.gold.fade(0.28), blurRadius: 10)] : null,
+                  shadows: c.isDark
+                      ? <BoxShadow>[
+                          BoxShadow(color: c.gold.fade(0.28), blurRadius: 10)
+                        ]
+                      : null,
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(7),
@@ -151,7 +163,8 @@ class _SpotlightTitle extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
-                            child: Text(title.toUpperCase(), style: t.displayL.copyWith(fontSize: 46)),
+                            child: Text(title.toUpperCase(),
+                                style: t.displayL.copyWith(fontSize: 46)),
                           ),
                         ),
                       ),
@@ -183,12 +196,20 @@ class _Tagline extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             'WE BUILD DISCIPLINE',
-            style: t.label.copyWith(color: c.gold, fontSize: 12, letterSpacing: 4.2, fontWeight: FontWeight.w600),
+            style: t.label.copyWith(
+                color: c.gold,
+                fontSize: 12,
+                letterSpacing: 4.2,
+                fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
           Text(
             'THE CORNER',
-            style: t.label.copyWith(color: c.textMuted, fontSize: 11, letterSpacing: 4.2, fontWeight: FontWeight.w600),
+            style: t.label.copyWith(
+                color: c.textMuted,
+                fontSize: 11,
+                letterSpacing: 4.2,
+                fontWeight: FontWeight.w600),
           ),
         ],
       ),

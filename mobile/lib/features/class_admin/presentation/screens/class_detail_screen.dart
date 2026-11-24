@@ -16,15 +16,21 @@ import '../../domain/class_rules.dart';
 import '../../domain/session_types.dart';
 import '../class_providers.dart';
 import '../widgets/class_form_sheet.dart';
+import '../widgets/class_lesson_plan_section.dart';
 import '../widgets/class_sessions_section.dart';
 import '../widgets/enrol_member_sheet.dart';
 import '../widgets/exam_session_sheet.dart';
 
 /// CLS-08: one class with its roster; enrol and remove learners.
+///
+/// With [readOnly] (coach, reception) it only shows the class, its roster, the
+/// upcoming sessions and the lesson plan: no edit, enrol, remove, exam or cancel.
 class ClassDetailScreen extends ConsumerWidget {
-  const ClassDetailScreen({super.key, required this.classId});
+  const ClassDetailScreen(
+      {super.key, required this.classId, this.readOnly = false});
 
   final String classId;
+  final bool readOnly;
 
   Future<void> _remove(
       BuildContext context, WidgetRef ref, RosterEntry m) async {
@@ -73,11 +79,12 @@ class ClassDetailScreen extends ConsumerWidget {
                       children: <Widget>[
                         Row(children: <Widget>[
                           Expanded(child: Text(c.name, style: t.titleM)),
-                          IconButton(
-                              tooltip: 'Sửa lớp',
-                              icon: const Icon(HvpIcons.pencil),
-                              onPressed: () =>
-                                  showClassForm(context, existing: c)),
+                          if (!readOnly)
+                            IconButton(
+                                tooltip: 'Sửa lớp',
+                                icon: const Icon(HvpIcons.pencil),
+                                onPressed: () =>
+                                    showClassForm(context, existing: c)),
                         ]),
                         Text(
                             '${sessionTypeLabel(c.sessionTypeCode)} · ${weekdaysLabel(c.weekdays)} · ${c.startTime} · ${c.durationMinutes} phút',
@@ -88,17 +95,38 @@ class ClassDetailScreen extends ConsumerWidget {
                       ]),
                 ),
                 const SizedBox(height: 12),
-                HvpButton.secondary(
-                    label: '+ Buổi kiểm tra',
-                    expand: true,
-                    onPressed: () => showExamSheet(context,
-                        classId: classId, className: c.name)),
-                ClassSessionsSection(classId: classId),
+                if (!readOnly)
+                  HvpButton.secondary(
+                      label: 'Tạo buổi kiểm tra',
+                      icon: HvpIcons.calendarCheck,
+                      expand: true,
+                      // The server also refuses it (CLASS_INACTIVE); this only explains why.
+                      onPressed: c.isActive
+                          ? () => showExamSheet(context,
+                              classId: classId, className: c.name)
+                          : null),
+                if (!readOnly && !c.isActive)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+                    child: Row(children: <Widget>[
+                      Icon(HvpIcons.info, size: 16, color: context.hvp.amber),
+                      const SizedBox(width: 6),
+                      Expanded(
+                          child: Text(
+                              'Lớp đã ngừng hoạt động, không tạo được buổi kiểm tra.',
+                              style: t.bodySmall
+                                  .copyWith(color: context.hvp.amber))),
+                    ]),
+                  ),
+                ClassSessionsSection(classId: classId, readOnly: readOnly),
+                if (readOnly) ClassLessonPlanSection(courseId: c.courseId),
                 SectionHeader(title: 'Học viên (${d.roster.length})'),
-                HvpButton.primary(
-                    label: '+ Thêm học viên vào lớp',
-                    expand: true,
-                    onPressed: () => showEnrolSheet(context, classId)),
+                if (!readOnly)
+                  HvpButton.primary(
+                      label: 'Thêm học viên vào lớp',
+                      icon: HvpIcons.userPlus,
+                      expand: true,
+                      onPressed: () => showEnrolSheet(context, classId)),
                 const SizedBox(height: 8),
                 if (d.roster.isEmpty)
                   Padding(
@@ -109,10 +137,12 @@ class ClassDetailScreen extends ConsumerWidget {
                     contentPadding: EdgeInsets.zero,
                     title: Text(m.fullName, style: t.bodyL),
                     subtitle: Text(m.memberCode, style: t.bodySmall),
-                    trailing: IconButton(
-                        tooltip: 'Cho rời lớp',
-                        icon: const Icon(HvpIcons.trash),
-                        onPressed: () => _remove(context, ref, m)),
+                    trailing: readOnly
+                        ? null
+                        : IconButton(
+                            tooltip: 'Cho rời lớp',
+                            icon: Icon(HvpIcons.trash, color: context.hvp.red),
+                            onPressed: () => _remove(context, ref, m)),
                   ),
               ],
             ),

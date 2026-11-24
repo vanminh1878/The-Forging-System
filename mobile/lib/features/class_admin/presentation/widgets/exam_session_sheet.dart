@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../../core/widgets/hvp_button.dart';
@@ -29,10 +30,11 @@ class ExamSessionSheet extends ConsumerStatefulWidget {
 }
 
 class _ExamSessionSheetState extends ConsumerState<ExamSessionSheet> {
+  final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _date = TextEditingController();
+  late final _class = TextEditingController(text: widget.className);
   DateTime? _day;
-  bool _missingDay = false;
 
   @override
   void initState() {
@@ -45,6 +47,7 @@ class _ExamSessionSheetState extends ConsumerState<ExamSessionSheet> {
   void dispose() {
     _title.dispose();
     _date.dispose();
+    _class.dispose();
     super.dispose();
   }
 
@@ -59,16 +62,14 @@ class _ExamSessionSheetState extends ConsumerState<ExamSessionSheet> {
     if (picked == null) return;
     setState(() {
       _day = picked;
-      _missingDay = false;
       _date.text = formatCalendarDate(toIsoDate(picked));
     });
+    // Picking a day clears the "choose a day" error right away.
+    _formKey.currentState?.validate();
   }
 
   Future<void> _submit() async {
-    if (_day == null) {
-      setState(() => _missingDay = true);
-      return;
-    }
+    if (!(_formKey.currentState?.validate() ?? false)) return;
     final ok = await ref.read(classSubmitProvider.notifier).run(() => ref
         .read(classRepositoryProvider)
         .createExamSession(widget.classId, toIsoDate(_day!),
@@ -84,33 +85,39 @@ class _ExamSessionSheetState extends ConsumerState<ExamSessionSheet> {
     final submit = ref.watch(classSubmitProvider);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            HvpTextField(
-                label: 'Lớp',
-                controller: TextEditingController(text: widget.className),
-                enabled: false),
-            const SizedBox(height: 14),
-            HvpTextField(
-                label: 'Ngày',
-                controller: _date,
-                readOnly: true,
-                onTap: _pickDay,
-                helper: _missingDay
-                    ? 'Vui lòng chọn ngày.'
-                    : 'Giờ và độ dài theo lịch của lớp.'),
-            const SizedBox(height: 14),
-            HvpTextField(
-                label: 'Tên buổi kiểm tra', controller: _title, maxLength: 200),
-            if (submit.error != null) InlineBanner(message: submit.error!),
-            const SizedBox(height: 16),
-            HvpButton.primary(
-                label: 'Tạo buổi kiểm tra',
-                expand: true,
-                loading: submit.submitting,
-                onPressed: submit.submitting ? null : _submit),
-          ]),
+      child: Form(
+        key: _formKey,
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              HvpTextField(label: 'Lớp', controller: _class, enabled: false),
+              const SizedBox(height: 14),
+              HvpTextField(
+                  label: 'Ngày',
+                  controller: _date,
+                  required: true,
+                  readOnly: true,
+                  suffixIcon: HvpIcons.calendar,
+                  onTap: _pickDay,
+                  helper: 'Giờ và độ dài theo lịch của lớp.',
+                  validator: (_) =>
+                      _day == null ? 'Vui lòng chọn ngày.' : null),
+              const SizedBox(height: 14),
+              HvpTextField(
+                  label: 'Tên buổi kiểm tra',
+                  controller: _title,
+                  maxLength: 200,
+                  textCapitalization: TextCapitalization.sentences),
+              if (submit.error != null) InlineBanner(message: submit.error!),
+              const SizedBox(height: 16),
+              HvpButton.primary(
+                  label: 'Tạo buổi kiểm tra',
+                  icon: HvpIcons.calendarCheck,
+                  expand: true,
+                  loading: submit.submitting,
+                  onPressed: submit.submitting ? null : _submit),
+            ]),
+      ),
     );
   }
 }

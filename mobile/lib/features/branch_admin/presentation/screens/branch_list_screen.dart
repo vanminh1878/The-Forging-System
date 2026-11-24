@@ -30,11 +30,16 @@ class BranchListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: HvpAppBar(title: 'Chi nhánh', actions: <Widget>[
-        IconButton(
+        IconButton.filled(
           tooltip: 'Thêm chi nhánh',
-          icon: const Icon(HvpIcons.plus),
+          style: IconButton.styleFrom(
+              backgroundColor: c.gold,
+              foregroundColor: c.onGold,
+              minimumSize: const Size(48, 48)),
+          icon: const Icon(HvpIcons.branchAdd),
           onPressed: () => _openForm(context),
         ),
+        const SizedBox(width: 8),
       ]),
       body: Column(
         children: <Widget>[
@@ -121,10 +126,6 @@ class _BranchCard extends StatelessWidget {
           if (line.isNotEmpty) ...<Widget>[
             const SizedBox(height: 6),
             Text(line, style: t.bodySmall)
-          ],
-          if (branch.qrVersion != null) ...<Widget>[
-            const SizedBox(height: 4),
-            Text('Mã QR: phiên bản ${branch.qrVersion}', style: t.caption),
           ],
         ],
       ),

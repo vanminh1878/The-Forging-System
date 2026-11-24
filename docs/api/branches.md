@@ -56,7 +56,7 @@ Học viên/staff khác gọi các endpoint này nhận 403 `FORBIDDEN`.
 
 | Field | Kiểu | Bắt buộc | Giới hạn |
 |---|---|---|---|
-| `code` | string | có | tự chuyển IN HOA; `A-Z 0-9 _ -`, 2–20 ký tự; duy nhất |
+| `code` | string | không | tự chuyển IN HOA; `A-Z 0-9 _ -`, 2–20 ký tự; duy nhất. **Bỏ trống thì server tự cấp mã kế tiếp `CN001`, `CN002`…** (đánh số theo mã `CNnnn` lớn nhất của tenant; mã cũ như `Q1` không ảnh hưởng; tạo song song vẫn không trùng). App admin không gửi `code`. |
 | `name` | string | có | 2–100 |
 | `address` | string\|null | không | ≤ 255 |
 | `openingHours` | string\|null | không | ≤ 100, văn bản tự do, ví dụ `06:00 – 21:30` |
@@ -97,7 +97,7 @@ Body: `{ "isActive": false, "reason": "Đóng cửa sửa chữa" }`. `reason` b
 
 ### Ghi chú FE (admin)
 
-- Form tạo/sửa: hiển thị `code` tự in hoa; lỗi `BRANCH_CODE_TAKEN` hiện ngay dưới ô Mã. Toast: "Đã tạo chi nhánh", "Đã lưu thay đổi".
+- Form tạo/sửa: ô "Mã chi nhánh" chỉ đọc ("Tự động tạo khi lưu" khi tạo mới; mã thật khi sửa). Giờ mở/đóng cửa chọn bằng 2 ô giờ (picker hoặc gõ `HH:mm`, chặn chữ), lưu thành `openingHours = "06:00 – 21:30"`; giờ cũ dạng văn bản tự do được giữ nguyên cho tới khi admin chọn giờ mới. Vị trí chọn bằng bản đồ OpenStreetMap (chạm để ghim, không cần API key) rồi gửi `latitude`/`longitude`. Toast: "Đã tạo chi nhánh", "Đã lưu thay đổi".
 - Nút bật/tắt mở hộp thoại bắt nhập lý do (≥ 3 ký tự); toast "Đã ngừng hoạt động chi nhánh" / "Đã kích hoạt lại chi nhánh".
 
 ## QR check-in của chi nhánh
@@ -137,11 +137,11 @@ Quyền: admin (A). Body (tuỳ chọn): `{ "reason": "Mất bảng QR" }` (3–
 
 ### Ghi chú FE
 
-- Màn admin: nút "Làm mới mã QR" mở hộp thoại cảnh báo "Mã QR đã in sẽ không còn dùng được" + ô lý do tuỳ chọn; sau khi thành công toast "Đã cập nhật QR check-in" và hiển thị "Mã QR: phiên bản {qrVersion}".
-- Màn lễ tân: dùng `payload` để vẽ mã QR; tải lại khi admin vừa làm mới.
+- Màn admin trong app **không còn** màn "Xem mã QR để in" (mã tĩnh không phải mã check-in hợp lệ) và không còn nút làm mới/thu hồi mã. `GET /branches/:branchId/qr` và `POST /admin/branches/:branchId/qr/rotate` vẫn còn ở backend cho công cụ khác.
+- Màn lễ tân: mã check-in xoay vòng lấy từ `GET /branches/:branchId/checkin-code`, xem [`checkin.md`](checkin.md).
 
 ## Ghi chú FE
 
 - Danh sách chọn chi nhánh (đăng ký, đặt lớp…): gọi `GET /branches`, hiển thị `name` + `address`, và `openingHours` nếu có.
-- Màn quản trị chi nhánh (admin): gọi với `includeInactive=true`, đánh dấu chi nhánh `isActive=false` bằng chip "Ngừng hoạt động"; hiển thị "Mã QR: phiên bản {qrVersion}".
+- Màn quản trị chi nhánh (admin): gọi với `includeInactive=true`, đánh dấu chi nhánh `isActive=false` bằng chip "Ngừng hoạt động".
 - Trạng thái màn hình: loading, rỗng ("Chưa có chi nhánh"), lỗi (nút thử lại).

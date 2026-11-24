@@ -26,7 +26,11 @@ class HvpHeaderRule extends StatelessWidget {
               height: 1,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: <Color>[c.gold.fade(0), c.gold.fade(0.7), c.gold.fade(0)]),
+                  gradient: LinearGradient(colors: <Color>[
+                    c.gold.fade(0),
+                    c.gold.fade(0.7),
+                    c.gold.fade(0)
+                  ]),
                 ),
               ),
             ),
@@ -41,7 +45,8 @@ class HvpHeaderRule extends StatelessWidget {
 /// Fixed top bar of every screen: the small HVP logo centred, an optional page
 /// title row under it (left aligned), back arrow / actions at the sides.
 class HvpAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const HvpAppBar({super.key, this.title, this.actions, this.bottom, this.logoHeight = 38});
+  const HvpAppBar(
+      {super.key, this.title, this.actions, this.bottom, this.logoHeight = 38});
 
   /// Page title shown under the logo (upper-cased). Omit on screens that carry their own heading.
   final String? title;
@@ -55,7 +60,10 @@ class HvpAppBar extends StatelessWidget implements PreferredSizeWidget {
   static const double _titleRow = 38;
   static const double _rule = 3;
 
-  double get _belowToolbar => (title == null ? 0 : _titleRow) + (bottom?.preferredSize.height ?? 0) + _rule;
+  double get _belowToolbar =>
+      (title == null ? 0 : _titleRow) +
+      (bottom?.preferredSize.height ?? 0) +
+      _rule;
 
   @override
   Size get preferredSize => Size.fromHeight(_toolbar + _belowToolbar);
@@ -117,10 +125,14 @@ class HvpAppBar extends StatelessWidget implements PreferredSizeWidget {
 /// Same header for screens that are not a Scaffold with an app bar (sign-in,
 /// splash): logo centred, optional back button, safe-area aware.
 class HvpLogoHeader extends StatelessWidget {
-  const HvpLogoHeader({super.key, this.showBack = false, this.logoHeight = 56});
+  const HvpLogoHeader(
+      {super.key, this.showBack = false, this.logoHeight = 56, this.trailing});
 
   final bool showBack;
   final double logoHeight;
+
+  /// Widget pinned to the right edge (e.g. the Sáng / Tối switch on sign-in).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +156,7 @@ class HvpLogoHeader extends StatelessWidget {
                       left: 4,
                       child: BackButton(color: c.gold),
                     ),
+                  if (trailing != null) Positioned(right: 12, child: trailing!),
                 ],
               ),
             ),

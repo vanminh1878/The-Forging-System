@@ -9,12 +9,22 @@ import '../../features/profile/presentation/widgets/profile_details.dart';
 import '../route_paths.dart';
 import 'account_panel.dart';
 
-/// Student "Hồ sơ" tab: account card, personal info, package entry, theme switch and logout.
+/// "Hồ sơ" tab: account card, theme switch and logout. Students also get their
+/// personal info and the package entry; staff have no learner profile
+/// (`/me/profile` is for members only), so [studentSections] is off for them.
 class ProfileTab extends StatelessWidget {
-  const ProfileTab({super.key});
+  const ProfileTab({super.key, this.studentSections = true});
+
+  final bool studentSections;
 
   @override
   Widget build(BuildContext context) {
+    if (!studentSections) {
+      return ListView(
+        padding: HvpLayout.tabPagePadding,
+        children: const <Widget>[AccountPanel()],
+      );
+    }
     return ListView(
       padding: HvpLayout.tabPagePadding,
       children: <Widget>[

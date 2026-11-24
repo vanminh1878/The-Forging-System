@@ -31,7 +31,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    Future<void>.microtask(() => ref.read(loginSubmitProvider.notifier).reset());
+    Future<void>.microtask(
+        () => ref.read(loginSubmitProvider.notifier).reset());
   }
 
   @override
@@ -79,7 +80,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 label: 'Email hoặc số điện thoại',
                 controller: _identifier,
                 prefixIcon: HvpIcons.user,
-                keyboardType: TextInputType.emailAddress,
+                keyboardType: TextInputType.text,
                 textInputAction: TextInputAction.next,
                 autofillHints: const <String>[AutofillHints.username],
                 validator: AuthValidators.identifier,
@@ -96,24 +97,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 validator: AuthValidators.loginPassword,
                 enabled: !submit.submitting,
                 onSubmitted: (_) => _submit(),
-                inputFormatters: <TextInputFormatter>[LengthLimitingTextInputFormatter(72)],
+                inputFormatters: <TextInputFormatter>[
+                  LengthLimitingTextInputFormatter(72)
+                ],
               ),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: submit.submitting ? null : () => context.push(AppPaths.forgotPassword),
+                  onPressed: submit.submitting
+                      ? null
+                      : () => context.push(AppPaths.forgotPassword),
                   child: const Text('Quên mật khẩu?'),
                 ),
               ),
               const SizedBox(height: 8),
-              HvpButton.primary(label: 'Đăng nhập', expand: true, loading: submit.submitting, onPressed: _submit),
+              HvpButton.primary(
+                  label: 'Đăng nhập',
+                  expand: true,
+                  loading: submit.submitting,
+                  onPressed: _submit),
               const SizedBox(height: 18),
               const _OrDivider(),
               const SizedBox(height: 16),
               HvpButton.ghost(
                 label: 'Tạo tài khoản mới',
                 expand: true,
-                onPressed: submit.submitting ? null : () => context.push(AppPaths.register),
+                onPressed: submit.submitting
+                    ? null
+                    : () => context.push(AppPaths.register),
               ),
             ],
           ),
@@ -137,7 +148,9 @@ class _OrDivider extends StatelessWidget {
           line,
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text('HOẶC', style: context.txt.label.copyWith(color: c.textMuted, letterSpacing: 3.2, fontSize: 11)),
+            child: Text('HOẶC',
+                style: context.txt.label.copyWith(
+                    color: c.textMuted, letterSpacing: 3.2, fontSize: 11)),
           ),
           line,
         ],

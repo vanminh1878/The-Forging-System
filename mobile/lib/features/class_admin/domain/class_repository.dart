@@ -3,6 +3,9 @@ import 'class_models.dart';
 abstract interface class ClassRepository {
   Future<ClassPage> list(ClassQuery query);
 
+  /// `GET /coach/classes`: the active classes whose default coach is the signed-in coach.
+  Future<List<ClassSummary>> coachClasses();
+
   Future<ClassSummary> create(ClassDraft draft);
 
   /// [changes] holds only the edited fields (see [ClassDraft.changesFrom]).

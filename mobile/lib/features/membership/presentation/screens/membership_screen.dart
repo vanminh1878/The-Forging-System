@@ -90,7 +90,7 @@ class _Body extends StatelessWidget {
                     'DP, Marks và hạng của bạn vẫn được giữ nguyên.',
           ),
         if (scheduled != null) ...<Widget>[
-          const SectionHeader(title: 'Gói nối tiếp'),
+          const SectionHeader(title: 'Gói sắp kích hoạt'),
           ScheduledPackageCard(package: scheduled),
         ],
         if (pending != null) ...<Widget>[
@@ -103,7 +103,7 @@ class _Body extends StatelessWidget {
         if (!hasBanner) ...<Widget>[
           const SizedBox(height: 16),
           HvpButton.gold(
-            label: 'Gia hạn gói tập',
+            label: 'Đăng ký thêm gói',
             expand: true,
             onPressed: canRenew ? () => showRenewalSheet(context) : null,
           ),

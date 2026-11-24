@@ -246,7 +246,7 @@ void main() {
     expect(find.text('0912345678 · HVP-AB12CD'), findsOneWidget);
     expect(find.text('HOẠT ĐỘNG'), findsOneWidget);
     expect(find.text('BOOK I'), findsOneWidget);
-    expect(find.text('ĐÓNG BĂNG'), findsOneWidget);
+    expect(find.text('ĐÃ ĐÓNG BĂNG'), findsOneWidget);
     expect(find.text('CHƯA CÓ GÓI'), findsOneWidget);
     expect(find.text('2 học viên'), findsOneWidget);
   });

@@ -23,7 +23,7 @@ Giới hạn: web không có camera quét QR thật (đã dùng `mobile_scanner`
 
 ## 2. Design system "ring-side after dark"
 
-- **Theme**: mặc định tối (charcoal + vàng kim `#F2C450`/`#B7841E` + đỏ đấm bốc cho CTA + lục cho thành công); theme sáng giấy kem theo prototype. Người dùng chọn Sáng/Tối/Theo hệ thống (lưu `SharedPreferences`).
+- **Theme**: bảng màu B. Tối (mặc định): nền tím than `#1A1733`, bề mặt `#24204A`, điểm nhấn cam `#FF7A2F`, đỏ `#EF4B5F` cho nguy hiểm, xanh lá chỉ dùng cho thành công. Sáng: giấy tím nhạt `#F4F2FB`, điểm nhấn cam `#C94A05`. Token vẫn tên `gold*` (cam) và `pine*` (tím than) để widget tính năng không phải đổi. Người dùng chọn Sáng/Tối (lưu `SharedPreferences`); nút Sáng/Tối có ngay ở màn Đăng nhập/Đăng ký (`ThemeModeToggle`).
 - **Font**: Bebas Neue (tiêu đề/số lớn), Oswald (nhãn), Inter (nội dung), JetBrains Mono (mã/số liệu) qua `google_fonts` (tải khi chạy lần đầu; muốn offline hãy bundle font vào `assets/fonts`).
 - **Token**: chỉ dùng `context.hvp` (màu) và `context.txt` (kiểu chữ) — không hex trong widget tính năng.
 - **Linh kiện** (`lib/core/widgets`, `lib/core/design`): `HvpButton`, `HvpCard` (viền vát chamfer), `HvpTextField`, `StatTile`, `SectionHeader`, `RankBadge` (7 huy hiệu kim loại, trạng thái khoá/thu hồi), `DpGauge` ("heat gauge"), `StreakFlame`, `TapeDivider` (băng quấn tay), `ScanFrame` (khung 4 góc quét QR), `AsyncBody` (shimmer + lỗi + retry), `EmptyState`, `ErrorState`, `HvpRefresh`, `EvidencePhotoPicker`, `BranchPicker`, `HvpToast`, `HvpBottomSheet`, `ConfettiBurst`, `CountUpText`, `.entrance(i)` (xuất hiện lần lượt), `HvpNavBar` nổi với nút Check-in giữa.
@@ -45,8 +45,8 @@ Dùng `lib/features/fighter_record/` làm mẫu (xem công thức 7 bước ở 
 | Role | Tab (prototype đã duyệt) |
 |---|---|
 | student | Trang chủ · Lịch tập · **Check-in** (giữa) · Armory · Hồ sơ |
-| coach | Hôm nay · Lớp & bài học · Challenge · Rank Trial · Lịch sử |
-| reception | Check-in · Gói tập (Yêu cầu / Học viên / Theo gói) · Kho quà · Giao quà |
+| coach | Hôm nay · Lớp & bài học (lớp được phân công → học viên, buổi sắp tới, giáo án) · Challenge · Rank Trial · Lịch sử |
+| reception | Check-in · Gói tập (Yêu cầu / Học viên / Theo gói) · Lớp học (chỉ xem lớp và danh sách học viên) · Kho quà · Giao quà · Hồ sơ (tài khoản, Sáng/Tối, đăng xuất) |
 | admin | Dashboard · Thành viên · Đào tạo · Thử thách (Challenge / Đơn quà / Kho quà) · Thông báo · Cấu hình (Quy tắc / Hạng / Chi nhánh / Nhật ký) |
 
 Hiện tại các tab là `ComingSoonPage`; đã hoàn chỉnh: đăng nhập/đăng ký/quên mật khẩu, khung 4 role, Fighter Record (Lên hạng / Huy hiệu / Sổ điểm).
@@ -56,3 +56,13 @@ Hiện tại các tab là `ComingSoonPage`; đã hoàn chỉnh: đăng nhập/đ
 - Phiên bản thư viện đặt theo caret major; nếu `pub get` báo xung đột chạy `flutter pub upgrade --major-versions` rồi sửa API đổi tên.
 - Push notification: chưa gắn Firebase (không có package firebase trong `pubspec`). Hook `PushRegistrar` đã sẵn; thêm `firebase_messaging` khi bạn sẵn sàng.
 - Không có thư mục `android/`, `ios/`, `web/` trong repo base: sinh bằng `flutter create .` (đã `.gitignore` các file build).
+
+## 6. Linh kiện form dùng chung (bổ sung)
+
+- `HvpTextField`: floating label, câu thường, giá trị không in đậm; `required: true` thêm dấu `*` vào nhãn.
+- `HvpTimeField` (`HH:mm`): gõ số (tự chèn dấu `:`, chặn chữ) hoặc chạm đồng hồ để mở time picker; bộ lọc/parse ở `core/utils/time_input.dart`.
+- `HvpLimitField`: số nguyên có công tắc "Không giới hạn…" — ô trống không bao giờ có nghĩa là không giới hạn.
+- `hvpFieldDecoration`: kiểu ô giống `HvpTextField` cho dropdown.
+- `focusFirstInvalid`: đưa focus vào ô lỗi đầu tiên sau khi bấm Lưu.
+- Bản đồ chọn vị trí chi nhánh dùng `flutter_map` + OpenStreetMap (miễn phí, không cần API key; cần ghi nguồn "© OpenStreetMap contributors").
+- Thanh tab (`TabBar`, ví dụ tab Cấu hình của admin) lấy kiểu từ `tabBarTheme` trong `HvpTheme`.

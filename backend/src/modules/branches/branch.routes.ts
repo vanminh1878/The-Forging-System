@@ -23,7 +23,7 @@ const writable = {
   geofenceRadiusM: z.number().int().min(10).max(5000),
 };
 const createBody = z.object({
-  code,
+  code: code.optional(),
   ...writable,
   address: writable.address.optional(),
   openingHours: writable.openingHours.optional(),

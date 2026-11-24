@@ -8,12 +8,16 @@ import '../../../../core/widgets/hvp_refresh.dart';
 import '../../domain/schedule_models.dart';
 import 'session_card.dart';
 
-/// Pull-to-refresh list of session cards under the calendar controls.
+/// Pull-to-refresh list of session cards. The calendar controls ([header]) are
+/// the first rows of the same scrollable, so a tall month grid scrolls away
+/// instead of squeezing the list into the space left above the bottom bar.
 class ScheduleList extends StatelessWidget {
   const ScheduleList({
     super.key,
-    required this.heading,
-    required this.items,
+    this.header,
+    this.state,
+    this.heading = '',
+    this.items = const <ScheduleItem>[],
     required this.onRefresh,
     this.onClearDay,
     this.clearDayLabel,
@@ -22,6 +26,11 @@ class ScheduleList extends StatelessWidget {
     this.onEmptyAction,
   });
 
+  /// Calendar controls shown above the sessions.
+  final Widget? header;
+
+  /// Replaces the sessions while loading or after an error.
+  final Widget? state;
   final String heading;
   final List<ScheduleItem> items;
   final Future<void> Function() onRefresh;
@@ -45,34 +54,39 @@ class ScheduleList extends StatelessWidget {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: HvpLayout.tabPagePadding,
         children: <Widget>[
-          Text(heading.toUpperCase(), style: t.label),
-          if (onClearDay != null)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: onClearDay,
-                child: Text('✕ ${clearDayLabel ?? 'Bỏ lọc'}',
-                    style: t.label.copyWith(color: c.gold)),
+          if (header != null) header!,
+          if (state != null)
+            state!
+          else ...<Widget>[
+            Text(heading.toUpperCase(), style: t.label),
+            if (onClearDay != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: onClearDay,
+                  child: Text('✕ ${clearDayLabel ?? 'Bỏ lọc'}',
+                      style: t.label.copyWith(color: c.gold)),
+                ),
               ),
-            ),
-          const SizedBox(height: 8),
-          if (items.isEmpty)
-            SizedBox(
-              height: 300,
-              child: EmptyState(
-                icon: HvpIcons.calendar,
-                title: emptyTitle,
-                actionLabel: onEmptyAction == null ? null : 'Bỏ lọc',
-                onAction: onEmptyAction,
-              ),
-            )
-          else
-            for (final item in items) ...<Widget>[
-              SessionCard(
-                  item: item,
-                  onTap: onTapItem == null ? null : () => onTapItem!(item)),
-              const SizedBox(height: 12),
-            ],
+            const SizedBox(height: 8),
+            if (items.isEmpty)
+              SizedBox(
+                height: 300,
+                child: EmptyState(
+                  icon: HvpIcons.calendar,
+                  title: emptyTitle,
+                  actionLabel: onEmptyAction == null ? null : 'Bỏ lọc',
+                  onAction: onEmptyAction,
+                ),
+              )
+            else
+              for (final item in items) ...<Widget>[
+                SessionCard(
+                    item: item,
+                    onTap: onTapItem == null ? null : () => onTapItem!(item)),
+                const SizedBox(height: 12),
+              ],
+          ],
         ],
       ),
     );

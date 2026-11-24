@@ -67,9 +67,46 @@ void main() {
     expect(find.text('Lớp chưa có học viên.'), findsOneWidget);
   });
 
+  testWidgets('exam button: active class opens the sheet, no "+" in the labels',
+      (tester) async {
+    await show(tester);
+    expect(find.textContaining('+'), findsNothing);
+    final exam = find.widgetWithText(HvpButton, 'TẠO BUỔI KIỂM TRA');
+    expect(tester.widget<HvpButton>(exam).onPressed, isNotNull);
+    expect(find.textContaining('không tạo được buổi kiểm tra'), findsNothing);
+    await tester.tap(exam);
+    await tester.pumpAndSettle();
+    expect(find.text('Tên buổi kiểm tra *'), findsNothing); // optional field
+    expect(find.text('Tên buổi kiểm tra'), findsOneWidget);
+  });
+
+  testWidgets('exam button: an inactive class disables it and says why',
+      (tester) async {
+    final repo = FakeClassRepository()
+      ..detailSummary = const ClassSummary(
+        id: 'c1',
+        branchId: 'b1',
+        name: 'Boxing sáng',
+        sessionTypeCode: 'GROUP',
+        weekdays: <int>[1, 3, 5],
+        startTime: '06:30',
+        durationMinutes: 60,
+        isActive: false,
+        enrolledCount: 12,
+      );
+    await show(tester, repo);
+    final exam = find.widgetWithText(HvpButton, 'TẠO BUỔI KIỂM TRA');
+    expect(tester.widget<HvpButton>(exam).onPressed, isNull);
+    expect(find.text('Lớp đã ngừng hoạt động, không tạo được buổi kiểm tra.'),
+        findsOneWidget);
+    await tester.tap(exam, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.text('Tên buổi kiểm tra'), findsNothing);
+  });
+
   testWidgets('enrol: search, Thêm, toast', (tester) async {
     final repo = await show(tester);
-    await tester.tap(find.widgetWithText(HvpButton, '+ THÊM HỌC VIÊN VÀO LỚP'));
+    await tester.tap(find.widgetWithText(HvpButton, 'THÊM HỌC VIÊN VÀO LỚP'));
     await tester.pumpAndSettle();
     expect(find.text('Trần Thị B'), findsOneWidget); // listed before typing
     await tester.enterText(find.byType(TextField).last, 'Trần');
@@ -87,7 +124,7 @@ void main() {
       ..enrolError = const ApiException(
           code: 'CLASS_FULL', message: 'Lớp đã đủ sĩ số', statusCode: 409);
     await show(tester, repo);
-    await tester.tap(find.widgetWithText(HvpButton, '+ THÊM HỌC VIÊN VÀO LỚP'));
+    await tester.tap(find.widgetWithText(HvpButton, 'THÊM HỌC VIÊN VÀO LỚP'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Trần');
     await tester.pump(const Duration(milliseconds: 400));

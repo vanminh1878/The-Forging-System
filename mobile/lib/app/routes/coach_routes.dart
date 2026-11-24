@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/design/hvp_icons.dart';
 import '../../core/widgets/coming_soon_page.dart';
 import '../../features/auth/domain/auth_user.dart';
+import '../../features/class_admin/presentation/screens/class_detail_screen.dart';
+import '../../features/class_admin/presentation/screens/coach_classes_screen.dart';
 import '../../features/coach_challenges/presentation/challenge_review_tab.dart';
 import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/notifications/presentation/widgets/notification_bell.dart';
@@ -36,11 +38,7 @@ List<RouteBase> coachRoutes() => <RouteBase>[
             label: 'Lớp & bài học',
             icon: HvpIcons.book,
             activeIcon: HvpIcons.bookFill,
-            builder: (_) => const ComingSoonPage(
-              title: 'Lớp & bài học',
-              owner: 'feature: coach_classes',
-              icon: HvpIcons.book,
-            ),
+            builder: (_) => const CoachClassesScreen(),
           ),
           ShellTab(
             path: CoachPaths.challenge,
@@ -74,6 +72,11 @@ List<RouteBase> coachRoutes() => <RouteBase>[
             ),
           ),
         ],
+      ),
+      GoRoute(
+        path: CoachPaths.classDetailPattern,
+        builder: (context, state) => ClassDetailScreen(
+            classId: state.pathParameters['id']!, readOnly: true),
       ),
       GoRoute(
         path: CoachPaths.notifications,

@@ -80,6 +80,11 @@ Future<void> _pickPhoto(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _tapSave(WidgetTester tester) async {
+  await tester.tap(find.text('LƯU ẢNH'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUp(() => _picked = PickedImage(
       bytes: Uint8List.fromList(<int>[1, 2, 3]),
@@ -95,18 +100,73 @@ void main() {
   });
 
   testWidgets(
-      'picking a photo uploads it as avatar, PATCHes avatarUrl and updates the user',
+      'picking a photo only previews it: nothing is uploaded or saved yet',
+      (tester) async {
+    final repo = FakeProfileRepository();
+    final upload = _FakeUpload();
+    await _pump(tester, repo, upload);
+    await _pickPhoto(tester);
+
+    expect(find.text('Ảnh mới chưa được lưu'), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+    expect(find.text('LƯU ẢNH'), findsOneWidget);
+    expect(find.text('HỦY'), findsOneWidget);
+    expect(upload.purposes, isEmpty);
+    expect(repo.updates, isEmpty);
+    expect(find.text('avatar:null'), findsOneWidget);
+    expect(find.text('Đã lưu ảnh đại diện.'), findsNothing);
+  });
+
+  testWidgets(
+      'Lưu ảnh uploads it as avatar, PATCHes avatarUrl and updates the user',
       (tester) async {
     final repo = FakeProfileRepository()
       ..onUpdate = (_) async => sampleProfile(avatarUrl: _url);
     final upload = _FakeUpload();
     await _pump(tester, repo, upload);
     await _pickPhoto(tester);
+    await _tapSave(tester);
 
     expect(upload.purposes, <UploadPurpose>[UploadPurpose.avatar]);
     expect(repo.updates.single, <String, Object?>{'avatarUrl': _url});
     expect(find.text('avatar:$_url'), findsOneWidget);
-    expect(find.text('Đã cập nhật ảnh đại diện.'), findsOneWidget);
+    expect(find.text('Đã lưu ảnh đại diện.'), findsOneWidget);
+    // the preview and its buttons are gone once saved
+    expect(find.text('Ảnh mới chưa được lưu'), findsNothing);
+    expect(find.text('LƯU ẢNH'), findsNothing);
+  });
+
+  testWidgets('Hủy drops the preview and keeps the saved photo',
+      (tester) async {
+    final repo = FakeProfileRepository();
+    final upload = _FakeUpload();
+    await _pump(tester, repo, upload);
+    await _pickPhoto(tester);
+    await tester.tap(find.text('HỦY'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ảnh mới chưa được lưu'), findsNothing);
+    expect(find.byType(Image), findsNothing);
+    expect(upload.purposes, isEmpty);
+    expect(repo.updates, isEmpty);
+    expect(find.text('avatar:null'), findsOneWidget);
+  });
+
+  testWidgets('picking again replaces the preview, still one save',
+      (tester) async {
+    final repo = FakeProfileRepository()
+      ..onUpdate = (_) async => sampleProfile(avatarUrl: _url);
+    final upload = _FakeUpload();
+    await _pump(tester, repo, upload);
+    await _pickPhoto(tester);
+    await tester.tap(find.byTooltip('Đổi ảnh đại diện'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Chụp ảnh'));
+    await tester.pumpAndSettle();
+    await _tapSave(tester);
+
+    expect(upload.purposes, hasLength(1));
+    expect(repo.updates, hasLength(1));
   });
 
   testWidgets('cancelling the picker does nothing', (tester) async {
@@ -116,21 +176,32 @@ void main() {
     await _pump(tester, repo, upload);
     await _pickPhoto(tester);
 
+    expect(find.text('Ảnh mới chưa được lưu'), findsNothing);
     expect(upload.purposes, isEmpty);
     expect(repo.updates, isEmpty);
   });
 
-  testWidgets('an upload error shows its message and saves nothing',
+  testWidgets(
+      'an upload error shows its message, saves nothing and keeps the preview',
       (tester) async {
-    final repo = FakeProfileRepository();
+    final repo = FakeProfileRepository()
+      ..onUpdate = (_) async => sampleProfile(avatarUrl: _url);
     final upload = _FakeUpload()
       ..error = const ApiException(code: 'X', message: 'Ảnh quá lớn.');
     await _pump(tester, repo, upload);
     await _pickPhoto(tester);
+    await _tapSave(tester);
 
     expect(find.text('Ảnh quá lớn.'), findsOneWidget);
     expect(repo.updates, isEmpty);
     expect(find.text('avatar:null'), findsOneWidget);
+    expect(find.text('Ảnh mới chưa được lưu'), findsOneWidget);
+
+    // retrying without picking again works once the upload recovers
+    upload.error = null;
+    await _tapSave(tester);
+    expect(repo.updates.single, <String, Object?>{'avatarUrl': _url});
+    expect(find.text('avatar:$_url'), findsOneWidget);
   });
 
   testWidgets('a rejected avatar URL shows the API message', (tester) async {
@@ -141,6 +212,7 @@ void main() {
               'Ảnh đại diện không hợp lệ. Vui lòng tải ảnh lên trước rồi chọn lại.');
     await _pump(tester, repo, _FakeUpload());
     await _pickPhoto(tester);
+    await _tapSave(tester);
 
     expect(find.textContaining('Ảnh đại diện không hợp lệ'), findsOneWidget);
     expect(find.text('avatar:null'), findsOneWidget);

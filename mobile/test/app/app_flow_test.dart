@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hvp_forging/app/hvp_app.dart';
+import 'package:hvp_forging/core/design/hvp_icons.dart';
 import 'package:hvp_forging/core/design/hvp_text_styles.dart';
 import 'package:hvp_forging/core/design/theme_mode_controller.dart';
 import 'package:hvp_forging/core/storage/storage_providers.dart';
@@ -124,7 +125,14 @@ void main() {
       'Rank Trial',
       'Lịch sử'
     ],
-    AppRole.reception: <String>['Check-in', 'Gói tập', 'Kho quà', 'Giao quà'],
+    AppRole.reception: <String>[
+      'Check-in',
+      'Gói tập',
+      'Lớp học',
+      'Kho quà',
+      'Giao quà',
+      'Hồ sơ'
+    ],
     AppRole.admin: <String>[
       'Dashboard',
       'Thành viên',
@@ -140,8 +148,10 @@ void main() {
       for (final label in entry.value) {
         expect(_navLabel(label), findsOneWidget, reason: label);
       }
-      // Staff roles reach theme + logout through the app bar account button.
-      expect(find.byTooltip('Tài khoản'), findsOneWidget);
+      // Coach and admin reach theme + logout through the app bar account button;
+      // reception has its own Hồ sơ tab for that.
+      expect(find.byTooltip('Tài khoản'),
+          entry.key == AppRole.reception ? findsNothing : findsOneWidget);
       expect(find.byTooltip('Thông báo'), findsOneWidget);
     });
   }
@@ -204,6 +214,31 @@ void main() {
       prefsValues: <String, Object>{ThemeModeController.storageKey: 'light'},
     );
     expect(container.read(themeModeProvider), ThemeMode.light);
+  });
+
+  testWidgets('sign-in screen has the Sáng / Tối switch and it is remembered',
+      (tester) async {
+    final container = await _pumpApp(tester, FakeAuthRepository());
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(container.read(themeModeProvider), ThemeMode.dark);
+
+    await tester.tap(find.byIcon(HvpIcons.sun));
+    await tester.pumpAndSettle();
+    expect(container.read(themeModeProvider), ThemeMode.light);
+    expect(
+        container
+            .read(sharedPreferencesProvider)
+            .getString(ThemeModeController.storageKey),
+        'light');
+    expect(Theme.of(tester.element(find.byType(LoginScreen))).brightness,
+        Brightness.light);
+
+    await tester.tap(find.byIcon(HvpIcons.moon));
+    await tester.pumpAndSettle();
+    expect(container.read(themeModeProvider), ThemeMode.dark);
+    expect(Theme.of(tester.element(find.byType(LoginScreen))).brightness,
+        Brightness.dark);
   });
 
   test('ThemeModeController.parse only knows light and dark', () {

@@ -19,6 +19,22 @@ ClassSummary classSummaryFromJson(JsonMap j) => ClassSummary(
       enrolledCount: intOf(j, 'enrolledCount'),
     );
 
+/// A row of `GET /coach/classes`: no capacity or course, and always an active class.
+ClassSummary coachClassFromJson(JsonMap j) => ClassSummary(
+      id: str(j, 'id'),
+      branchId: str(asMap(j['branch']), 'id'),
+      name: str(j, 'name'),
+      sessionTypeCode: str(j, 'sessionType'),
+      weekdays: asList(j['weekdays'])
+          .whereType<num>()
+          .map((d) => d.toInt())
+          .toList(growable: false),
+      startTime: str(j, 'startTime'),
+      durationMinutes: intOf(j, 'durationMinutes'),
+      isActive: true,
+      enrolledCount: intOf(j, 'enrolledCount'),
+    );
+
 ClassDetail classDetailFromJson(JsonMap j) => ClassDetail(
       summary: classSummaryFromJson(j),
       roster: asList(j['roster'])

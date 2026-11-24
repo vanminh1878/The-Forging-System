@@ -10,7 +10,8 @@ import '../../core/design/theme_mode_controller.dart';
 class ThemeModeSelector extends ConsumerWidget {
   const ThemeModeSelector({super.key});
 
-  static const List<(ThemeMode, String, IconData)> _options = <(ThemeMode, String, IconData)>[
+  static const List<(ThemeMode, String, IconData)> _options =
+      <(ThemeMode, String, IconData)>[
     (ThemeMode.light, 'Sáng', HvpIcons.sun),
     (ThemeMode.dark, 'Tối', HvpIcons.moon),
   ];
@@ -29,8 +30,15 @@ class ThemeModeSelector extends ConsumerWidget {
               label: _options[i].$2,
               icon: _options[i].$3,
               selected: mode == _options[i].$1,
-              onTap: () => ref.read(themeModeProvider.notifier).setMode(_options[i].$1),
-              colors: (c.gold, c.onGold, c.surfaceHigh, c.borderStrong, c.textSecondary),
+              onTap: () =>
+                  ref.read(themeModeProvider.notifier).setMode(_options[i].$1),
+              colors: (
+                c.gold,
+                c.onGold,
+                c.surfaceHigh,
+                c.borderStrong,
+                c.textSecondary
+              ),
               style: t.titleS,
             ),
           ),
@@ -62,7 +70,8 @@ class _Segment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = selected ? colors.$2 : colors.$5;
-    final shape = ChamferBorder(cut: 8, side: BorderSide(color: selected ? colors.$1 : colors.$4));
+    final shape = ChamferBorder(
+        cut: 8, side: BorderSide(color: selected ? colors.$1 : colors.$4));
     return Semantics(
       button: true,
       selected: selected,
@@ -82,10 +91,61 @@ class _Segment extends StatelessWidget {
               children: <Widget>[
                 Icon(icon, size: 20, color: fg),
                 const SizedBox(height: 2),
-                Text(label.toUpperCase(), style: style.copyWith(color: fg, fontSize: 11)),
+                Text(label.toUpperCase(),
+                    style: style.copyWith(color: fg, fontSize: 11)),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact Sáng / Tối switch for screens without the account sheet (sign-in, register).
+class ThemeModeToggle extends ConsumerWidget {
+  const ThemeModeToggle({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hvp;
+    final mode = ref.watch(themeModeProvider);
+    Widget segment(ThemeMode value, IconData icon, String label) {
+      final selected = mode == value;
+      return Semantics(
+        button: true,
+        selected: selected,
+        label: 'Giao diện $label',
+        excludeSemantics: true,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () => ref.read(themeModeProvider.notifier).setMode(value),
+          child: Container(
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 36),
+            decoration: BoxDecoration(
+              color: selected ? c.gold : Colors.transparent,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child:
+                Icon(icon, size: 20, color: selected ? c.onGold : c.textMuted),
+          ),
+        ),
+      );
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(color: c.borderStrong),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            segment(ThemeMode.light, HvpIcons.sun, 'Sáng'),
+            segment(ThemeMode.dark, HvpIcons.moon, 'Tối'),
+          ],
         ),
       ),
     );

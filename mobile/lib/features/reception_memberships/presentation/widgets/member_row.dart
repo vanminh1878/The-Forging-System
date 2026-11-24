@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/design/hvp_context.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../../../core/widgets/hvp_avatar.dart';
 import '../../../../core/widgets/hvp_card.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../reception_checkin/domain/member_hit.dart';
 import '../../../reception_checkin/presentation/widgets/member_card.dart';
+import 'member_avatar.dart';
 
 /// A search result: who, account status, and the running package with its expiry.
 class MemberRow extends StatelessWidget {
@@ -23,13 +23,21 @@ class MemberRow extends StatelessWidget {
       member.memberCode
     ].where((p) => p.isNotEmpty).join(' · ');
     final end = member.packageEndDate;
+    final frozen = member.status == 'FROZEN';
+    // A frozen learner reads differently at a glance: cool edge, snowflake on the avatar and chip.
     return HvpCard(
       onTap: onTap,
-      semanticLabel: 'Học viên ${member.fullName}',
+      accent: frozen ? context.hvp.info : null,
+      semanticLabel:
+          'Học viên ${member.fullName}${frozen ? ', đã đóng băng' : ''}',
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          HvpAvatar(url: member.avatarUrl, name: member.fullName, size: 46),
+          MemberAvatar(
+              url: member.avatarUrl,
+              name: member.fullName,
+              size: 46,
+              frozen: frozen),
           const SizedBox(width: 12),
           Expanded(
             child: Column(

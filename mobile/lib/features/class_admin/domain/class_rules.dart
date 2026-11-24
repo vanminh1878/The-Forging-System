@@ -39,14 +39,10 @@ String? validateDuration(String? v) {
       : 'Thời lượng từ 1 đến 1440 phút.';
 }
 
-/// Blank is valid: no limit.
+/// Only checked when "Không giới hạn sĩ số" is off: a number from 1 to 1000 is required.
 String? validateCapacity(String? v) {
-  final text = (v ?? '').trim();
-  if (text.isEmpty) return null;
-  final n = int.tryParse(text);
-  return n != null && n >= 1 && n <= 1000
-      ? null
-      : 'Sĩ số từ 1 đến 1000 hoặc để trống.';
+  final n = int.tryParse((v ?? '').trim());
+  return n != null && n >= 1 && n <= 1000 ? null : 'Sĩ số từ 1 đến 1000.';
 }
 
 /// Only a SCHEDULED session that has not started can be cancelled.

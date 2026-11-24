@@ -177,12 +177,12 @@ void main() {
 
     testWidgets('OK without early renewal is disabled', (tester) async {
       await _open(tester, membership: _m(notice: RenewNotice.ok));
-      expect(renew(tester, 'GIA HẠN GÓI TẬP').onPressed, isNull);
+      expect(renew(tester, 'ĐĂNG KÝ THÊM GÓI').onPressed, isNull);
     });
 
     testWidgets('OK with early renewal is enabled', (tester) async {
       await _open(tester, membership: _m(notice: RenewNotice.ok, early: true));
-      expect(renew(tester, 'GIA HẠN GÓI TẬP').onPressed, isNotNull);
+      expect(renew(tester, 'ĐĂNG KÝ THÊM GÓI').onPressed, isNotNull);
     });
   });
 }
