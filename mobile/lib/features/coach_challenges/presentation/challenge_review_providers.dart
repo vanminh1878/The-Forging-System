@@ -8,9 +8,15 @@ import '../domain/challenge_review.dart';
 final challengeReviewRepositoryProvider = Provider<ChallengeReviewRepository>(
   (ref) => ChallengeReviewRepositoryImpl(ref.watch(apiClientProvider)),
 );
-final challengeReviewQueueProvider = FutureProvider.autoDispose.family<ChallengeReviewPage, ({String? status, String? evidence, String query, int page})>(
+final challengeReviewQueueProvider = FutureProvider.autoDispose.family<
+    ChallengeReviewPage,
+    ({String? status, String? evidence, String query, int page})>(
   (ref, filter) => ref.watch(challengeReviewRepositoryProvider).list(
-    status: filter.status, evidence: filter.evidence, query: filter.query, page: filter.page,
-  ),
+        status: filter.status,
+        evidence: filter.evidence,
+        query: filter.query,
+        page: filter.page,
+      ),
 );
-final challengeReviewActionProvider = NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);
+final challengeReviewActionProvider =
+    NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);

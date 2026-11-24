@@ -29,6 +29,12 @@ describe('member notification inbox: paging and counts (NTF-02)', () => {
     ctx = await bootTestApp();
     member = await registerMember(ctx.api);
     other = await registerMember(ctx.api);
+    // Registration creates a WELCOME notification. This suite owns its inbox
+    // fixture and verifies paging/counts for the rows created below.
+    await ownerQuery(
+      `DELETE FROM notifications WHERE event_type = 'WELCOME' AND user_id IN ($1, $2)`,
+      [member.userId, other.userId],
+    );
     // The member's own: three personal notifications and one broadcast to everyone, oldest first by minutes ago.
     await personal(member.userId, 'P1', 1);
     await personal(member.userId, 'P2', 2);

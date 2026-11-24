@@ -21,30 +21,29 @@ class OpenChallengeRepositoryImpl implements OpenChallengeRepository {
       page: meta.page,
       totalPages: meta.totalPages,
       total: meta.total,
-      items: response.dataList
-          .map((entry) {
-            final json = asMap(entry);
-            return OpenChallenge(
-              id: str(json, 'id'),
-              code: str(json, 'code'),
-              title: str(json, 'title'),
-              description: strOrNull(json, 'description'),
-              challengeType: str(json, 'challengeType'),
-              context: str(json, 'context'),
-              target: intOf(json, 'target'),
-              rewardDp: intOf(json, 'rewardDp'),
-              rewardMarks: intOf(json, 'rewardMarks'),
-              endsAt:
-                  dateOrNull(json, 'endsAt') ??
-                  DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-              participationId: strOrNull(json, 'participationId'),
-              participationStatus: strOrNull(json, 'participationStatus'),
-              progressValue: json['progressValue'] == null
-                  ? null
-                  : intOf(json, 'progressValue'),
-            );
-          })
-          .toList(growable: false),
+      items: response.dataList.map((entry) {
+        final json = asMap(entry);
+        return OpenChallenge(
+          id: str(json, 'id'),
+          code: str(json, 'code'),
+          title: str(json, 'title'),
+          description: strOrNull(json, 'description'),
+          challengeType: str(json, 'challengeType'),
+          context: str(json, 'context'),
+          target: intOf(json, 'target'),
+          rewardDp: intOf(json, 'rewardDp'),
+          rewardMarks: intOf(json, 'rewardMarks'),
+          endsAt: dateOrNull(json, 'endsAt') ??
+              DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+          participationId: strOrNull(json, 'participationId'),
+          participationStatus: strOrNull(json, 'participationStatus'),
+          progressValue: json['progressValue'] == null
+              ? null
+              : intOf(json, 'progressValue'),
+          joinApproval: strOrNull(json, 'joinApproval') ?? 'COACH',
+          completionMethod: strOrNull(json, 'completionMethod') ?? 'EVIDENCE',
+        );
+      }).toList(growable: false),
     );
   }
 

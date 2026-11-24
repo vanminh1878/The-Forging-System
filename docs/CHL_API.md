@@ -15,10 +15,10 @@ completionMethod: ATTENDANCE | EVIDENCE
 
 | Cấu hình | Luồng bắt buộc |
 |---|---|
-| `AUTO` + `ATTENDANCE` | Member join → `JOINED` → attendance hợp lệ tăng `progressValue` → đạt `target` thành `AWAITING_COACH` → nộp evidence (nếu Challenge yêu cầu) → Coach duyệt reward → `REWARDED`. |
+| `AUTO` + `ATTENDANCE` | Member join → `JOINED` → attendance hợp lệ tăng `progressValue` → đạt `target` thành `AWAITING_COACH` → Coach duyệt reward → `REWARDED`. |
 | `COACH` + `EVIDENCE` | Member đăng ký → `PENDING_COACH` → Coach duyệt tham gia → `JOINED` → member **Yêu cầu hoàn thành** và upload evidence → `AWAITING_COACH` → Coach xác nhận/phát thưởng → `REWARDED`. |
 | `AUTO` + `EVIDENCE` | Member join → `JOINED` → member Yêu cầu hoàn thành + evidence → `AWAITING_COACH` → Coach xác nhận/phát thưởng. |
-| `COACH` + `ATTENDANCE` | Member đăng ký → `PENDING_COACH` → Coach duyệt tham gia → attendance hợp lệ tăng tiến độ theo `target` → flow review/reward. |
+| `COACH` + `ATTENDANCE` | Member đăng ký → `PENDING_COACH` → Coach duyệt tham gia → attendance hợp lệ tăng tiến độ theo `target` → `AWAITING_COACH` → Coach duyệt reward. |
 
 `PENDING_COACH` chỉ xuất hiện khi `joinApproval=COACH`. `AWAITING_COACH` luôn nghĩa là đang chờ Coach xác nhận **hoàn thành/reward**, không được dùng để diễn tả chờ duyệt đăng ký.
 
@@ -105,9 +105,9 @@ Nộp bằng chứng:
 { "evidenceUrl": "http://localhost:4000/files/challenges/proof.jpg" }
 ```
 
-- Chỉ participation của chính member, đang `JOINED`, mới được gửi yêu cầu hoàn thành kèm evidence khi `completionMethod=EVIDENCE` (hoặc khi flow attendance yêu cầu bằng chứng bổ sung).
+- Chỉ participation của chính member, đang `JOINED`, với `completionMethod=EVIDENCE` mới được gửi yêu cầu hoàn thành kèm evidence. Challenge `ATTENDANCE` từ chối endpoint này.
 - URL phải là file đã tải qua hệ thống, dưới `${PUBLIC_BASE_URL}/files/`.
-- Gửi evidence chuyển `JOINED → AWAITING_COACH`. Coach chỉ duyệt participation `AWAITING_COACH` đã có bằng chứng. Duyệt lặp trả `duplicate: true`.
+- Gửi evidence chuyển `JOINED → AWAITING_COACH`. Với Challenge `EVIDENCE`, Coach chỉ duyệt participation `AWAITING_COACH` đã có bằng chứng; Challenge `ATTENDANCE` vào trạng thái này khi đạt target và không cần evidence. Duyệt lặp trả `duplicate: true`.
 - Duyệt chuyển `AWAITING_COACH → REWARDED`, ghi Coach/thời điểm và phát reward snapshot `rewardDp`/`rewardMarks` qua ledger với idempotency key theo participation.
 - Khi member đã đạt `challenge.monthly_reward_limit` trong tháng, participation vẫn `REWARDED` nhưng `isLimited=true` và không phát DP/Marks.
 - Audit: `CHALLENGE_EVIDENCE_SUBMITTED`, `CHALLENGE_APPROVED` hoặc `CHALLENGE_APPROVED_LIMITED`.
@@ -121,12 +121,12 @@ GET /api/v1/staff/challenges/participations?status=AWAITING_COACH&evidence=SUBMI
 ```
 
 - Query tùy chọn: `status` (`JOINED`, `AWAITING_COACH`, `REWARDED`, `EXPIRED`), `evidence` (`SUBMITTED`, `PENDING`), `q` (tên/mã học viên hoặc tên Challenge), `page`, `limit`.
-- Kết quả sắp `AWAITING_COACH` trước, sau đó theo `completedAt` tăng dần. Mỗi row có `id` (participationId), `challengeTitle`, `challengeType`, `target`, `memberCode`, `memberFullName`, `progressValue`, `evidenceUrl`, `status`.
+- Kết quả sắp `AWAITING_COACH` trước, sau đó theo `completedAt` tăng dần. Mỗi row có `id` (participationId), `challengeTitle`, `challengeType`, `completionMethod`, `target`, `memberCode`, `memberFullName`, `progressValue`, `evidenceUrl`, `status`.
 
 UI:
 
-- Member: thẻ Challenge chưa tham gia có nút **Tham gia thử thách**; sau Coach duyệt tham gia (`JOINED`), thẻ hiện **Yêu cầu hoàn thành** để upload evidence. Nộp evidence chuyển sang `AWAITING_COACH`.
-- Coach: tab **Challenge** tại `/coach/challenge` hỗ trợ tìm kiếm, lọc status/evidence, phân trang; có **Duyệt tham gia** cho `PENDING_COACH` và **Duyệt và phát thưởng** cho `AWAITING_COACH` có evidence.
+- Member: thẻ Challenge chưa tham gia có nút **Tham gia thử thách**; khi `JOINED`, Challenge `EVIDENCE` hiện **Yêu cầu hoàn thành** để upload evidence, còn Challenge `ATTENDANCE` hiển thị tiến độ điểm danh. Nộp evidence chuyển sang `AWAITING_COACH`.
+- Coach: tab **Challenge** tại `/coach/challenge` hỗ trợ tìm kiếm, lọc status/evidence, phân trang; có **Duyệt tham gia** cho `PENDING_COACH` và **Duyệt và phát thưởng** cho `AWAITING_COACH`. Hàng `ATTENDANCE` không yêu cầu ảnh minh chứng.
 
 Mã nguồn:
 

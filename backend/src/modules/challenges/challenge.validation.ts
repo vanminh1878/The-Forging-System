@@ -4,6 +4,8 @@ import { paginationQuery } from '../../common/http/pagination';
 export const challengeType = z.enum(['DAILY', 'WEEKLY', 'MONTHLY', 'EVENT']);
 export const challengeContext = z.enum(['SESSION', 'WORKSHOP', 'EXAM']);
 export const challengeStatus = z.enum(['DRAFT', 'OPEN', 'CLOSED', 'CANCELLED']);
+export const joinApproval = z.enum(['AUTO', 'COACH']);
+export const completionMethod = z.enum(['ATTENDANCE', 'EVIDENCE']);
 const nonnegativeInt = z.number().int().min(0).max(2_147_483_647);
 const fields = {
   code: z
@@ -23,6 +25,8 @@ const fields = {
   rewardMarks: nonnegativeInt,
   startsAt: z.string().datetime({ offset: true }),
   endsAt: z.string().datetime({ offset: true }),
+  joinApproval,
+  completionMethod,
 };
 
 export const createChallengeBody = z
@@ -34,6 +38,8 @@ export const createChallengeBody = z
     target: fields.target.default(1),
     rewardDp: fields.rewardDp.default(0),
     rewardMarks: fields.rewardMarks.default(0),
+    joinApproval: fields.joinApproval.default('COACH'),
+    completionMethod: fields.completionMethod.default('EVIDENCE'),
   })
   .strict();
 

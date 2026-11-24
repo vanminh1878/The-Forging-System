@@ -12,11 +12,11 @@ final openChallengeRepositoryProvider = Provider<OpenChallengeRepository>(
 
 final openChallengesProvider = FutureProvider.autoDispose
     .family<OpenChallengePage, ({String? type, int page})>((ref, query) {
-      ref.watch(currentUserIdProvider);
-      return ref
-          .watch(openChallengeRepositoryProvider)
-          .list(challengeType: query.type, page: query.page);
-    });
+  ref.watch(currentUserIdProvider);
+  return ref
+      .watch(openChallengeRepositoryProvider)
+      .list(challengeType: query.type, page: query.page);
+});
 
 final joinChallengeActionProvider =
     NotifierProvider<SubmitNotifier, SubmitState>(SubmitNotifier.new);

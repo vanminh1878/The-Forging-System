@@ -129,7 +129,7 @@ describe('points ledger & rank engine', () => {
     expect(rows[1].snapshot!.monthsInFromRank).toBeGreaterThanOrEqual(1.1);
     expect(rows[1].snapshot!.monthsInFromRank).toBeLessThan(1.4);
 
-    const note = (await ownerQuery<{ body: string }>(`SELECT body FROM notifications WHERE event_type = 'RANK_UP' ORDER BY created_at DESC LIMIT 1`))[0];
+    const note = (await ownerQuery<{ body: string }>(`SELECT body FROM staff_notifications WHERE event_type = 'RANK_UP' ORDER BY created_at DESC LIMIT 1`))[0];
     expect(note.body).toContain('đã đạt');
     expect(note.body).toContain(`ở ${rank1}`);
   });
@@ -175,7 +175,7 @@ describe('points ledger & rank engine', () => {
     expect(JSON.stringify(after.body.data)).toContain('RESTORED');
     // A restored rank skips the waiting period, so its admin note does not quote the time below it.
     const restored = await ownerQuery<{ body: string }>(
-      `SELECT body FROM notifications WHERE event_type = 'RANK_UP' AND body LIKE '%khôi phục%' ORDER BY created_at DESC LIMIT 1`,
+      `SELECT body FROM staff_notifications WHERE event_type = 'RANK_UP' AND body LIKE '%khôi phục%' ORDER BY created_at DESC LIMIT 1`,
     );
     expect(restored[0].body).not.toContain('tháng ở');
   });

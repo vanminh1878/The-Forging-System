@@ -108,10 +108,13 @@ void main() {
 
   test('CHL-09 joins an open Challenge by id', () async {
     final dio = createApiDio(
-      config: const AppConfig(apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
-      tokens: MemoryTokenStore(const StoredTokens(accessToken: 'member-token', refreshToken: 'refresh-token')),
+      config: const AppConfig(
+          apiBaseUrl: 'http://test.local/api/v1', tenantCode: 'hvp'),
+      tokens: MemoryTokenStore(const StoredTokens(
+          accessToken: 'member-token', refreshToken: 'refresh-token')),
     );
-    final adapter = ScriptedAdapter((_) => okEnvelope(<String, dynamic>{'id': 'participation-1'}));
+    final adapter = ScriptedAdapter(
+        (_) => okEnvelope(<String, dynamic>{'id': 'participation-1'}));
     dio.httpClientAdapter = adapter;
 
     await OpenChallengeRepositoryImpl(ApiClient(dio)).join('challenge-1');
