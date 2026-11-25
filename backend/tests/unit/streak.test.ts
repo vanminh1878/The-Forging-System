@@ -9,14 +9,12 @@ function build({ sessions = 3, streak = 0, freezeId = null as string | null } = 
   const repo = {
     activeMemberIdsForWeek: vi.fn().mockResolvedValue(['member-1']),
     log: vi.fn().mockResolvedValue(null),
-    member: vi
-      .fn()
-      .mockResolvedValue({
-        id: 'member-1',
-        currentStreakWeeks: streak,
-        longestStreakWeeks: streak,
-        streakStartedWeek: streak ? '2026-11-02' : null,
-      }),
+    member: vi.fn().mockResolvedValue({
+      id: 'member-1',
+      currentStreakWeeks: streak,
+      longestStreakWeeks: streak,
+      streakStartedWeek: streak ? '2026-11-02' : null,
+    }),
     countConfirmedSessions: vi.fn().mockResolvedValue(sessions),
     claimFreeze: vi.fn().mockResolvedValue(freezeId),
     useFreeze: vi.fn().mockResolvedValue(1),
@@ -54,14 +52,16 @@ function build({ sessions = 3, streak = 0, freezeId = null as string | null } = 
 describe('STK weekly close', () => {
   const monday = new Date('2026-11-30T00:05:00+07:00');
 
-  it('increments, writes a log, grants freeze and awards the configured milestone', async () => {
-    const { service, repo, points } = build({ streak: 3 });
+  it.each([
+    [3, 4, 20],
+    [7, 8, 40],
+    [11, 12, 80],
+  ])('increments, logs, grants a freeze and awards milestone week %i', async (before, after, dp) => {
+    const { service, repo, points } = build({ streak: before });
     await expect(service.closePreviousWeek(monday)).resolves.toEqual(['member-1: INCREASED']);
-    expect(repo.updateMember).toHaveBeenCalledWith('member-1', 4, 4, '2026-11-02');
+    expect(repo.updateMember).toHaveBeenCalledWith('member-1', after, after, '2026-11-02');
     expect(repo.grantMonthlyFreeze).toHaveBeenCalledOnce();
-    expect(points.award).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'STREAK_MILESTONE', dp: 20 }),
-    );
+    expect(points.award).toHaveBeenCalledWith(expect.objectContaining({ source: 'STREAK_MILESTONE', dp }));
   });
 
   it('uses an eligible freeze and preserves the streak before resetting', async () => {

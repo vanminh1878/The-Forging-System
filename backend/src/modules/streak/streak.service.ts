@@ -11,7 +11,7 @@ import {
 import type { AuditService } from '../audit/audit.service';
 import type { PointsPort } from '../points/points.service';
 import type { SettingsService } from '../settings/settings.service';
-import { StreakRepository, type StreakResult } from './streak.repository';
+import type { StreakRepository, StreakResult } from './streak.repository';
 import { notFound } from '../../common/errors/app-error';
 
 export class StreakService {
