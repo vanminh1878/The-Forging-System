@@ -24,6 +24,7 @@ class StreakSummary {
     required this.sessionsThisWeek,
     required this.targetSessions,
     required this.availableFreezes,
+    required this.milestones,
     required this.logs,
   });
 
@@ -33,6 +34,7 @@ class StreakSummary {
   final int sessionsThisWeek;
   final int targetSessions;
   final int availableFreezes;
+  final Map<int, int> milestones;
   final List<StreakLog> logs;
 }
 

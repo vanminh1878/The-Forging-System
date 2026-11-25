@@ -226,4 +226,42 @@ describe('STK-01..05 weekly streaks', () => {
       resetClock();
     }
   });
+
+  it('warns only at-risk active streak members once per week through the registered Saturday job', async () => {
+    await confirmed([1]);
+    await ctx.tx(() =>
+      sql.exec(
+        'UPDATE members SET current_streak_weeks=2,longest_streak_weeks=2,streak_started_week=$2 WHERE user_id=$1',
+        [member.userId, '2026-11-16'],
+      ),
+    );
+    const saturdayAt = new Date('2026-11-28T09:00:00+07:00');
+    const job = jobs.find(({ key }) => key === 'streak');
+    expect(job).toMatchObject({ name: 'Cảnh báo sắp mất chuỗi tập', cron: '0 9 * * 6' });
+
+    setClock(fixedClock(saturdayAt));
+    try {
+      const first = await runJob(job!, ctx.tenantId, null, ctx.services.audit);
+      const second = await runJob(job!, ctx.tenantId, null, ctx.services.audit);
+      expect(first).toMatchObject({ batchKey: 'streak', status: 'SUCCESS' });
+      expect(first.resultLines).toContain(`${member.userId}: WARNED`);
+      expect(second.resultLines).toContain(`${member.userId}: SKIPPED`);
+      expect(
+        await ctx.tx(() =>
+          sql.one<{ eventType: string; body: string; dedupeKey: string; payload: { weekStart: string } }>(
+            `SELECT event_type,body,dedupe_key,payload FROM notifications
+             WHERE user_id=$1 AND event_type='STREAK_WARNING'`,
+            [member.userId],
+          ),
+        ),
+      ).toMatchObject({
+        eventType: 'STREAK_WARNING',
+        body: 'Bạn mới có 1/3 buổi tuần này - thêm 2 buổi để giữ streak 2 tuần.',
+        dedupeKey: `${ctx.tenantId}:streak-warning:${member.userId}:2026-11-23`,
+        payload: { weekStart: '2026-11-23' },
+      });
+    } finally {
+      resetClock();
+    }
+  });
 });

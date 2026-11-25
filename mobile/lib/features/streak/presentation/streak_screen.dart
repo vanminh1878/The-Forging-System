@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/hvp_context.dart';
 import '../../../core/design/hvp_icons.dart';
+import '../../../core/storage/storage_providers.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
@@ -10,6 +11,7 @@ import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/streak.dart';
+import '../../auth/presentation/providers/auth_controller.dart';
 import 'helpers/streak_ui_helpers.dart';
 import 'streak_providers.dart';
 
@@ -19,6 +21,10 @@ class StreakScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(streakSummaryProvider);
+    ref.listen<AsyncValue<StreakSummary>>(streakSummaryProvider, (_, next) {
+      final value = next.valueOrNull;
+      if (value != null) _showMilestone(context, ref, value);
+    });
     return Scaffold(
       appBar: const HvpAppBar(title: 'Chuỗi tập'),
       body: AsyncBody<StreakSummary>(
@@ -51,6 +57,29 @@ class StreakScreen extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _showMilestone(BuildContext context, WidgetRef ref, StreakSummary summary) async {
+    final logs = summary.logs.where((log) => log.result == 'INCREASED').toList(growable: false);
+    if (logs.isEmpty) return;
+    final log = logs.first;
+    final dp = summary.milestones[log.streakAfter];
+    final userId = ref.read(currentUserIdProvider);
+    if (dp == null || userId == null || !context.mounted) return;
+    final key = 'streak_milestone:$userId:${log.weekStart.toIso8601String().substring(0, 10)}:${log.streakAfter}';
+    final prefs = ref.read(sharedPreferencesProvider);
+    if (prefs.getBool(key) ?? false) return;
+    await prefs.setBool(key, true);
+    if (!context.mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(HvpIcons.trophy),
+        title: Text('MỐC ${log.streakAfter} TUẦN!'),
+        content: Text('Bạn nhận được $dp DP nhờ duy trì chuỗi tập.'),
+        actions: <Widget>[TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('TIẾP TỤC'))],
       ),
     );
   }
@@ -104,7 +133,7 @@ class _FreezeInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) => HvpCard(
         child: Row(children: <Widget>[
-          Icon(HvpIcons.snowflake, color: context.hvp.cyan),
+          Icon(HvpIcons.snowflake, color: context.hvp.info),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
             Text('STREAK FREEZE', style: context.txt.titleS),

@@ -159,7 +159,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
   const challenges = new ChallengeService(new ChallengeRepository(), audit, points, settings, notifications);
   const adminArmory = new AdminArmoryService(new AdminArmoryRepository(), audit);
   const inventory = new InventoryService(new InventoryRepository(), audit);
-  const streak = new StreakService(new StreakRepository(), settings, points, audit);
+  const streak = new StreakService(new StreakRepository(), settings, points, audit, notifications);
 
   const services = {
     audit,
@@ -196,6 +196,12 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     name: 'Chốt chuỗi tập tuần',
     cron: '5 0 * * 1',
     run: ({ now }) => streak.closePreviousWeek(now),
+  });
+  registerJob({
+    key: 'streak',
+    name: 'Cảnh báo sắp mất chuỗi tập',
+    cron: '0 9 * * 6',
+    run: ({ now }) => streak.warnAtRiskMembers(now),
   });
 
   // ---- 4. feature modules ----

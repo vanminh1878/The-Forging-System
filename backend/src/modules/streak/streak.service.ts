@@ -11,6 +11,8 @@ import {
 import type { AuditService } from '../audit/audit.service';
 import type { PointsPort } from '../points/points.service';
 import type { SettingsService } from '../settings/settings.service';
+import type { NotifierPort } from '../notifications/notification.service';
+import { NotificationEvent } from '../notifications/notification.events';
 import type { StreakRepository, StreakResult } from './streak.repository';
 import { notFound } from '../../common/errors/app-error';
 
@@ -20,6 +22,7 @@ export class StreakService {
     private readonly settings: SettingsService,
     private readonly points: PointsPort,
     private readonly audit: AuditService,
+    private readonly notifications: NotifierPort,
   ) {}
 
   async closePreviousWeek(now = clock.now()): Promise<string[]> {
@@ -46,14 +49,43 @@ export class StreakService {
       startOfLocalDay(currentWeekStart),
       startOfLocalDay(addDays(currentWeekStart, 7)),
     );
+    const milestones = await this.settings.get<Record<string, unknown>>('streak.milestones');
     return {
       ...member,
       currentWeekStart,
       sessionsThisWeek,
       targetSessions,
+      milestones: Object.entries(milestones)
+        .map(([week, dp]) => ({ week: Number(week), dp: Number(dp) }))
+        .filter(({ week, dp }) => Number.isInteger(week) && week > 0 && Number.isInteger(dp) && dp > 0)
+        .sort((a, b) => a.week - b.week),
       availableFreezes: await this.repo.availableFreezes(memberId, now),
       logs: await this.repo.recentLogs(memberId),
     };
+  }
+
+  async warnAtRiskMembers(now = clock.now()): Promise<string[]> {
+    const weekStart = weekStartOf(localDate(now));
+    const start = startOfLocalDay(weekStart);
+    const end = startOfLocalDay(addDays(weekStart, 7));
+    const targetSessions = await this.settings.getNumber('streak.weekly_min_sessions');
+    const candidates = await this.repo.warningCandidates(start, end, targetSessions);
+    const lines: string[] = [];
+    for (const candidate of candidates) {
+      const sent = await this.notifications.notifyFromTemplate(
+        candidate.memberId,
+        NotificationEvent.STREAK_WARNING,
+        {
+          done: candidate.sessionsCount,
+          target: targetSessions,
+          missing: targetSessions - candidate.sessionsCount,
+          streak: candidate.currentStreakWeeks,
+        },
+        { dedupeKey: `streak-warning:${candidate.memberId}:${weekStart}`, payload: { weekStart } },
+      );
+      lines.push(`${candidate.memberId}: ${sent ? 'WARNED' : 'SKIPPED'}`);
+    }
+    return lines;
   }
 
   private async closeMember(

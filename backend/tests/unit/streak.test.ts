@@ -4,6 +4,7 @@ import type { StreakRepository } from '../../src/modules/streak/streak.repositor
 import type { SettingsService } from '../../src/modules/settings/settings.service';
 import type { PointsPort } from '../../src/modules/points/points.service';
 import type { AuditService } from '../../src/modules/audit/audit.service';
+import type { NotifierPort } from '../../src/modules/notifications/notification.service';
 
 function build({ sessions = 3, streak = 0, freezeId = null as string | null } = {}) {
   const repo = {
@@ -16,6 +17,7 @@ function build({ sessions = 3, streak = 0, freezeId = null as string | null } = 
       streakStartedWeek: streak ? '2026-11-02' : null,
     }),
     countConfirmedSessions: vi.fn().mockResolvedValue(sessions),
+    warningCandidates: vi.fn().mockResolvedValue([]),
     claimFreeze: vi.fn().mockResolvedValue(freezeId),
     useFreeze: vi.fn().mockResolvedValue(1),
     updateMember: vi.fn().mockResolvedValue(1),
@@ -37,15 +39,18 @@ function build({ sessions = 3, streak = 0, freezeId = null as string | null } = 
   };
   const points = { award: vi.fn().mockResolvedValue({ duplicate: false }) };
   const audit = { record: vi.fn().mockResolvedValue(undefined) };
+  const notifications = { notifyFromTemplate: vi.fn().mockResolvedValue(true) };
   return {
     service: new StreakService(
       repo as unknown as StreakRepository,
       settings as unknown as SettingsService,
       points as unknown as PointsPort,
       audit as unknown as AuditService,
+      notifications as unknown as NotifierPort,
     ),
     repo,
     points,
+    notifications,
   };
 }
 
@@ -70,5 +75,20 @@ describe('STK weekly close', () => {
     expect(repo.useFreeze).toHaveBeenCalledWith('freeze-1', '2026-11-23', monday);
     expect(repo.updateMember).toHaveBeenCalledWith('member-1', 2, 2, '2026-11-02');
     expect(points.award).not.toHaveBeenCalled();
+  });
+
+  it('warns each at-risk member once per local week with the remaining sessions', async () => {
+    const { service, repo, notifications } = build();
+    repo.warningCandidates.mockResolvedValue([
+      { memberId: 'member-1', currentStreakWeeks: 5, sessionsCount: 1 },
+    ]);
+
+    await expect(service.warnAtRiskMembers(monday)).resolves.toEqual(['member-1: WARNED']);
+    expect(notifications.notifyFromTemplate).toHaveBeenCalledWith(
+      'member-1',
+      'STREAK_WARNING',
+      { done: 1, target: 3, missing: 2, streak: 5 },
+      expect.objectContaining({ dedupeKey: 'streak-warning:member-1:2026-11-30' }),
+    );
   });
 });

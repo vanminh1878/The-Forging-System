@@ -16,7 +16,13 @@ class StreakRepositoryImpl implements StreakRepository {
       sessionsThisWeek: intOf(json, 'sessionsThisWeek'),
       targetSessions: intOf(json, 'targetSessions'),
       availableFreezes: intOf(json, 'availableFreezes'),
-      logs: listOf(json['logs']).map((value) {
+      milestones: Map<int, int>.fromEntries(
+        asList(json['milestones'])
+            .map((value) => asMap(value))
+            .map((value) => MapEntry(intOf(value, 'week'), intOf(value, 'dp')))
+            .where((entry) => entry.key > 0 && entry.value > 0),
+      ),
+      logs: asList(json['logs']).map((value) {
         final log = asMap(value);
         return StreakLog(
           weekStart: dateOrNull(log, 'weekStart') ?? DateTime.fromMillisecondsSinceEpoch(0),

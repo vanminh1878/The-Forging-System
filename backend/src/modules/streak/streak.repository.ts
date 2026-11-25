@@ -21,6 +21,12 @@ export interface StreakLog {
   createdAt: Date;
 }
 
+export interface StreakWarningCandidate {
+  memberId: string;
+  currentStreakWeeks: number;
+  sessionsCount: number;
+}
+
 export class StreakRepository {
   async activeMemberIdsForWeek(start: Date, end: Date): Promise<string[]> {
     const rows = await sql.many<{ id: string }>(
@@ -53,6 +59,23 @@ export class StreakRepository {
         [memberId, start, end],
       )
       .then((value) => value ?? 0);
+  }
+
+  async warningCandidates(start: Date, end: Date, targetSessions: number): Promise<StreakWarningCandidate[]> {
+    return sql.many<StreakWarningCandidate>(
+      `SELECT m.user_id AS member_id,m.current_streak_weeks,
+         (SELECT count(*)::int FROM attendances a
+          JOIN sessions s ON s.id=a.session_id AND s.tenant_id=a.tenant_id
+          WHERE a.member_id=m.user_id AND a.attendance_status='CONFIRMED_PASS'
+            AND s.starts_at >= $1 AND s.starts_at < $2) AS sessions_count
+       FROM members m
+       WHERE m.status='ACTIVE' AND m.current_streak_weeks > 0
+         AND (SELECT count(*)::int FROM attendances a
+              JOIN sessions s ON s.id=a.session_id AND s.tenant_id=a.tenant_id
+              WHERE a.member_id=m.user_id AND a.attendance_status='CONFIRMED_PASS'
+                AND s.starts_at >= $1 AND s.starts_at < $2) < $3`,
+      [start, end, targetSessions],
+    );
   }
 
   log(memberId: string, weekStart: string): Promise<StreakLog | null> {

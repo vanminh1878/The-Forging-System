@@ -1,4 +1,4 @@
-# STK-01–05 — Chuỗi tập và Streak Freeze
+# STK-01–09 — Chuỗi tập, Freeze và cảnh báo
 
 ## Quy tắc
 
@@ -14,9 +14,10 @@ GET /api/v1/me/streak
 Authorization: Bearer <MEMBER_TOKEN>
 ```
 
-Response gồm streak hiện tại/cao nhất, tuần hiện tại, số buổi đã xác nhận, target tuần, Freeze còn dùng được và 12 `streak_logs` gần nhất.
+Response gồm streak hiện tại/cao nhất, tuần hiện tại, số buổi đã xác nhận, target tuần, Freeze còn dùng được, các mốc thưởng `milestones` (`[{ week, dp }]`) được cấu hình từ `streak.milestones`, và 12 `streak_logs` gần nhất. Client dùng `milestones` để hiển thị popup phần thưởng một lần cho mỗi `(weekStart, milestone)` trên từng thiết bị.
 
 ## Job vận hành
 
 - Scheduler: bật `ENABLE_SCHEDULER=true`.
 - Admin có thể gọi batch job `streak-weekly-close` qua Batch Jobs để chạy bù; job giữ advisory lock theo tenant và log kết quả vào `batch_runs`.
+- Job `streak` (tên hiển thị **Cảnh báo sắp mất chuỗi tập**) chạy `09:00` Thứ Bảy theo `APP_TIMEZONE` (`0 9 * * 6`). Job chỉ nhắc Member ACTIVE đang có streak nhưng chưa đạt `streak.weekly_min_sessions`; notification `STREAK_WARNING` được khử trùng lặp theo `streak-warning:<memberId>:<weekStart>`.
