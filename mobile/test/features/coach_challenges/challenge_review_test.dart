@@ -13,6 +13,7 @@ import '../../helpers/test_harness.dart';
 
 class _FakeChallengeReviews implements ChallengeReviewRepository {
   int approved = 0;
+  int rejected = 0;
 
   @override
   Future<ChallengeReviewPage> list(
@@ -43,6 +44,10 @@ class _FakeChallengeReviews implements ChallengeReviewRepository {
 
   @override
   Future<void> approveJoin(String participationId) async => approved++;
+
+  @override
+  Future<void> reject(String participationId, String reason) async =>
+      rejected++;
 }
 
 void main() {

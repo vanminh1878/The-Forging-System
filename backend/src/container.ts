@@ -185,6 +185,12 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
       return [`Hết hạn: ${result.expired}`, `Bỏ qua: ${result.skipped}`];
     },
   });
+  registerJob({
+    key: 'challenge',
+    name: 'Đóng thử thách hết hạn',
+    cron: '*/15 * * * *',
+    run: ({ now }) => challenges.closeExpired(now),
+  });
 
   // ---- 4. feature modules ----
   // Each module registers itself here by adding ONE block: instantiate its repositories/services,
