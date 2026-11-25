@@ -30,6 +30,7 @@ class ChallengeReviewRepositoryImpl implements ChallengeReviewRepository {
             target: intOf(json, 'target'),
             status: str(json, 'status'),
             evidenceUrl: strOrNull(json, 'evidenceUrl'),
+            rejectionReason: strOrNull(json, 'rejectionReason'),
             completionMethod: strOrNull(json, 'completionMethod') ?? 'EVIDENCE',
           );
         }).toList(growable: false),
@@ -45,4 +46,10 @@ class ChallengeReviewRepositoryImpl implements ChallengeReviewRepository {
   @override
   Future<void> approve(String participationId) =>
       _api.post('/staff/challenges/participations/$participationId/approve');
+
+  @override
+  Future<void> reject(String participationId, String reason) => _api.post(
+        '/staff/challenges/participations/$participationId/reject',
+        body: <String, dynamic>{'reason': reason},
+      );
 }

@@ -14,6 +14,7 @@ import {
   createChallengeBody,
   openChallengeQuery,
   participationIdParam,
+  rejectParticipationBody,
   staffParticipationQuery,
   updateChallengeBody,
 } from './challenge.validation';
@@ -115,6 +116,15 @@ export function challengeRoutes(service: ChallengeService): Router {
     requireRoles(...RoleGroup.COACHING_STAFF),
     validate({ params: participationIdParam }),
     handle(async (req) => ok(await service.approveEvidence(req.params.participationId, authOf(req).userId))),
+  );
+  r.post(
+    '/staff/challenges/participations/:participationId/reject',
+    requireAuth,
+    requireRoles(...RoleGroup.COACHING_STAFF),
+    validate({ params: participationIdParam, body: rejectParticipationBody }),
+    handle(async (req) =>
+      ok(await service.rejectEvidence(req.params.participationId, req.body, authOf(req).userId)),
+    ),
   );
   return r;
 }

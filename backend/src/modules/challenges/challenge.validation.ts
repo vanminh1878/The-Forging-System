@@ -61,9 +61,12 @@ export const challengeEvidenceBody = z
     evidenceUrl: z.string().trim().url().max(1000),
   })
   .strict();
+export const rejectParticipationBody = z.object({ reason: z.string().trim().min(3).max(500) }).strict();
 export const staffParticipationQuery = paginationQuery
   .extend({
-    status: z.enum(['PENDING_COACH', 'JOINED', 'AWAITING_COACH', 'REWARDED', 'EXPIRED']).optional(),
+    status: z
+      .enum(['PENDING_COACH', 'JOINED', 'AWAITING_COACH', 'REWARDED', 'REJECTED', 'EXPIRED'])
+      .optional(),
     evidence: z.enum(['SUBMITTED', 'PENDING']).optional(),
     q: z.string().trim().min(1).max(100).optional(),
   })
@@ -92,6 +95,7 @@ export type CreateChallengeInput = z.infer<typeof createChallengeBody>;
 export type UpdateChallengeInput = z.infer<typeof updateChallengeBody>;
 export type ChallengeEnabledInput = z.infer<typeof challengeEnabledBody>;
 export type ChallengeEvidenceInput = z.infer<typeof challengeEvidenceBody>;
+export type RejectParticipationInput = z.infer<typeof rejectParticipationBody>;
 export type StaffParticipationFilter = Pick<
   z.infer<typeof staffParticipationQuery>,
   'status' | 'evidence' | 'q'

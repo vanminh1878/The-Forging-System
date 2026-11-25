@@ -21,6 +21,7 @@ import type {
   ChallengeFilter,
   CreateChallengeInput,
   OpenChallengeFilter,
+  RejectParticipationInput,
   StaffParticipationFilter,
   UpdateChallengeInput,
 } from './challenge.validation';
@@ -58,6 +59,33 @@ export class ChallengeService {
     const challenge = await this.repo.find(id);
     if (!challenge) throw notFound('Challenge');
     return challenge;
+  }
+
+  async closeExpired(now = clock.now()): Promise<string[]> {
+    const challenges = await this.repo.closeExpired(now);
+    const lines: string[] = [];
+    for (const challenge of challenges) {
+      const expired = await this.repo.expireParticipations(challenge.id);
+      await this.audit.record({
+        actorId: null,
+        action: 'CHALLENGE_EXPIRED',
+        entityType: 'CHALLENGE',
+        entityId: challenge.id,
+        before: { status: 'OPEN' },
+        after: { status: 'CLOSED', expiredParticipations: expired.length },
+      });
+      for (const participation of expired) {
+        await this.audit.record({
+          actorId: null,
+          action: 'CHALLENGE_PARTICIPATION_EXPIRED',
+          entityType: 'CHALLENGE_PARTICIPATION',
+          entityId: participation.id,
+          after: participation,
+        });
+      }
+      lines.push(`${challenge.id}: CLOSED (${expired.length} participation hết hạn)`);
+    }
+    return lines;
   }
 
   async listOpenForMember(
@@ -103,17 +131,24 @@ export class ChallengeService {
     await this.notifier?.notifyMember({
       userId: memberId,
       event: NotificationEvent.CHALLENGE_JOINED,
-      title: (challenge.joinApproval ?? 'COACH') === 'COACH' ? 'ĐÃ GỬI ĐĂNG KÝ THỬ THÁCH' : 'ĐÃ THAM GIA THỬ THÁCH',
-      body: (challenge.joinApproval ?? 'COACH') === 'COACH' ? `Bạn đã đăng ký “${challenge.title}”. Chờ Coach duyệt tham gia.` : `Bạn đã tham gia “${challenge.title}”.`,
+      title:
+        (challenge.joinApproval ?? 'COACH') === 'COACH'
+          ? 'ĐÃ GỬI ĐĂNG KÝ THỬ THÁCH'
+          : 'ĐÃ THAM GIA THỬ THÁCH',
+      body:
+        (challenge.joinApproval ?? 'COACH') === 'COACH'
+          ? `Bạn đã đăng ký “${challenge.title}”. Chờ Coach duyệt tham gia.`
+          : `Bạn đã tham gia “${challenge.title}”.`,
       dedupeKey: `challenge:joined:${participation.id}`,
       payload: { challengeId: challenge.id, participationId: participation.id },
     });
-    if ((challenge.joinApproval ?? 'COACH') === 'COACH') await this.notifier?.notifyStaff(
-      'COACH',
-      NotificationEvent.CHALLENGE_EVIDENCE,
-      'ĐĂNG KÝ THỬ THÁCH MỚI',
-      `Có học viên đăng ký “${challenge.title}”. Mở tab Challenge để duyệt tham gia.`,
-    );
+    if ((challenge.joinApproval ?? 'COACH') === 'COACH')
+      await this.notifier?.notifyStaff(
+        'COACH',
+        NotificationEvent.CHALLENGE_EVIDENCE,
+        'ĐĂNG KÝ THỬ THÁCH MỚI',
+        `Có học viên đăng ký “${challenge.title}”. Mở tab Challenge để duyệt tham gia.`,
+      );
     return participation;
   }
 
@@ -138,9 +173,10 @@ export class ChallengeService {
       userId: after.memberId,
       event: NotificationEvent.CHALLENGE_JOIN_APPROVED,
       title: 'ĐĂNG KÝ THỬ THÁCH ĐÃ ĐƯỢC DUYỆT',
-      body: challenge?.completionMethod === 'ATTENDANCE'
-        ? `Coach đã duyệt “${challenge.title}”. Hãy hoàn thành các buổi tham gia hợp lệ.`
-        : `Coach đã duyệt “${challenge?.title ?? 'thử thách'}”. Khi hoàn thành, hãy gửi yêu cầu hoàn thành kèm bằng chứng.`,
+      body:
+        challenge?.completionMethod === 'ATTENDANCE'
+          ? `Coach đã duyệt “${challenge.title}”. Hãy hoàn thành các buổi tham gia hợp lệ.`
+          : `Coach đã duyệt “${challenge?.title ?? 'thử thách'}”. Khi hoàn thành, hãy gửi yêu cầu hoàn thành kèm bằng chứng.`,
       dedupeKey: `challenge:join-approved:${after.id}`,
       payload: { challengeId: after.challengeId, participationId: after.id },
     });
@@ -193,7 +229,7 @@ export class ChallengeService {
   ): Promise<ChallengeParticipationView> {
     const participation = await this.repo.findParticipation(challengeId, memberId, true);
     if (!participation) throw notFound('Challenge participation');
-    if (participation.status !== 'JOINED') {
+    if (participation.status !== 'JOINED' && participation.status !== 'REJECTED') {
       throw conflict(
         'Chỉ gửi yêu cầu hoàn thành sau khi Coach duyệt đăng ký thử thách.',
         'CHALLENGE_NOT_JOINED',
@@ -283,6 +319,38 @@ export class ChallengeService {
     return { participation: after, duplicate: false };
   }
 
+  async rejectEvidence(
+    participationId: string,
+    input: RejectParticipationInput,
+    actorId: string,
+  ): Promise<ChallengeParticipationView> {
+    const before = await this.repo.findParticipationById(participationId, true);
+    if (!before) throw notFound('Challenge participation');
+    if (before.status !== 'AWAITING_COACH') {
+      throw conflict('Participation không còn chờ Coach duyệt.', 'CHALLENGE_NOT_AWAITING_REVIEW');
+    }
+    const after = await this.repo.rejectParticipation(before.id, actorId, input.reason, clock.now());
+    const challenge = await this.repo.find(before.challengeId);
+    await this.audit.record({
+      actorId,
+      action: 'CHALLENGE_EVIDENCE_REJECTED',
+      entityType: 'CHALLENGE_PARTICIPATION',
+      entityId: after.id,
+      before,
+      after,
+      reason: input.reason,
+    });
+    await this.notifier?.notifyMember({
+      userId: after.memberId,
+      event: NotificationEvent.CHALLENGE,
+      title: 'BẰNG CHỨNG CẦN NỘP LẠI',
+      body: `Coach chưa thể duyệt “${challenge?.title ?? 'thử thách'}”: ${input.reason}`,
+      dedupeKey: `challenge:rejected:${after.id}:${after.rejectedAt?.toISOString() ?? ''}`,
+      payload: { challengeId: after.challengeId, participationId: after.id },
+    });
+    return after;
+  }
+
   async create(input: CreateChallengeInput, actorId: string): Promise<ChallengeView> {
     const data = { ...input, startsAt: new Date(input.startsAt), endsAt: new Date(input.endsAt) };
     this.validateDates(data);
@@ -355,7 +423,11 @@ export class ChallengeService {
     if (input.enabled) {
       if (before.status === 'CANCELLED')
         throw conflict('Thử thách đã bị hủy, không thể mở lại.', 'CHALLENGE_CANCELLED');
-      this.validateDates({ ...before, joinApproval: before.joinApproval ?? 'COACH', completionMethod: before.completionMethod ?? 'EVIDENCE' });
+      this.validateDates({
+        ...before,
+        joinApproval: before.joinApproval ?? 'COACH',
+        completionMethod: before.completionMethod ?? 'EVIDENCE',
+      });
       if (before.endsAt.getTime() <= clock.now().getTime()) {
         throw conflict('Thử thách đã hết hạn, không thể bật.', 'CHALLENGE_EXPIRED');
       }

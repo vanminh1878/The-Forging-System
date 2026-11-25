@@ -12,6 +12,7 @@ class CurrentChallenge {
     required this.progressValue,
     this.description,
     this.evidenceUrl,
+    this.rejectionReason,
     this.completionMethod = 'EVIDENCE',
   });
 
@@ -27,6 +28,7 @@ class CurrentChallenge {
   final String participationStatus;
   final int progressValue;
   final String? evidenceUrl;
+  final String? rejectionReason;
   final String completionMethod;
 
   double get progress =>

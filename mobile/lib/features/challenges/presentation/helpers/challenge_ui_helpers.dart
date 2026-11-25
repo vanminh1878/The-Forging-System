@@ -33,6 +33,7 @@ String participationStatusLabel(String? value) => switch (value) {
       'JOINED' => 'Đã tham gia',
       'AWAITING_COACH' => 'Chờ duyệt hoàn thành',
       'REWARDED' => 'Đã nhận thưởng',
+      'REJECTED' => 'Cần nộp lại bằng chứng',
       'EXPIRED' => 'Đã hết hạn',
       _ => 'Chưa tham gia',
     };
@@ -42,6 +43,7 @@ ChipTone participationStatusTone(String? value) => switch (value) {
       'JOINED' => ChipTone.info,
       'AWAITING_COACH' => ChipTone.warning,
       'REWARDED' => ChipTone.success,
+      'REJECTED' => ChipTone.danger,
       'EXPIRED' => ChipTone.danger,
       _ => ChipTone.neutral,
     };

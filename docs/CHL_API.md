@@ -113,6 +113,11 @@ Nộp bằng chứng:
 - Audit: `CHALLENGE_EVIDENCE_SUBMITTED`, `CHALLENGE_APPROVED` hoặc `CHALLENGE_APPROVED_LIMITED`.
 - Ngay sau khi evidence được lưu, backend ghi notification role `COACH` với event `CHALLENGE_EVIDENCE`; Coach duyệt tại tab Challenge.
 - Khi Coach duyệt, member nhận notification `CHALLENGE_REWARDED`, kể cả khi đã chạm giới hạn thưởng tháng.
+- Coach có thể từ chối evidence qua `POST /staff/challenges/participations/:participationId/reject` với body `{ "reason": "..." }`. Participation thành `REJECTED`; Member nhận lý do và có thể nộp evidence mới để trở lại `AWAITING_COACH`.
+
+## CHL-08: Đóng thử thách hết hạn
+
+Job `challenge` chạy mỗi 15 phút (`*/15 * * * *`), chuyển Challenge `OPEN` có `endsAt <= now` thành `CLOSED` và chuyển mọi participation chưa `REWARDED` thành `EXPIRED`. Mỗi lần chạy được ghi vào `batch_runs` và audit log.
 
 Hàng chờ duyệt của Coach:
 
@@ -168,6 +173,7 @@ Màn **Thử thách** tại `/student/challenges` hiển thị các Challenge đ
 - Challenge `PENDING_COACH` hiển thị chờ Coach duyệt; Challenge `JOINED` có nút **Yêu cầu hoàn thành** (CHL-06); `AWAITING_COACH` hiển thị chờ Coach xác nhận hoàn thành.
 - Có trạng thái rỗng, retry và kéo để làm mới.
 - Chỉ theo dõi tiến độ; tham gia thuộc CHL-04 và tăng progress thuộc CHL-05.
+- Khi Coach phát thưởng, app hiển thị confetti, haptic và dialog một lần trên mỗi thiết bị; participation `REJECTED` hiển thị lý do cùng CTA nộp lại evidence.
 
 Mã nguồn:
 

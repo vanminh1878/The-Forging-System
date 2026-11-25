@@ -28,6 +28,7 @@ class CurrentChallengeRepositoryImpl implements CurrentChallengeRepository {
         participationStatus: str(json, 'participationStatus'),
         progressValue: intOf(json, 'progressValue'),
         evidenceUrl: strOrNull(json, 'evidenceUrl'),
+        rejectionReason: strOrNull(json, 'rejectionReason'),
         completionMethod: strOrNull(json, 'completionMethod') ?? 'EVIDENCE',
       );
     }).toList(growable: false);

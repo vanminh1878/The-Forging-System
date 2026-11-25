@@ -203,6 +203,12 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
     cron: '0 9 * * 6',
     run: ({ now }) => streak.warnAtRiskMembers(now),
   });
+  registerJob({
+    key: 'challenge',
+    name: 'Đóng thử thách hết hạn',
+    cron: '*/15 * * * *',
+    run: ({ now }) => challenges.closeExpired(now),
+  });
 
   // ---- 4. feature modules ----
   // Each module registers itself here by adding ONE block: instantiate its repositories/services,

@@ -2,7 +2,10 @@ import { db } from '../../db/database';
 import { sql } from '../../db/sql';
 import type { ChallengeFilter, CreateChallengeInput, StaffParticipationFilter } from './challenge.validation';
 
-export interface ChallengeView extends Omit<CreateChallengeInput, 'startsAt' | 'endsAt' | 'joinApproval' | 'completionMethod'> {
+export interface ChallengeView extends Omit<
+  CreateChallengeInput,
+  'startsAt' | 'endsAt' | 'joinApproval' | 'completionMethod'
+> {
   id: string;
   startsAt: Date;
   endsAt: Date;
@@ -16,7 +19,8 @@ export interface ChallengeView extends Omit<CreateChallengeInput, 'startsAt' | '
 
 export interface OpenChallengeView extends ChallengeView {
   participationId: string | null;
-  participationStatus: 'PENDING_COACH' | 'JOINED' | 'AWAITING_COACH' | 'REWARDED' | 'EXPIRED' | null;
+  participationStatus:
+    'PENDING_COACH' | 'JOINED' | 'AWAITING_COACH' | 'REWARDED' | 'REJECTED' | 'EXPIRED' | null;
   progressValue: number | null;
   joinedAt: Date | null;
   evidenceUrl: string | null;
@@ -26,7 +30,7 @@ export interface ChallengeParticipationView {
   id: string;
   challengeId: string;
   memberId: string;
-  status: 'PENDING_COACH' | 'JOINED' | 'AWAITING_COACH' | 'REWARDED' | 'EXPIRED';
+  status: 'PENDING_COACH' | 'JOINED' | 'AWAITING_COACH' | 'REWARDED' | 'REJECTED' | 'EXPIRED';
   progressValue: number;
   evidenceUrl: string | null;
   evidenceAt: Date | null;
@@ -36,6 +40,9 @@ export interface ChallengeParticipationView {
   confirmedAt: Date | null;
   isLimited: boolean;
   rewardedAt: Date | null;
+  rejectedBy: string | null;
+  rejectedAt: Date | null;
+  rejectionReason: string | null;
   updatedAt: Date;
 }
 
@@ -127,6 +134,24 @@ export class ChallengeRepository {
     return row!;
   }
 
+  closeExpired(now: Date): Promise<ChallengeView[]> {
+    return sql.many<ChallengeView>(
+      `UPDATE challenges SET status='CLOSED',updated_at=now()
+       WHERE status='OPEN' AND ends_at <= $1 RETURNING ${columns}`,
+      [now],
+    );
+  }
+
+  expireParticipations(challengeId: string): Promise<ChallengeParticipationView[]> {
+    return sql.many<ChallengeParticipationView>(
+      `UPDATE challenge_participations SET status='EXPIRED',updated_at=now()
+       WHERE challenge_id=$1 AND status NOT IN ('REWARDED','EXPIRED')
+       RETURNING id,challenge_id,member_id,status,progress_value,evidence_url,evidence_at,joined_at,completed_at,
+         confirmed_by,confirmed_at,is_limited,rewarded_at,rejected_by,rejected_at,rejection_reason,updated_at`,
+      [challengeId],
+    );
+  }
+
   async listOpenForMember(
     memberId: string,
     challengeType: string | null,
@@ -171,7 +196,7 @@ export class ChallengeRepository {
     memberId: string,
     lock = false,
   ): Promise<ChallengeParticipationView | null> {
-    const columns = `id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, updated_at`;
+    const columns = `id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, rejected_by, rejected_at, rejection_reason, updated_at`;
     return sql.one<ChallengeParticipationView>(
       `SELECT ${columns} FROM challenge_participations WHERE challenge_id=$1 AND member_id=$2 ${lock ? 'FOR UPDATE' : ''}`,
       [challengeId, memberId],
@@ -179,17 +204,21 @@ export class ChallengeRepository {
   }
 
   async findParticipationById(id: string, lock = false): Promise<ChallengeParticipationView | null> {
-    const columns = `id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, updated_at`;
+    const columns = `id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, rejected_by, rejected_at, rejection_reason, updated_at`;
     return sql.one<ChallengeParticipationView>(
       `SELECT ${columns} FROM challenge_participations WHERE id=$1 ${lock ? 'FOR UPDATE' : ''}`,
       [id],
     );
   }
 
-  async insertParticipation(challengeId: string, memberId: string, status: 'PENDING_COACH' | 'JOINED'): Promise<ChallengeParticipationView> {
+  async insertParticipation(
+    challengeId: string,
+    memberId: string,
+    status: 'PENDING_COACH' | 'JOINED',
+  ): Promise<ChallengeParticipationView> {
     const row = await sql.one<ChallengeParticipationView>(
       `INSERT INTO challenge_participations (tenant_id, challenge_id, member_id, status)
-      VALUES ($1,$2,$3,$4) RETURNING id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, updated_at`,
+      VALUES ($1,$2,$3,$4) RETURNING id, challenge_id, member_id, status, progress_value, evidence_url, evidence_at, joined_at, completed_at, confirmed_by, confirmed_at, is_limited, rewarded_at, rejected_by, rejected_at, rejection_reason, updated_at`,
       [db.currentTenantId(), challengeId, memberId, status],
     );
     return row!;
@@ -228,10 +257,10 @@ export class ChallengeRepository {
         FROM recorded r, challenges c
         WHERE p.id=r.challenge_participation_id AND c.id=p.challenge_id AND p.status='JOINED'
         RETURNING p.id,p.challenge_id,p.member_id,p.status,p.progress_value,p.evidence_url,p.evidence_at,
-          p.joined_at,p.completed_at,p.confirmed_by,p.confirmed_at,p.is_limited,p.rewarded_at,p.updated_at,c.target
+          p.joined_at,p.completed_at,p.confirmed_by,p.confirmed_at,p.is_limited,p.rewarded_at,p.rejected_by,p.rejected_at,p.rejection_reason,p.updated_at,c.target
       )
       SELECT id,challenge_id,member_id,status,progress_value,evidence_url,evidence_at,joined_at,completed_at,
-        confirmed_by,confirmed_at,is_limited,rewarded_at,updated_at,target FROM updated`,
+        confirmed_by,confirmed_at,is_limited,rewarded_at,rejected_by,rejected_at,rejection_reason,updated_at,target FROM updated`,
       [memberId, attendanceId, context, occurredAt, db.currentTenantId()],
     );
     return rows.map((row) => ({
@@ -249,18 +278,25 @@ export class ChallengeRepository {
         confirmedAt: row.confirmedAt,
         isLimited: row.isLimited,
         rewardedAt: row.rewardedAt,
+        rejectedBy: row.rejectedBy,
+        rejectedAt: row.rejectedAt,
+        rejectionReason: row.rejectionReason,
         updatedAt: row.updatedAt,
       },
       target: row.target,
     }));
   }
 
-  async submitCompletionEvidence(id: string, evidenceUrl: string, at: Date): Promise<ChallengeParticipationView> {
+  async submitCompletionEvidence(
+    id: string,
+    evidenceUrl: string,
+    at: Date,
+  ): Promise<ChallengeParticipationView> {
     const row = await sql.one<ChallengeParticipationView>(
       `UPDATE challenge_participations
-      SET evidence_url=$2,evidence_at=$3,status='AWAITING_COACH',completed_at=$3,updated_at=now() WHERE id=$1
+      SET evidence_url=$2,evidence_at=$3,status='AWAITING_COACH',completed_at=$3,rejected_by=NULL,rejected_at=NULL,rejection_reason=NULL,updated_at=now() WHERE id=$1
       RETURNING id,challenge_id,member_id,status,progress_value,evidence_url,evidence_at,joined_at,completed_at,
-        confirmed_by,confirmed_at,is_limited,rewarded_at,updated_at`,
+        confirmed_by,confirmed_at,is_limited,rewarded_at,rejected_by,rejected_at,rejection_reason,updated_at`,
       [id, evidenceUrl, at],
     );
     return row!;
@@ -270,7 +306,7 @@ export class ChallengeRepository {
     const row = await sql.one<ChallengeParticipationView>(
       `UPDATE challenge_participations SET status='JOINED',confirmed_by=$2,confirmed_at=$3,updated_at=now()
        WHERE id=$1 RETURNING id,challenge_id,member_id,status,progress_value,evidence_url,evidence_at,joined_at,
-         completed_at,confirmed_by,confirmed_at,is_limited,rewarded_at,updated_at`,
+          completed_at,confirmed_by,confirmed_at,is_limited,rewarded_at,rejected_by,rejected_at,rejection_reason,updated_at`,
       [id, actorId, at],
     );
     return row!;
@@ -300,8 +336,23 @@ export class ChallengeRepository {
       `UPDATE challenge_participations SET
       status='REWARDED',confirmed_by=$2,confirmed_at=$3,is_limited=$4,rewarded_at=$3,updated_at=now()
       WHERE id=$1 RETURNING id,challenge_id,member_id,status,progress_value,evidence_url,evidence_at,joined_at,
-        completed_at,confirmed_by,confirmed_at,is_limited,rewarded_at,updated_at`,
+        completed_at,confirmed_by,confirmed_at,is_limited,rewarded_at,rejected_by,rejected_at,rejection_reason,updated_at`,
       [id, actorId, at, isLimited],
+    );
+    return row!;
+  }
+
+  async rejectParticipation(
+    id: string,
+    actorId: string,
+    reason: string,
+    at: Date,
+  ): Promise<ChallengeParticipationView> {
+    const row = await sql.one<ChallengeParticipationView>(
+      `UPDATE challenge_participations SET status='REJECTED',rejected_by=$2,rejected_at=$3,rejection_reason=$4,updated_at=now()
+       WHERE id=$1 RETURNING id,challenge_id,member_id,status,progress_value,evidence_url,evidence_at,joined_at,
+         completed_at,confirmed_by,confirmed_at,is_limited,rewarded_at,rejected_by,rejected_at,rejection_reason,updated_at`,
+      [id, actorId, at, reason],
     );
     return row!;
   }
@@ -314,7 +365,7 @@ export class ChallengeRepository {
         OR m.member_code ILIKE '%' || $3 || '%' OR u.full_name ILIKE '%' || $3 || '%')`;
     const params = [filter.status ?? null, filter.evidence ?? null, filter.q ?? null];
     const select = `p.id,p.challenge_id,p.member_id,p.status,p.progress_value,p.evidence_url,p.evidence_at,p.joined_at,
-      p.completed_at,p.confirmed_by,p.confirmed_at,p.is_limited,p.rewarded_at,p.updated_at,
+      p.completed_at,p.confirmed_by,p.confirmed_at,p.is_limited,p.rewarded_at,p.rejected_by,p.rejected_at,p.rejection_reason,p.updated_at,
        c.title AS challenge_title,c.challenge_type,c.completion_method,c.target,m.member_code,u.full_name AS member_full_name`;
     const from = `challenge_participations p JOIN challenges c ON c.id=p.challenge_id
       JOIN members m ON m.user_id=p.member_id JOIN users u ON u.id=p.member_id`;
