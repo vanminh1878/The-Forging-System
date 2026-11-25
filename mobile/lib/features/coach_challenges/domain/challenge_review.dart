@@ -8,6 +8,7 @@ class ChallengeReview {
     required this.target,
     required this.status,
     required this.evidenceUrl,
+    this.rejectionReason,
     this.completionMethod = 'EVIDENCE',
   });
 
@@ -19,6 +20,7 @@ class ChallengeReview {
   final int target;
   final String status;
   final String? evidenceUrl;
+  final String? rejectionReason;
   final String completionMethod;
 }
 
@@ -40,4 +42,5 @@ abstract interface class ChallengeReviewRepository {
       {String? status, String? evidence, String? query, int page = 1});
   Future<void> approveJoin(String participationId);
   Future<void> approve(String participationId);
+  Future<void> reject(String participationId, String reason);
 }

@@ -246,20 +246,19 @@ class _ReviewCard extends ConsumerWidget {
                   height: 180,
                   width: double.infinity,
                   fit: BoxFit.contain,
-                  loadingBuilder: (_, child, progress) =>
-                      progress == null
-                          ? child
-                          : SizedBox(
-                              height: 180,
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  value: progress.expectedTotalBytes != null
-                                      ? progress.cumulativeBytesLoaded /
-                                          progress.expectedTotalBytes!
-                                      : null,
-                                ),
-                              ),
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : SizedBox(
+                          height: 180,
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              value: progress.expectedTotalBytes != null
+                                  ? progress.cumulativeBytesLoaded /
+                                      progress.expectedTotalBytes!
+                                  : null,
                             ),
+                          ),
+                        ),
                   errorBuilder: (_, __, ___) => Container(
                     height: 120,
                     alignment: Alignment.center,
@@ -287,11 +286,21 @@ class _ReviewCard extends ConsumerWidget {
               onPressed: submitting ? null : () => _approveJoin(context, ref),
             ),
           if (item.status == 'AWAITING_COACH')
-            HvpButton.gold(
-              label: 'Duyệt và phát thưởng',
-              small: true,
-              loading: submitting,
-              onPressed: submitting ? null : () => _approve(context, ref),
+            Wrap(
+              spacing: 8,
+              children: <Widget>[
+                HvpButton.gold(
+                  label: 'Duyệt và phát thưởng',
+                  small: true,
+                  loading: submitting,
+                  onPressed: submitting ? null : () => _approve(context, ref),
+                ),
+                HvpButton.secondary(
+                  label: 'Từ chối',
+                  small: true,
+                  onPressed: submitting ? null : () => _reject(context, ref),
+                ),
+              ],
             ),
         ],
       ),
@@ -327,9 +336,7 @@ class _ReviewCard extends ConsumerWidget {
     final isAttendance = item.completionMethod == 'ATTENDANCE';
     final confirmed = await showConfirmSheet(
       context,
-      title: isAttendance
-          ? 'Duyệt hoàn thành Challenge'
-          : 'Duyệt bài nộp',
+      title: isAttendance ? 'Duyệt hoàn thành Challenge' : 'Duyệt bài nộp',
       message: isAttendance
           ? 'Xác nhận ${item.memberFullName} đã hoàn thành thử thách bằng điểm danh? Phần thưởng sẽ được phát.'
           : 'Xác nhận bài nộp của ${item.memberFullName}? Phần thưởng Challenge sẽ được phát.',
@@ -356,6 +363,42 @@ class _ReviewCard extends ConsumerWidget {
           () => ref
               .read(challengeReviewRepositoryProvider)
               .approveJoin(item.participationId),
+        );
+    if (ok) ref.invalidate(challengeReviewQueueProvider(filter));
+  }
+
+  Future<void> _reject(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Từ chối bằng chứng'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          maxLength: 500,
+          minLines: 2,
+          maxLines: 4,
+          decoration: const InputDecoration(labelText: 'Lý do từ chối *'),
+        ),
+        actions: <Widget>[
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('HUỶ')),
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(dialogContext, controller.text.trim()),
+            child: const Text('XÁC NHẬN'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (reason == null || reason.length < 3) return;
+    final ok = await ref.read(challengeReviewActionProvider.notifier).run(
+          () => ref
+              .read(challengeReviewRepositoryProvider)
+              .reject(item.participationId, reason),
         );
     if (ok) ref.invalidate(challengeReviewQueueProvider(filter));
   }
