@@ -22,6 +22,7 @@ import '../../features/notifications/presentation/notifications_screen.dart';
 import '../../features/notifications/presentation/widgets/notification_bell.dart';
 import '../../features/schedule/presentation/screens/schedule_tab.dart';
 import '../../features/schedule/presentation/screens/session_detail_screen.dart';
+import '../../features/streak/presentation/streak_screen.dart';
 import '../route_paths.dart';
 import '../shell/profile_tab.dart';
 import '../shell/shell_tab.dart';
@@ -138,12 +139,7 @@ List<RouteBase> studentRoutes() => <RouteBase>[
       ),
       GoRoute(
         path: StudentPaths.streak,
-        builder: (context, state) => const ComingSoonPage(
-          title: 'Chuỗi tập',
-          owner: 'feature: streak',
-          icon: HvpIcons.fire,
-          standalone: true,
-        ),
+        builder: (context, state) => const StreakScreen(),
       ),
       GoRoute(
         path: StudentPaths.challenges,
