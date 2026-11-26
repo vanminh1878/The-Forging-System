@@ -19,6 +19,10 @@ const rankConfigBody = z.object({
   approvalRole: z.enum(['COACH', 'HEAD_COACH', 'ADMIN']).nullable(),
   reason: z.string().trim().min(3).max(500),
 });
+const rollbackRankConfigBody = z.object({
+  auditId: z.number().int().positive(),
+  reason: z.string().trim().min(3).max(500),
+});
 
 /** Rank progression: learner views (/me/...) and the examiner queue (/rank-trials). */
 export function rankRoutes(service: RankService, directory: UserDirectory): Router {
@@ -61,6 +65,21 @@ export function rankRoutes(service: RankService, directory: UserDirectory): Rout
     validate({ params: idParam, body: rankConfigBody }),
     handle(async (req) =>
       ok(await service.updateConfiguration(req.params.id, req.body, authOf(req).userId, req.body.reason)),
+    ),
+  );
+  r.post(
+    '/admin/ranks/:id/configuration/rollback',
+    requireRoles(...RoleGroup.ADMINS),
+    validate({ params: idParam, body: rollbackRankConfigBody }),
+    handle(async (req) =>
+      ok(
+        await service.rollbackConfiguration(
+          req.params.id,
+          req.body.auditId,
+          authOf(req).userId,
+          req.body.reason,
+        ),
+      ),
     ),
   );
 

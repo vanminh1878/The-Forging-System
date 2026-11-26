@@ -1,6 +1,7 @@
 import { badRequest, conflict, forbidden, notFound, unprocessable } from '../../common/errors/app-error';
 import { DomainEvents, eventBus } from '../../common/events/event-bus';
 import { clock } from '../../common/utils/clock';
+import { sql } from '../../db/sql';
 import type { AuditService } from '../audit/audit.service';
 import { NotificationEvent } from '../notifications/notification.events';
 import type { NotifierPort } from '../notifications/notification.service';
@@ -77,6 +78,25 @@ export class RankService implements RankPort {
       reason,
     });
     return after;
+  }
+
+  async rollbackConfiguration(
+    id: string,
+    auditId: number,
+    actorId: string,
+    reason: string,
+  ): Promise<RankDef> {
+    const version = await sql.one<{
+      entityId: string;
+      beforeData: Pick<RankDef, 'minActiveMonths' | 'requiresTrial' | 'approvalRole'> | null;
+    }>(
+      `SELECT entity_id,before_data FROM audit_logs WHERE id=$1 AND entity_type='RANK_CONFIG' AND action='RANK_CONFIG_UPDATED'`,
+      [auditId],
+    );
+    if (!version || version.entityId !== id || !version.beforeData) {
+      throw badRequest('Phiên bản cấu hình Rank không hợp lệ.', undefined, 'INVALID_RANK_CONFIG_VERSION');
+    }
+    return this.updateConfiguration(id, version.beforeData, actorId, reason);
   }
 
   /** Sets rank I + the INITIAL history row for a freshly created member. */
