@@ -65,6 +65,19 @@ export class RankRepository {
     return rows.map((r) => ({ ...r, requiredCourseIds: r.requiredCourseIds ?? [] }));
   }
 
+  async updateConfiguration(
+    id: string,
+    input: Pick<RankDef, 'minActiveMonths' | 'requiresTrial' | 'approvalRole'>,
+  ): Promise<RankDef | null> {
+    const row = await sql.one<Omit<RankDef, 'requiredCourseIds'> & { requiredCourseIds: string[] | null }>(
+      `UPDATE ranks SET min_active_months=$2,requires_trial=$3,approval_role=$4,updated_at=now() WHERE id=$1
+       RETURNING id,rank_order,code,name_en,name_vi,dp_threshold,min_active_months,requires_trial,approval_role,is_honorary,
+         ARRAY[]::uuid[] AS required_course_ids`,
+      [id, input.minActiveMonths, input.requiresTrial, input.approvalRole],
+    );
+    return row ? { ...row, requiredCourseIds: [] } : null;
+  }
+
   memberState(memberId: string, lock = false): Promise<MemberRankRow | null> {
     return sql.one<MemberRankRow>(
       `SELECT m.user_id, u.full_name, m.status, m.joined_at, m.dp_balance, m.current_rank_id, m.peak_rank_id, m.home_branch_id
@@ -106,11 +119,10 @@ export class RankRepository {
   }
 
   setRanks(memberId: string, currentRankId: string, peakRankId: string): Promise<number> {
-    return sql.exec(`UPDATE members SET current_rank_id = $2, peak_rank_id = $3, updated_at = now() WHERE user_id = $1`, [
-      memberId,
-      currentRankId,
-      peakRankId,
-    ]);
+    return sql.exec(
+      `UPDATE members SET current_rank_id = $2, peak_rank_id = $3, updated_at = now() WHERE user_id = $1`,
+      [memberId, currentRankId, peakRankId],
+    );
   }
 
   insertHistory(input: {
@@ -150,7 +162,11 @@ export class RankRepository {
   }
 
   /** Badges currently held: the latest history row of each rank, if not revoked. */
-  currentBadges(memberId: string): Promise<(RankHistoryRow & { rankOrder: number; nameEn: string; nameVi: string | null; badgeUrl: string | null })[]> {
+  currentBadges(
+    memberId: string,
+  ): Promise<
+    (RankHistoryRow & { rankOrder: number; nameEn: string; nameVi: string | null; badgeUrl: string | null })[]
+  > {
     return sql.many(
       `SELECT h.*, r.rank_order, r.name_en, r.name_vi, r.badge_url
          FROM (SELECT DISTINCT ON (to_rank_id) * FROM member_rank_history WHERE member_id = $1
@@ -170,16 +186,30 @@ export class RankRepository {
 
   // ---------- trials ----------
 
-  insertTrial(input: { memberId: string; targetRankId: string; approverRole: string; snapshot: unknown }): Promise<RankTrialRow | null> {
+  insertTrial(input: {
+    memberId: string;
+    targetRankId: string;
+    approverRole: string;
+    snapshot: unknown;
+  }): Promise<RankTrialRow | null> {
     return sql.one<RankTrialRow>(
       `INSERT INTO rank_trial_requests (tenant_id, member_id, target_rank_id, approver_role, eligibility_snapshot)
        VALUES ($1,$2,$3,$4,$5::jsonb) RETURNING *`,
-      [db.currentTenantId(), input.memberId, input.targetRankId, input.approverRole, JSON.stringify(input.snapshot)],
+      [
+        db.currentTenantId(),
+        input.memberId,
+        input.targetRankId,
+        input.approverRole,
+        JSON.stringify(input.snapshot),
+      ],
     );
   }
 
   getTrial(id: string, lock = false): Promise<RankTrialRow | null> {
-    return sql.one<RankTrialRow>(`SELECT * FROM rank_trial_requests WHERE id = $1 ${lock ? 'FOR UPDATE' : ''}`, [id]);
+    return sql.one<RankTrialRow>(
+      `SELECT * FROM rank_trial_requests WHERE id = $1 ${lock ? 'FOR UPDATE' : ''}`,
+      [id],
+    );
   }
 
   updateTrial(input: {
@@ -194,11 +224,20 @@ export class RankRepository {
           SET status = $2, evaluated_by = $3, evaluated_at = CASE WHEN $2 IN ('PASSED','FAILED','CANCELLED') THEN now() ELSE evaluated_at END,
               result_note = $4, eligibility_snapshot = COALESCE($5::jsonb, eligibility_snapshot), updated_at = now()
         WHERE id = $1`,
-      [input.id, input.status, input.evaluatedBy, input.note, input.snapshot === undefined ? null : JSON.stringify(input.snapshot)],
+      [
+        input.id,
+        input.status,
+        input.evaluatedBy,
+        input.note,
+        input.snapshot === undefined ? null : JSON.stringify(input.snapshot),
+      ],
     );
   }
 
-  listTrials(filter: { status?: string[]; approverRoles?: string[]; memberId?: string }, limit: number): Promise<RankTrialRow[]> {
+  listTrials(
+    filter: { status?: string[]; approverRoles?: string[]; memberId?: string },
+    limit: number,
+  ): Promise<RankTrialRow[]> {
     return sql.many<RankTrialRow>(
       `SELECT t.*, u.full_name AS member_name, r.name_en AS target_rank_name, r.rank_order AS target_rank_order
          FROM rank_trial_requests t
@@ -214,7 +253,10 @@ export class RankRepository {
 
   async courseNames(ids: string[]): Promise<Map<string, string>> {
     if (ids.length === 0) return new Map();
-    const rows = await sql.many<{ id: string; name: string }>(`SELECT id, name FROM courses WHERE id = ANY($1::uuid[])`, [ids]);
+    const rows = await sql.many<{ id: string; name: string }>(
+      `SELECT id, name FROM courses WHERE id = ANY($1::uuid[])`,
+      [ids],
+    );
     return new Map(rows.map((r) => [r.id, r.name]));
   }
 }
