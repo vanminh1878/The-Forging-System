@@ -5,6 +5,8 @@ import '../../core/design/hvp_icons.dart';
 import '../../core/widgets/coming_soon_page.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/branch_admin/presentation/screens/admin_settings_page.dart';
+import '../../features/audit_logs/presentation/audit_logs_screen.dart';
+import '../../features/settings/presentation/config_history_screen.dart';
 import '../../features/branch_admin/presentation/screens/branch_list_screen.dart';
 import '../../features/armory_admin/presentation/screens/admin_armory_management_screen.dart';
 import '../../features/armory_admin/presentation/screens/admin_armory_reward_form_screen.dart';
@@ -88,6 +90,14 @@ List<RouteBase> adminRoutes() => <RouteBase>[
       GoRoute(
         path: AdminPaths.branches,
         builder: (context, state) => const BranchListScreen(),
+      ),
+      GoRoute(
+        path: AdminPaths.configHistory,
+        builder: (context, state) => const ConfigHistoryScreen(),
+      ),
+      GoRoute(
+        path: AdminPaths.auditLogs,
+        builder: (context, state) => const AuditLogsScreen(),
       ),
       GoRoute(
         path: AdminPaths.renewalRequests,

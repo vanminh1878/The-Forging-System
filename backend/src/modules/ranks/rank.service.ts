@@ -1,6 +1,7 @@
-import { conflict, forbidden, notFound, unprocessable } from '../../common/errors/app-error';
+import { badRequest, conflict, forbidden, notFound, unprocessable } from '../../common/errors/app-error';
 import { DomainEvents, eventBus } from '../../common/events/event-bus';
 import { clock } from '../../common/utils/clock';
+import { sql } from '../../db/sql';
 import type { AuditService } from '../audit/audit.service';
 import { NotificationEvent } from '../notifications/notification.events';
 import type { NotifierPort } from '../notifications/notification.service';
@@ -52,6 +53,50 @@ export class RankService implements RankPort {
 
   listRanks(): Promise<RankDef[]> {
     return this.repo.listRanks().then(sortRanks);
+  }
+
+  async updateConfiguration(
+    id: string,
+    input: Pick<RankDef, 'minActiveMonths' | 'requiresTrial' | 'approvalRole'>,
+    actorId: string,
+    reason: string,
+  ): Promise<RankDef> {
+    const before = (await this.listRanks()).find((rank) => rank.id === id);
+    if (!before) throw notFound('Rank');
+    if (!input.requiresTrial && input.approvalRole !== null) {
+      throw badRequest('Chỉ chọn người chấm khi Rank yêu cầu Trial.', undefined, 'RANK_TRIAL_ROLE_INVALID');
+    }
+    const after = await this.repo.updateConfiguration(id, input);
+    if (!after) throw notFound('Rank');
+    await this.audit.record({
+      actorId,
+      action: 'RANK_CONFIG_UPDATED',
+      entityType: 'RANK_CONFIG',
+      entityId: id,
+      before,
+      after,
+      reason,
+    });
+    return after;
+  }
+
+  async rollbackConfiguration(
+    id: string,
+    auditId: number,
+    actorId: string,
+    reason: string,
+  ): Promise<RankDef> {
+    const version = await sql.one<{
+      entityId: string;
+      beforeData: Pick<RankDef, 'minActiveMonths' | 'requiresTrial' | 'approvalRole'> | null;
+    }>(
+      `SELECT entity_id,before_data FROM audit_logs WHERE id=$1 AND entity_type='RANK_CONFIG' AND action='RANK_CONFIG_UPDATED'`,
+      [auditId],
+    );
+    if (!version || version.entityId !== id || !version.beforeData) {
+      throw badRequest('Phiên bản cấu hình Rank không hợp lệ.', undefined, 'INVALID_RANK_CONFIG_VERSION');
+    }
+    return this.updateConfiguration(id, version.beforeData, actorId, reason);
   }
 
   /** Sets rank I + the INITIAL history row for a freshly created member. */
@@ -128,7 +173,12 @@ export class RankService implements RankPort {
           title: 'RANK LOST',
           body: `Điểm DP xuống dưới ${fmt(lost.dpThreshold)} - bạn tụt về ${lower.nameEn}. Huy hiệu ${lost.nameEn} đã được gỡ. Quyền lợi & lớp nâng cao hạng ${lost.nameEn} vẫn được giữ; đủ điểm lại sẽ lấy lại hạng, không cần thi.`,
         });
-        await this.notifier.notifyStaff('ADMIN', NotificationEvent.RANK_DOWN, 'TỤT HẠNG', `${state.fullName} tụt từ ${lost.nameEn} về ${lower.nameEn} (DP ${fmt(state.dpBalance)}).`);
+        await this.notifier.notifyStaff(
+          'ADMIN',
+          NotificationEvent.RANK_DOWN,
+          'TỤT HẠNG',
+          `${state.fullName} tụt từ ${lost.nameEn} về ${lower.nameEn} (DP ${fmt(state.dpBalance)}).`,
+        );
         await this.audit.record({
           actorId: null,
           action: 'RANK_DEMOTED',
@@ -150,7 +200,11 @@ export class RankService implements RankPort {
 
     // Promotion loop (bounded by the number of ranks).
     for (let guard = 0; guard < ranks.length; guard++) {
-      const input = await this.buildInput(ranks, { ...state, currentRankId: current.id, peakRankId: peak.id });
+      const input = await this.buildInput(ranks, {
+        ...state,
+        currentRankId: current.id,
+        peakRankId: peak.id,
+      });
       const progress = computeRankProgress(ranks, input, clock.now());
       if (!progress.next || progress.status !== 'RANK_READY') {
         await this.maybeNotifyNearRank(memberId, progress, state.dpBalance);
@@ -159,10 +213,13 @@ export class RankService implements RankPort {
       const restored = progress.next.rankOrder <= peak.rankOrder;
       const next = progress.next;
       const reasonParts = [`Đạt ${fmt(next.dpThreshold)} DP`];
-      if (next.minActiveMonths && !restored) reasonParts.push(`đủ ${next.minActiveMonths} tháng ở ${current.nameEn}`);
+      if (next.minActiveMonths && !restored)
+        reasonParts.push(`đủ ${next.minActiveMonths} tháng ở ${current.nameEn}`);
       if (next.requiredCourseIds.length) {
         const names = await this.repo.courseNames(next.requiredCourseIds);
-        reasonParts.push(`hoàn thành khóa ${next.requiredCourseIds.map((id) => names.get(id) ?? id).join(' + ')}`);
+        reasonParts.push(
+          `hoàn thành khóa ${next.requiredCourseIds.map((id) => names.get(id) ?? id).join(' + ')}`,
+        );
       }
       await this.grantRank(state, current, next, peak, {
         via: restored ? 'RESTORED' : 'AUTO_UPGRADE',
@@ -196,13 +253,19 @@ export class RankService implements RankPort {
         memberId,
         targetRankId: next.id,
         approverRole: approver,
-        snapshot: { dp: state.dpBalance, monthsIn: Math.round(progress.monthsIn * 10) / 10, rank: progress.current.nameEn },
+        snapshot: {
+          dp: state.dpBalance,
+          monthsIn: Math.round(progress.monthsIn * 10) / 10,
+          rank: progress.current.nameEn,
+        },
       });
     } catch (err) {
-      if ((err as { code?: string }).code === '23505') throw conflict('Bạn đã có một yêu cầu Rank Trial đang chờ xử lý.', 'TRIAL_ALREADY_OPEN');
+      if ((err as { code?: string }).code === '23505')
+        throw conflict('Bạn đã có một yêu cầu Rank Trial đang chờ xử lý.', 'TRIAL_ALREADY_OPEN');
       throw err;
     }
-    const approverLabel = approver === 'ADMIN' ? 'Quản trị viên' : approver === 'HEAD_COACH' ? 'Head Coach' : 'Coach phụ trách';
+    const approverLabel =
+      approver === 'ADMIN' ? 'Quản trị viên' : approver === 'HEAD_COACH' ? 'Head Coach' : 'Coach phụ trách';
     await this.notifier.notifyMember({
       userId: memberId,
       event: NotificationEvent.RANK_TRIAL_REQUESTED,
@@ -232,8 +295,10 @@ export class RankService implements RankPort {
   }): Promise<{ status: string; recommendationOnly: boolean }> {
     const trial = await this.repo.getTrial(input.trialId, true);
     if (!trial) throw notFound('Rank trial');
-    if (trial.status !== 'PENDING' && trial.status !== 'SCHEDULED') throw conflict('Yêu cầu này đã được xử lý.', 'TRIAL_ALREADY_DECIDED');
-    if (!canDecideTrial(trial.approverRole, input.roles)) throw forbidden('Bạn không có quyền chấm Rank Trial của hạng này.');
+    if (trial.status !== 'PENDING' && trial.status !== 'SCHEDULED')
+      throw conflict('Yêu cầu này đã được xử lý.', 'TRIAL_ALREADY_DECIDED');
+    if (!canDecideTrial(trial.approverRole, input.roles))
+      throw forbidden('Bạn không có quyền chấm Rank Trial của hạng này.');
 
     const ranks = sortRanks(await this.repo.listRanks());
     const target = ranks.find((r) => r.id === trial.targetRankId)!;
@@ -247,15 +312,31 @@ export class RankService implements RankPort {
         note: null,
         snapshot: {
           ...trial.eligibilitySnapshot,
-          coachRecommendation: { by: input.byName, byId: input.by, result: 'PASS', note: input.note ?? null, at: clock.now().toISOString() },
+          coachRecommendation: {
+            by: input.byName,
+            byId: input.by,
+            result: 'PASS',
+            note: input.note ?? null,
+            at: clock.now().toISOString(),
+          },
         },
       });
-      await this.notifier.notifyStaff('ADMIN', NotificationEvent.RANK_TRIAL_ADMIN, 'Hạng danh dự chờ phê duyệt', `${state.fullName} được ${input.byName} đề xuất lên ${target.nameEn}.`);
+      await this.notifier.notifyStaff(
+        'ADMIN',
+        NotificationEvent.RANK_TRIAL_ADMIN,
+        'Hạng danh dự chờ phê duyệt',
+        `${state.fullName} được ${input.byName} đề xuất lên ${target.nameEn}.`,
+      );
       return { status: 'PENDING', recommendationOnly: true };
     }
 
     if (input.result === 'FAIL') {
-      await this.repo.updateTrial({ id: trial.id, status: 'FAILED', evaluatedBy: input.by, note: input.note ?? null });
+      await this.repo.updateTrial({
+        id: trial.id,
+        status: 'FAILED',
+        evaluatedBy: input.by,
+        note: input.note ?? null,
+      });
       await this.notifier.notifyMember({
         userId: trial.memberId,
         event: NotificationEvent.RANK_TRIAL_FAILED,
@@ -275,10 +356,24 @@ export class RankService implements RankPort {
 
     // PASS: gates other than the trial must still hold at decision time.
     const progress = await this.progressFor(trial.memberId);
-    if (!progress.next || progress.next.id !== target.id || !progress.dpOk || !progress.timeOk || !progress.courseOk) {
-      throw unprocessable('Học viên không còn đáp ứng điều kiện DP / thời gian / khóa học cho hạng này.', 'GATES_NOT_MET');
+    if (
+      !progress.next ||
+      progress.next.id !== target.id ||
+      !progress.dpOk ||
+      !progress.timeOk ||
+      !progress.courseOk
+    ) {
+      throw unprocessable(
+        'Học viên không còn đáp ứng điều kiện DP / thời gian / khóa học cho hạng này.',
+        'GATES_NOT_MET',
+      );
     }
-    await this.repo.updateTrial({ id: trial.id, status: 'PASSED', evaluatedBy: input.by, note: input.note ?? null });
+    await this.repo.updateTrial({
+      id: trial.id,
+      status: 'PASSED',
+      evaluatedBy: input.by,
+      note: input.note ?? null,
+    });
     const current = ranks.find((r) => r.rankOrder === progress.current.rankOrder)!;
     const courseNames = await this.repo.courseNames(target.requiredCourseIds);
     const peakRank = ranks.find((r) => r.rankOrder === progress.peakRankOrder)!;
@@ -331,7 +426,10 @@ export class RankService implements RankPort {
     return state;
   }
 
-  private async buildInput(ranks: RankDef[], state: Pick<MemberRankRow, 'userId' | 'joinedAt' | 'dpBalance' | 'currentRankId' | 'peakRankId'>) {
+  private async buildInput(
+    ranks: RankDef[],
+    state: Pick<MemberRankRow, 'userId' | 'joinedAt' | 'dpBalance' | 'currentRankId' | 'peakRankId'>,
+  ) {
     const current = ranks.find((r) => r.id === state.currentRankId)!;
     const peak = ranks.find((r) => r.id === (state.peakRankId ?? state.currentRankId))!;
     const next = rankByOrder(ranks, current.rankOrder + 1);
@@ -380,8 +478,15 @@ export class RankService implements RankPort {
     const restoredLabel = opts.via === 'RESTORED' ? ' (khôi phục, không thi lại)' : '';
     // A restored rank skips the waiting period, so the time spent below it says nothing.
     const standing =
-      opts.via === 'RESTORED' ? `DP ${fmt(state.dpBalance)}` : `DP ${fmt(state.dpBalance)}, ${monthsInFrom} tháng ở ${from.nameEn}`;
-    await this.notifier.notifyStaff('ADMIN', NotificationEvent.RANK_UP, 'LÊN HẠNG', `${state.fullName} đã đạt ${to.nameEn}${restoredLabel} (${standing}).`);
+      opts.via === 'RESTORED'
+        ? `DP ${fmt(state.dpBalance)}`
+        : `DP ${fmt(state.dpBalance)}, ${monthsInFrom} tháng ở ${from.nameEn}`;
+    await this.notifier.notifyStaff(
+      'ADMIN',
+      NotificationEvent.RANK_UP,
+      'LÊN HẠNG',
+      `${state.fullName} đã đạt ${to.nameEn}${restoredLabel} (${standing}).`,
+    );
     await this.audit.record({
       actorId: opts.by,
       action: opts.via === 'RESTORED' ? 'RANK_RESTORED' : 'RANK_UPGRADED',
@@ -395,7 +500,8 @@ export class RankService implements RankPort {
       memberId: state.userId,
       fromOrder: from.rankOrder,
       toOrder: to.rankOrder,
-      kind: opts.via === 'RESTORED' ? 'RESTORE' : opts.via === 'RANK_TRIAL_PASSED' ? 'TRIAL_PASSED' : 'UPGRADE',
+      kind:
+        opts.via === 'RESTORED' ? 'RESTORE' : opts.via === 'RANK_TRIAL_PASSED' ? 'TRIAL_PASSED' : 'UPGRADE',
     } satisfies RankChangedEvent);
   }
 
@@ -409,4 +515,3 @@ export class RankService implements RankPort {
     );
   }
 }
-

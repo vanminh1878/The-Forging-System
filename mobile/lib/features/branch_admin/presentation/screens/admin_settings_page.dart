@@ -5,6 +5,7 @@ import '../../../../app/route_paths.dart';
 import '../../../../core/design/hvp_context.dart';
 import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../settings/presentation/admin_settings_group.dart';
 
 /// Body of the admin "Cấu hình" tab: a menu of settings screens.
 class AdminSettingsPage extends StatelessWidget {
@@ -126,69 +127,111 @@ class _ConfigTab extends StatelessWidget {
   final _SettingsTab tab;
 
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.all(16),
-        children: <Widget>[
-          Icon(tab.icon, size: 36, color: context.hvp.gold),
+  Widget build(BuildContext context) {
+    final group = switch (tab.label) {
+      'Điểm & hạng' => 'POINTS',
+      'Chuỗi tập' => 'STREAK',
+      'Thử thách' => 'CHALLENGE',
+      'Armory' => 'ARMORY',
+      _ => 'CHECKIN',
+    };
+    if (tab.label != 'Khác') return AdminSettingsGroup(group: group);
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: <Widget>[
+        Icon(tab.icon, size: 36, color: context.hvp.gold),
+        const SizedBox(height: 12),
+        Text(tab.title.toUpperCase(), style: context.txt.titleL),
+        const SizedBox(height: 6),
+        Text(tab.description, style: context.txt.bodySmall),
+        const SizedBox(height: 18),
+        HvpCard(
+          child: Row(children: <Widget>[
+            Icon(HvpIcons.info, color: context.hvp.info),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Text(
+                    'Các tham số của nhóm này sẽ được hiển thị và chỉnh sửa tại đây.',
+                    style: context.txt.bodySmall)),
+          ]),
+        ),
+        if (tab.label == 'Khác') ...<Widget>[
           const SizedBox(height: 12),
-          Text(tab.title.toUpperCase(), style: context.txt.titleL),
-          const SizedBox(height: 6),
-          Text(tab.description, style: context.txt.bodySmall),
-          const SizedBox(height: 18),
           HvpCard(
+            onTap: () => context.push(AdminPaths.configHistory),
             child: Row(children: <Widget>[
-              Icon(HvpIcons.info, color: context.hvp.info),
-              const SizedBox(width: 10),
+              Icon(HvpIcons.history, color: context.hvp.gold),
+              const SizedBox(width: 12),
               Expanded(
-                  child: Text(
-                      'Các tham số của nhóm này sẽ được hiển thị và chỉnh sửa tại đây.',
-                      style: context.txt.bodySmall)),
+                  child: Text('Lịch sử cấu hình', style: context.txt.titleS)),
+              Icon(HvpIcons.caretRight, color: context.hvp.textMuted)
             ]),
           ),
-          if (tab.label == 'Khác') ...<Widget>[
-            const SizedBox(height: 12),
-            HvpCard(
-              onTap: () => context.push(AdminPaths.renewalRequests),
-              child: Row(children: <Widget>[
-                Icon(HvpIcons.ticket, color: context.hvp.gold),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text('Yêu cầu gia hạn', style: context.txt.titleS),
-                      const SizedBox(height: 2),
-                      Text('Duyệt hoặc huỷ yêu cầu gia hạn của học viên.',
-                          style: context.txt.bodySmall),
-                    ],
-                  ),
+          const SizedBox(height: 12),
+          HvpCard(
+            onTap: () => context.push(AdminPaths.auditLogs),
+            child: Row(children: <Widget>[
+              Icon(HvpIcons.history, color: context.hvp.gold),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Nhật ký Audit', style: context.txt.titleS),
+                    const SizedBox(height: 2),
+                    Text(
+                        'Tra cứu lịch sử thay đổi của quản trị viên và hệ thống.',
+                        style: context.txt.bodySmall),
+                  ],
                 ),
-                Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
-              ]),
-            ),
-          ],
-          if (tab.label == 'Armory') ...<Widget>[
-            const SizedBox(height: 12),
-            HvpCard(
-              onTap: () => context.push(AdminPaths.armory),
-              child: Row(children: <Widget>[
-                Icon(HvpIcons.armory, color: context.hvp.gold),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text('Quản lý Armory', style: context.txt.titleS),
-                      const SizedBox(height: 2),
-                      Text('Tier, quà tặng và trạng thái bán.',
-                          style: context.txt.bodySmall),
-                    ],
-                  ),
+              ),
+              Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
+            ]),
+          ),
+          const SizedBox(height: 12),
+          HvpCard(
+            onTap: () => context.push(AdminPaths.renewalRequests),
+            child: Row(children: <Widget>[
+              Icon(HvpIcons.ticket, color: context.hvp.gold),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Yêu cầu gia hạn', style: context.txt.titleS),
+                    const SizedBox(height: 2),
+                    Text('Duyệt hoặc huỷ yêu cầu gia hạn của học viên.',
+                        style: context.txt.bodySmall),
+                  ],
                 ),
-                Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
-              ]),
-            ),
-          ],
+              ),
+              Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
+            ]),
+          ),
         ],
-      );
+        if (tab.label == 'Armory') ...<Widget>[
+          const SizedBox(height: 12),
+          HvpCard(
+            onTap: () => context.push(AdminPaths.armory),
+            child: Row(children: <Widget>[
+              Icon(HvpIcons.armory, color: context.hvp.gold),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Quản lý Armory', style: context.txt.titleS),
+                    const SizedBox(height: 2),
+                    Text('Tier, quà tặng và trạng thái bán.',
+                        style: context.txt.bodySmall),
+                  ],
+                ),
+              ),
+              Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
+            ]),
+          ),
+        ],
+      ],
+    );
+  }
 }

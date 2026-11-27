@@ -133,7 +133,7 @@ export function buildContainer(overrides: ContainerOverrides = {}): Container {
 
   // ---- 1. platform ----
   const audit = new AuditService();
-  const settings = new SettingsService();
+  const settings = new SettingsService(audit);
   const storage = overrides.storage ?? new LocalDiskStorage();
   const notifications = new NotificationService(
     new NotificationRepository(),
