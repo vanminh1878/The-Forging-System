@@ -73,6 +73,18 @@ describe('points ledger & rank engine', () => {
     expect(monthly.status).toBe(200);
   });
 
+  it('lets staff read a member monthly cap status but not a learner', async () => {
+    await award('SESSION', 40, 10);
+    const admin = await createStaff({ role: 'ADMIN', fullName: 'Admin', phone: nextPhone() });
+    const { token } = await login(ctx.api, admin.phone);
+    const asAdmin = await ctx.api.get(`/api/v1/members/${memberId}/points/monthly`).set(bearer(token));
+    expect(asAdmin.status).toBe(200);
+    expect(asAdmin.body.data).toMatchObject({ dpUsed: 40, marksUsed: 10 });
+
+    const asMember = await ctx.api.get(`/api/v1/members/${memberId}/points/monthly`).set(bearer(memberToken));
+    expect(asMember.status).toBe(403);
+  });
+
   it('refuses adjustments that would drive a balance negative', async () => {
     await expect(adjust(-10)).rejects.toMatchObject({ code: 'NEGATIVE_BALANCE' });
   });
