@@ -118,6 +118,25 @@ class _OverviewTab extends StatelessWidget {
               Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
             ]),
           ),
+          const SizedBox(height: 12),
+          HvpCard(
+            onTap: () => context.push(AdminPaths.pointsAdjustment),
+            child: Row(children: <Widget>[
+              Icon(HvpIcons.coins, color: context.hvp.gold),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                    Text('Điều chỉnh DP / Marks', style: context.txt.titleS),
+                    const SizedBox(height: 2),
+                    Text(
+                        'Tìm học viên, xem sổ điểm và thực hiện điều chỉnh thủ công.',
+                        style: context.txt.bodySmall),
+                  ])),
+              Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
+            ]),
+          ),
         ],
       );
 }

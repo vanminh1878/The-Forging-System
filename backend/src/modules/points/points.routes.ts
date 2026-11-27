@@ -85,6 +85,13 @@ export function pointsRoutes(service: PointsService): Router {
       return ok(items, pageMeta(page, total));
     }),
   );
+  // Admin/staff need the same cap status when reviewing a member's ledger.
+  r.get(
+    '/members/:memberId/points/monthly',
+    requireRoles(...RoleGroup.STAFF),
+    validate({ params: memberParam }),
+    handle(async (req) => ok(await service.monthlyStatus(req.params.memberId))),
+  );
 
   // Admin corrections (ADM-08).
   r.post(
