@@ -111,8 +111,8 @@ class _SettingCardState extends ConsumerState<_SettingCard> {
                 keyboardType: widget.setting.type == 'INT'
                     ? TextInputType.number
                     : TextInputType.text),
+          const SizedBox(height: 16),
           if (_changed) ...<Widget>[
-            const SizedBox(height: 12),
             HvpTextField(
                 label: 'Lý do thay đổi',
                 controller: _reason,
@@ -126,7 +126,7 @@ class _SettingCardState extends ConsumerState<_SettingCard> {
                   child: Text('Nhập lý do tối thiểu 3 ký tự.',
                       style: context.txt.bodySmall
                           .copyWith(color: context.hvp.red))),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
           ],
           HvpButton.primary(
               label: 'Lưu thay đổi',

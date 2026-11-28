@@ -16,17 +16,18 @@ import '../../helpers/test_harness.dart';
 class _FakeAuditLogs implements AuditLogRepository {
   _FakeAuditLogs({this.empty = false});
   final bool empty;
-  String? lastAction;
+  String? lastQuery;
 
   @override
   Future<AuditLogPage> list(
-      {String? action,
+      {String? query,
+      String? action,
       String? entityType,
       String? entityId,
       DateTime? from,
       DateTime? to,
       int page = 1}) async {
-    lastAction = action;
+    lastQuery = query;
     return AuditLogPage(
       items: empty
           ? const <AuditLogEntry>[]
@@ -64,7 +65,7 @@ void main() {
     await tester.enterText(find.byType(EditableText).first, 'EMPTY');
     await tester.tap(find.text('ÁP DỤNG'));
     await tester.pump();
-    expect(repo.lastAction, 'EMPTY');
+    expect(repo.lastQuery, 'EMPTY');
   });
 
   testWidgets('shows the empty Audit Log state', (tester) async {
