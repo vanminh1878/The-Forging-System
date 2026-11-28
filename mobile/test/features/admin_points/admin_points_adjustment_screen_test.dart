@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hvp_forging/features/admin_points/domain/admin_points_repository.dart';
@@ -46,9 +45,9 @@ void main() {
           adminPointsRepositoryProvider.overrideWithValue(_Repo())
         ]);
 
-    await tester.enterText(find.byType(TextFormField).first, 'An');
     await tester.pump();
     await tester.pump();
+    expect(find.text('An Võ'), findsOneWidget);
     await tester.tap(find.text('An Võ'));
     await tester.pump();
     await tester.pump();

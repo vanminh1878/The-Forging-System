@@ -39,14 +39,16 @@ class _AdminPointsAdjustmentScreenState
 
   @override
   Widget build(BuildContext context) {
-    final results = _query.trim().length < 2
-        ? null
-        : ref.watch(adminPointsSearchProvider(_query));
+    final results = ref.watch(adminPointsSearchProvider(_query));
     return Scaffold(
       appBar: AppBar(title: const Text('Điều chỉnh DP / Marks')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
+          if (_member != null) ...<Widget>[
+            _MemberLedger(member: _member!),
+            const SizedBox(height: 24),
+          ],
           Text('TÌM HỌC VIÊN', style: context.txt.titleL),
           const SizedBox(height: 8),
           HvpTextField(
@@ -56,37 +58,32 @@ class _AdminPointsAdjustmentScreenState
             onChanged: (value) => setState(() => _query = value),
           ),
           const SizedBox(height: 12),
-          if (results != null)
-            results.when(
-              loading: () => const Center(
-                  child: Padding(
-                      padding: EdgeInsets.all(16),
-                      child: CircularProgressIndicator())),
-              error: (error, _) => Text(errorMessage(error),
-                  style: TextStyle(color: context.hvp.red)),
-              data: (data) => data.items.isEmpty
-                  ? const EmptyState(
-                      icon: HvpIcons.search,
-                      title: 'Không tìm thấy học viên',
-                      message: 'Thử lại với tên, mã hoặc số điện thoại khác.')
-                  : Column(
-                      children: <Widget>[
-                        for (final member in data.items)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: _MemberResult(
-                              member: member,
-                              selected: _member?.id == member.id,
-                              onTap: () => setState(() => _member = member),
-                            ),
+          results.when(
+            loading: () => const Center(
+                child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator())),
+            error: (error, _) => Text(errorMessage(error),
+                style: TextStyle(color: context.hvp.red)),
+            data: (data) => data.items.isEmpty
+                ? const EmptyState(
+                    icon: HvpIcons.search,
+                    title: 'Chưa có học viên',
+                    message: 'Không có học viên nào khớp với tìm kiếm.')
+                : Column(
+                    children: <Widget>[
+                      for (final member in data.items)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _MemberResult(
+                            member: member,
+                            selected: _member?.id == member.id,
+                            onTap: () => setState(() => _member = member),
                           ),
-                      ],
-                    ),
-            ),
-          if (_member != null) ...<Widget>[
-            const SizedBox(height: 20),
-            _MemberLedger(member: _member!)
-          ],
+                        ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
@@ -150,7 +147,7 @@ class _MemberLedger extends ConsumerWidget {
             data: (status) => _MonthlyCapWarning(status: status),
           ),
           const SizedBox(height: 12),
-          _AdjustmentForm(memberId: member.id, onSaved: () => _refresh(ref)),
+          _AdjustmentForm(member: member, onSaved: () => _refresh(ref)),
           const SizedBox(height: 20),
           Text('GIAO DỊCH GẦN ĐÂY', style: context.txt.titleM),
           const SizedBox(height: 8),
@@ -265,8 +262,8 @@ class _MonthlyCapWarning extends StatelessWidget {
 }
 
 class _AdjustmentForm extends ConsumerStatefulWidget {
-  const _AdjustmentForm({required this.memberId, required this.onSaved});
-  final String memberId;
+  const _AdjustmentForm({required this.member, required this.onSaved});
+  final MemberHit member;
   final VoidCallback onSaved;
 
   @override
@@ -299,7 +296,7 @@ class _AdjustmentFormState extends ConsumerState<_AdjustmentForm> {
     }
     setState(() => _submitting = true);
     try {
-      await ref.read(adminPointsRepositoryProvider).adjust(widget.memberId,
+      await ref.read(adminPointsRepositoryProvider).adjust(widget.member.id,
           dpDelta: dp,
           marksDelta: marks,
           reason: _reason.text,
@@ -347,17 +344,37 @@ class _AdjustmentFormState extends ConsumerState<_AdjustmentForm> {
               children: <Widget>[
                 Text('ĐIỀU CHỈNH THỦ CÔNG', style: context.txt.titleM),
                 const SizedBox(height: 10),
-                HvpTextField(
-                    label: 'Thay đổi DP',
-                    controller: _dp,
-                    keyboardType: TextInputType.number,
-                    validator: _integerValidator),
-                const SizedBox(height: 10),
-                HvpTextField(
-                    label: 'Thay đổi Marks',
-                    controller: _marks,
-                    keyboardType: TextInputType.number,
-                    validator: _integerValidator),
+                Row(children: <Widget>[
+                  Expanded(
+                      child: _BalanceField(
+                          label: 'DP hiện tại',
+                          value: widget.member.dpBalance ?? 0)),
+                  const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(HvpIcons.arrowRight)),
+                  Expanded(
+                      child: HvpTextField(
+                          label: 'Thay đổi DP',
+                          controller: _dp,
+                          keyboardType: TextInputType.number,
+                          validator: _integerValidator))
+                ]),
+                const SizedBox(height: 14),
+                Row(children: <Widget>[
+                  Expanded(
+                      child: _BalanceField(
+                          label: 'Marks hiện tại',
+                          value: widget.member.marksBalance ?? 0)),
+                  const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(HvpIcons.arrowRight)),
+                  Expanded(
+                      child: HvpTextField(
+                          label: 'Thay đổi Marks',
+                          controller: _marks,
+                          keyboardType: TextInputType.number,
+                          validator: _integerValidator))
+                ]),
                 const SizedBox(height: 10),
                 HvpTextField(
                     label: 'Lý do',
@@ -382,4 +399,14 @@ class _AdjustmentFormState extends ConsumerState<_AdjustmentForm> {
       int.tryParse(value?.trim() ?? '') == null
           ? 'Nhập số nguyên, có thể âm.'
           : null;
+}
+
+class _BalanceField extends StatelessWidget {
+  const _BalanceField({required this.label, required this.value});
+  final String label;
+  final int value;
+  @override
+  Widget build(BuildContext context) => InputDecorator(
+      decoration: InputDecoration(labelText: label),
+      child: Text(formatInt(value), style: context.txt.titleS));
 }

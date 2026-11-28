@@ -34,5 +34,7 @@ class MemberSearchRepositoryImpl implements MemberSearchRepository {
         rankName: strOrNull(j, 'rankName'),
         packageName: strOrNull(j, 'packageName'),
         packageEndDate: strOrNull(j, 'packageEndDate'),
+        dpBalance: (j['dpBalance'] as num?)?.toInt(),
+        marksBalance: (j['marksBalance'] as num?)?.toInt(),
       );
 }
