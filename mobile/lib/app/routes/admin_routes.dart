@@ -8,6 +8,7 @@ import '../../features/branch_admin/presentation/screens/admin_settings_page.dar
 import '../../features/audit_logs/presentation/audit_logs_screen.dart';
 import '../../features/settings/presentation/config_history_screen.dart';
 import '../../features/admin_points/presentation/admin_points_adjustment_screen.dart';
+import '../../features/settings/presentation/rank_configuration_screen.dart';
 import '../../features/branch_admin/presentation/screens/branch_list_screen.dart';
 import '../../features/armory_admin/presentation/screens/admin_armory_management_screen.dart';
 import '../../features/armory_admin/presentation/screens/admin_armory_reward_form_screen.dart';
@@ -86,6 +87,10 @@ List<RouteBase> adminRoutes() => <RouteBase>[
       GoRoute(
         path: AdminPaths.pointsAdjustment,
         builder: (context, state) => const AdminPointsAdjustmentScreen(),
+      ),
+      GoRoute(
+        path: AdminPaths.rankConfiguration,
+        builder: (context, state) => const RankConfigurationScreen(),
       ),
       GoRoute(
         path: AdminPaths.classDetailPattern,

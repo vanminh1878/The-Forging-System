@@ -58,7 +58,7 @@ void main() {
     ]);
     await tester.pumpAndSettle();
 
-    expect(find.text('CHALLENGE_CREATED'), findsOneWidget);
+    expect(find.text('Thay đổi hệ thống'), findsOneWidget);
     expect(find.textContaining('Khoa'), findsOneWidget);
 
     await tester.enterText(find.byType(EditableText).first, 'EMPTY');
@@ -108,6 +108,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Nhật ký Audit'), findsOneWidget);
-    expect(find.text('CHALLENGE_CREATED'), findsOneWidget);
+    expect(find.text('Thay đổi hệ thống'), findsOneWidget);
   });
 }
