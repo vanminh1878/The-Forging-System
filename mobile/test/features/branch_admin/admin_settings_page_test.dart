@@ -41,6 +41,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Hạn mức DP mỗi tháng'), findsOneWidget);
+
+    final armoryTab = find.text('Armory');
+    await tester.ensureVisible(armoryTab);
+    await tester.tap(armoryTab);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Quản lý Armory'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

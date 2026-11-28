@@ -166,6 +166,33 @@ class _ConfigTab extends StatelessWidget {
         const Expanded(child: AdminSettingsGroup(group: 'POINTS')),
       ]);
     }
+    if (tab.label == 'Armory') {
+      return Column(children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: HvpCard(
+            onTap: () => context.push(AdminPaths.armory),
+            child: Row(children: <Widget>[
+              Icon(HvpIcons.armory, color: context.hvp.gold),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Quản lý Armory', style: context.txt.titleS),
+                    const SizedBox(height: 2),
+                    Text('Tier, quà tặng và trạng thái bán.',
+                        style: context.txt.bodySmall),
+                  ],
+                ),
+              ),
+              Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
+            ]),
+          ),
+        ),
+        const Expanded(child: AdminSettingsGroup(group: 'ARMORY')),
+      ]);
+    }
     if (tab.label != 'Khác') return AdminSettingsGroup(group: group);
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -232,28 +259,6 @@ class _ConfigTab extends StatelessWidget {
                     Text('Yêu cầu gia hạn', style: context.txt.titleS),
                     const SizedBox(height: 2),
                     Text('Duyệt hoặc huỷ yêu cầu gia hạn của học viên.',
-                        style: context.txt.bodySmall),
-                  ],
-                ),
-              ),
-              Icon(HvpIcons.caretRight, color: context.hvp.textMuted),
-            ]),
-          ),
-        ],
-        if (tab.label == 'Armory') ...<Widget>[
-          const SizedBox(height: 12),
-          HvpCard(
-            onTap: () => context.push(AdminPaths.armory),
-            child: Row(children: <Widget>[
-              Icon(HvpIcons.armory, color: context.hvp.gold),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text('Quản lý Armory', style: context.txt.titleS),
-                    const SizedBox(height: 2),
-                    Text('Tier, quà tặng và trạng thái bán.',
                         style: context.txt.bodySmall),
                   ],
                 ),
