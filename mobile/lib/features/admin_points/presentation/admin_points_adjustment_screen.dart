@@ -33,6 +33,25 @@ class _AdminPointsAdjustmentScreenState
   String _query = '';
   MemberHit? _member;
 
+  Future<void> _refreshSelectedMember() async {
+    final memberId = _member?.id;
+    if (memberId == null) return;
+
+    final query = _query;
+    ref.invalidate(adminPointsLedgerProvider(memberId));
+    ref.invalidate(adminPointsMonthlyProvider(memberId));
+    ref.invalidate(adminPointsSearchProvider(query));
+
+    final members = await ref.read(adminPointsSearchProvider(query).future);
+    if (!mounted || _member?.id != memberId) return;
+    for (final member in members.items) {
+      if (member.id == memberId) {
+        setState(() => _member = member);
+        break;
+      }
+    }
+  }
+
   @override
   void dispose() {
     _search.dispose();
@@ -51,7 +70,7 @@ class _AdminPointsAdjustmentScreenState
           // The chosen member's ledger sits on top; the heading only appears then,
           // to separate it from the search (alone, it would repeat the page title).
           if (_member != null) ...<Widget>[
-            _MemberLedger(member: _member!),
+            _MemberLedger(member: _member!, onRefresh: _refreshSelectedMember),
             const SizedBox(height: 24),
             IconLabel(
                 icon: HvpIcons.search,
@@ -132,13 +151,9 @@ class _MemberResult extends StatelessWidget {
 }
 
 class _MemberLedger extends ConsumerWidget {
-  const _MemberLedger({required this.member});
+  const _MemberLedger({required this.member, required this.onRefresh});
   final MemberHit member;
-
-  void _refresh(WidgetRef ref) {
-    ref.invalidate(adminPointsLedgerProvider(member.id));
-    ref.invalidate(adminPointsMonthlyProvider(member.id));
-  }
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -160,7 +175,7 @@ class _MemberLedger extends ConsumerWidget {
             data: (status) => _MonthlyCapWarning(status: status),
           ),
           const SizedBox(height: 12),
-          _AdjustmentForm(member: member, onSaved: () => _refresh(ref)),
+          _AdjustmentForm(member: member, onSaved: onRefresh),
           const SizedBox(height: 20),
           IconLabel(
               icon: HvpIcons.history,
@@ -231,7 +246,7 @@ class _MemberLedger extends ConsumerWidget {
       await ref
           .read(adminPointsRepositoryProvider)
           .reverse(transaction.id, reason: value);
-      _refresh(ref);
+      await onRefresh();
       if (context.mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('Đã đảo giao dịch.')));
@@ -282,7 +297,7 @@ class _MonthlyCapWarning extends StatelessWidget {
 class _AdjustmentForm extends ConsumerStatefulWidget {
   const _AdjustmentForm({required this.member, required this.onSaved});
   final MemberHit member;
-  final VoidCallback onSaved;
+  final Future<void> Function() onSaved;
 
   @override
   ConsumerState<_AdjustmentForm> createState() => _AdjustmentFormState();
@@ -323,7 +338,8 @@ class _AdjustmentFormState extends ConsumerState<_AdjustmentForm> {
       _dp.text = '0';
       _marks.text = '0';
       _reason.clear();
-      widget.onSaved();
+      await widget.onSaved();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Đã ghi nhận điều chỉnh.')));
     } on ApiException catch (error) {
@@ -376,6 +392,7 @@ class _AdjustmentFormState extends ConsumerState<_AdjustmentForm> {
                       child: Icon(HvpIcons.arrowRight)),
                   Expanded(
                       child: HvpTextField(
+                          key: const ValueKey('admin-points-dp-delta'),
                           label: 'Thay đổi DP',
                           controller: _dp,
                           keyboardType: TextInputType.number,
@@ -392,6 +409,7 @@ class _AdjustmentFormState extends ConsumerState<_AdjustmentForm> {
                       child: Icon(HvpIcons.arrowRight)),
                   Expanded(
                       child: HvpTextField(
+                          key: const ValueKey('admin-points-marks-delta'),
                           label: 'Thay đổi Marks',
                           controller: _marks,
                           keyboardType: TextInputType.number,
@@ -399,6 +417,7 @@ class _AdjustmentFormState extends ConsumerState<_AdjustmentForm> {
                 ]),
                 const SizedBox(height: 10),
                 HvpTextField(
+                    key: const ValueKey('admin-points-reason'),
                     label: 'Lý do',
                     controller: _reason,
                     required: true,
