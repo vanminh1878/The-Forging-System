@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/hvp_context.dart';
+import '../../../core/design/hvp_icons.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_text_field.dart';
@@ -17,10 +18,10 @@ class RankConfigurationScreen extends ConsumerWidget {
           value: ref.watch(rankConfigurationsProvider),
           onRetry: () => ref.invalidate(rankConfigurationsProvider),
           builder: (_, ranks) =>
-              ListView(padding: const EdgeInsets.all(16), children: <Widget>[
+               ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 120), children: <Widget>[
                 for (final rank in ranks)
                   Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
+                       padding: const EdgeInsets.only(bottom: 16),
                       child: _RankCard(rank: rank))
               ])));
 }
@@ -56,12 +57,19 @@ class _RankCardState extends ConsumerState<_RankCard> {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-            Text('${widget.rank.name} · ${widget.rank.code}',
-                style: context.txt.titleS),
+            Row(children: <Widget>[Container(width: 42, height: 42, decoration: BoxDecoration(shape: BoxShape.circle, color: context.hvp.goldSoft), child: Icon(HvpIcons.trophy, color: context.hvp.gold)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[Text(widget.rank.name, style: context.txt.titleS), Text('Điều kiện thăng hạng', style: context.txt.bodySmall)]))]),
+            const SizedBox(height: 20),
+            Text('ĐIỀU KIỆN DUY TRÌ', style: context.txt.label),
+            const SizedBox(height: 8),
             HvpTextField(
                 label: 'Thời gian ở hạng (tháng)',
                 controller: months,
                 keyboardType: TextInputType.number),
+            const SizedBox(height: 20),
+            Text('RANK TRIAL', style: context.txt.label),
+            const SizedBox(height: 4),
+            Text('Yêu cầu học viên hoàn thành thử thách trước khi được lên hạng.', style: context.txt.bodySmall),
+            const SizedBox(height: 8),
             SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Yêu cầu Rank Trial'),
@@ -74,10 +82,12 @@ class _RankCardState extends ConsumerState<_RankCard> {
                   items: const ['COACH', 'HEAD_COACH', 'ADMIN']
                       .map((v) => DropdownMenuItem(value: v, child: Text(v)))
                       .toList(),
-                  onChanged: (v) => setState(() => role = v)),
-            HvpTextField(label: 'Lý do thay đổi', controller: reason),
+                   onChanged: (v) => setState(() => role = v)),
+            const SizedBox(height: 16),
+            HvpTextField(label: 'Lý do thay đổi', controller: reason, required: true, maxLines: 2),
+            const SizedBox(height: 14),
             HvpButton.primary(
-                label: 'Lưu',
+                label: 'Lưu thay đổi',
                 small: true,
                 onPressed: () async {
                   final value = int.tryParse(months.text);

@@ -8,7 +8,8 @@ class AuditLogRepositoryImpl implements AuditLogRepository {
 
   @override
   Future<AuditLogPage> list(
-      {String? action,
+      {String? query,
+      String? action,
       String? entityType,
       String? entityId,
       DateTime? from,
@@ -18,6 +19,7 @@ class AuditLogRepositoryImpl implements AuditLogRepository {
         await _api.get('/admin/audit-logs', query: <String, dynamic>{
       'page': page,
       'limit': 20,
+      if (query?.trim().isNotEmpty ?? false) 'q': query!.trim(),
       if (action?.trim().isNotEmpty ?? false) 'action': action!.trim(),
       if (entityType?.trim().isNotEmpty ?? false)
         'entityType': entityType!.trim(),

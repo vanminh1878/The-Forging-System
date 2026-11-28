@@ -21,17 +21,13 @@ class AuditLogsScreen extends ConsumerStatefulWidget {
 }
 
 class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
-  final _action = TextEditingController();
-  final _entityType = TextEditingController();
-  final _entityId = TextEditingController();
+  final _query = TextEditingController();
   DateTime? _from;
   DateTime? _to;
   int _page = 1;
 
   AuditLogFilter get _filter => AuditLogFilter(
-        action: _action.text.trim(),
-        entityType: _entityType.text.trim(),
-        entityId: _entityId.text.trim(),
+        query: _query.text.trim(),
         from: _from,
         to: _to,
         page: _page,
@@ -39,9 +35,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
 
   @override
   void dispose() {
-    _action.dispose();
-    _entityType.dispose();
-    _entityId.dispose();
+    _query.dispose();
     super.dispose();
   }
 
@@ -68,9 +62,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
 
   void _clear() {
     setState(() {
-      _action.clear();
-      _entityType.clear();
-      _entityId.clear();
+      _query.clear();
       _from = null;
       _to = null;
       _page = 1;
@@ -87,9 +79,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: _Filters(
-              action: _action,
-              entityType: _entityType,
-              entityId: _entityId,
+              query: _query,
               from: _from,
               to: _to,
               onFrom: () => _pickDate(true),
@@ -149,9 +139,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
 
 class _Filters extends StatelessWidget {
   const _Filters(
-      {required this.action,
-      required this.entityType,
-      required this.entityId,
+      {required this.query,
       required this.from,
       required this.to,
       required this.onFrom,
@@ -159,9 +147,7 @@ class _Filters extends StatelessWidget {
       required this.onApply,
       required this.onClear});
 
-  final TextEditingController action;
-  final TextEditingController entityType;
-  final TextEditingController entityId;
+  final TextEditingController query;
   final DateTime? from;
   final DateTime? to;
   final VoidCallback onFrom;
@@ -176,16 +162,10 @@ class _Filters extends StatelessWidget {
             children: <Widget>[
               Text('BỘ LỌC', style: context.txt.label),
               HvpTextField(
-                  label: 'Hành động',
-                  controller: action,
-                  hint: 'VD: CHALLENGE_CREATED'),
-              const SizedBox(height: 12),
-              HvpTextField(
-                  label: 'Loại đối tượng',
-                  controller: entityType,
-                  hint: 'VD: CHALLENGE'),
-              const SizedBox(height: 12),
-              HvpTextField(label: 'Mã đối tượng', controller: entityId),
+                  label: 'Tìm kiếm nhật ký',
+                  controller: query,
+                  hint: 'Tên người thực hiện, lý do hoặc nội dung thay đổi',
+                  prefixIcon: HvpIcons.search),
               const SizedBox(height: 16),
               Row(children: <Widget>[
                 Expanded(
