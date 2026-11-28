@@ -124,6 +124,7 @@ abstract final class AdminPaths {
   static const String renewalRequests = '/admin/settings/renewal-requests';
   static const String auditLogs = '/admin/settings/audit-logs';
   static const String configHistory = '/admin/settings/history';
+  static const String rankConfiguration = '/admin/settings/ranks';
   static const String armoryRewards = '/admin/settings/armory/rewards';
   static String armoryRewardsForTier(String tierCode) =>
       '$armoryRewards?tierCode=${Uri.encodeQueryComponent(tierCode)}';

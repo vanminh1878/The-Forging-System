@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -181,12 +179,14 @@ class _Filters extends StatelessWidget {
                   label: 'Hành động',
                   controller: action,
                   hint: 'VD: CHALLENGE_CREATED'),
+              const SizedBox(height: 12),
               HvpTextField(
                   label: 'Loại đối tượng',
                   controller: entityType,
                   hint: 'VD: CHALLENGE'),
+              const SizedBox(height: 12),
               HvpTextField(label: 'Mã đối tượng', controller: entityId),
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
               Row(children: <Widget>[
                 Expanded(
                     child: _DateButton(
@@ -233,23 +233,71 @@ class _AuditCard extends StatelessWidget {
         child: ExpansionTile(
           tilePadding: EdgeInsets.zero,
           childrenPadding: const EdgeInsets.only(top: 8),
-          title: Text(item.action, style: context.txt.titleS),
+          title: Text(_actionLabel(item.action), style: context.txt.titleS),
           subtitle: Text(
-              '${item.entityType} · ${item.entityId}\n${item.actorName ?? item.actorType} · ${formatDateTime(item.createdAt)}',
+              '${_entityLabel(item.entityType, item.entityId)}\n${item.actorName ?? item.actorType} · ${formatDateTime(item.createdAt)}',
               style: context.txt.bodySmall),
           children: <Widget>[
             if (item.reason != null)
               _Detail(label: 'Lý do', value: item.reason!),
-            if (item.beforeData != null)
-              _Detail(label: 'Trước', value: _json(item.beforeData)),
-            if (item.afterData != null)
-              _Detail(label: 'Sau', value: _json(item.afterData)),
+            if (_Diff.canDisplay(item.beforeData, item.afterData))
+              _Diff(
+                  label: _entityLabel(item.entityType, item.entityId),
+                  before: item.beforeData,
+                  after: item.afterData),
           ],
         ),
       );
 
-  String _json(Object? value) =>
-      const JsonEncoder.withIndent('  ').convert(value);
+  String _actionLabel(String action) => switch (action) {
+        'CONFIG_CHANGE' => 'Cập nhật cấu hình',
+        'CONFIG_ROLLBACK' => 'Hoàn tác cấu hình',
+        'RENEWAL_REQUESTED' => 'Yêu cầu gia hạn được tạo',
+        'RENEWAL_APPROVED' => 'Lễ tân duyệt yêu cầu gia hạn',
+        'DP_ADJUSTED' => 'Điều chỉnh DP / Marks',
+        'DP_REVERSED' => 'Đảo giao dịch điểm',
+        _ => 'Thay đổi hệ thống',
+      };
+  String _entityLabel(String type, String id) {
+    if (type == 'SYSTEM_CONFIG') return _settingLabel(id);
+    return switch (type) {
+      'RENEWAL_REQUEST' => 'Yêu cầu gia hạn',
+      'RANK_CONFIG' => 'Cấu hình hạng',
+      _ => 'Bản ghi hệ thống'
+    };
+  }
+
+  String _settingLabel(String key) => switch (key) {
+        'checkin.code_ttl_seconds' => 'Thời hạn mã check-in',
+        'points.dp_monthly_cap' => 'Hạn mức DP mỗi tháng',
+        'points.marks_monthly_cap' => 'Hạn mức Marks mỗi tháng',
+        _ => 'Cấu hình hệ thống',
+      };
+}
+
+class _Diff extends StatelessWidget {
+  const _Diff({required this.label, this.before, this.after});
+  final String label;
+  final Object? before;
+  final Object? after;
+  static bool canDisplay(Object? before, Object? after) =>
+      before is! Map && before is! List && after is! Map && after is! List;
+  String _value(Object? value) => value == null ? 'Chưa có' : '$value';
+  @override
+  Widget build(BuildContext context) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+        Text('THAY ĐỔI', style: context.txt.label),
+        const SizedBox(height: 4),
+        Text(label, style: context.txt.bodySmall),
+        const SizedBox(height: 6),
+        Row(children: <Widget>[
+          Expanded(child: _Detail(label: 'Trước', value: _value(before))),
+          const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Icon(HvpIcons.arrowRight)),
+          Expanded(child: _Detail(label: 'Sau', value: _value(after)))
+        ]),
+      ]);
 }
 
 class _Detail extends StatelessWidget {
@@ -258,7 +306,9 @@ class _Detail extends StatelessWidget {
   final String value;
 
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) => SizedBox(
+      width: double.infinity,
+      child: Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,5 +317,5 @@ class _Detail extends StatelessWidget {
               const SizedBox(height: 2),
               SelectableText(value, style: context.txt.bodySmall),
             ]),
-      );
+      ));
 }
