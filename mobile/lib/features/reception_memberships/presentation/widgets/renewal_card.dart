@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../domain/renewal_models.dart';
 
@@ -32,27 +34,38 @@ class RenewalCard extends StatelessWidget {
               Expanded(child: Text(request.memberName, style: t.titleS)),
               StatusChip(
                   label: renewalStatusLabels[request.status] ?? request.status,
-                  tone: _tone(request.status)),
+                  tone: _tone(request.status),
+                  icon: switch (request.status) {
+                    'COMPLETED' => HvpIcons.checkCircle,
+                    'CANCELLED' => HvpIcons.xCircle,
+                    _ => HvpIcons.hourglass,
+                  }),
             ],
           ),
-          if (contact.isNotEmpty) Text(contact, style: t.bodySmall),
+          if (contact.isNotEmpty)
+            IconLabel(icon: HvpIcons.phone, label: contact),
           const SizedBox(height: 8),
-          Text(
-              <String>[request.packageName, if (price != null) price]
+          IconLabel(
+              icon: HvpIcons.lesson,
+              label: <String>[request.packageName, if (price != null) price]
                   .join(' · '),
               style: t.body),
           if (request.currentPackageName != null)
-            Text(
-              'Gói hiện tại: ${request.currentPackageName}'
-              '${request.currentEndDate == null ? '' : ' · hết hạn ${formatCalendarDate(request.currentEndDate!)}'}',
-              style: t.bodySmall,
+            IconLabel(
+              icon: HvpIcons.ticket,
+              label: 'Gói hiện tại: ${request.currentPackageName}'
+                  '${request.currentEndDate == null ? '' : ' · hết hạn ${formatCalendarDate(request.currentEndDate!)}'}',
             ),
           if (request.note != null)
-            Text('Ghi chú: ${request.note}', style: t.bodySmall),
+            IconLabel(icon: HvpIcons.note, label: 'Ghi chú: ${request.note}'),
           if (request.reason != null)
-            Text('Lý do huỷ: ${request.reason}', style: t.bodySmall),
+            IconLabel(
+                icon: HvpIcons.xCircle, label: 'Lý do huỷ: ${request.reason}'),
           if (request.createdAt != null)
-            Text('Gửi ${formatDateTime(request.createdAt!)}', style: t.caption),
+            IconLabel(
+                icon: HvpIcons.send,
+                label: 'Gửi ${formatDateTime(request.createdAt!)}',
+                style: t.caption),
           if (actions.isNotEmpty) ...<Widget>[
             const SizedBox(height: 12),
             ...actions

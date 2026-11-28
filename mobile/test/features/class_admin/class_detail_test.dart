@@ -60,10 +60,20 @@ void main() {
     return fake;
   }
 
-  testWidgets('shows the roster; empty roster message', (tester) async {
+  Future<void> openRoster(WidgetTester tester) async {
+    await tester.tap(find.text('HỌC VIÊN'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('shows the roster', (tester) async {
     await show(tester);
+    await openRoster(tester);
     expect(find.text('Nguyễn Văn A'), findsOneWidget);
+  });
+
+  testWidgets('empty roster message', (tester) async {
     await show(tester, FakeClassRepository()..roster = []);
+    await openRoster(tester);
     expect(find.text('Lớp chưa có học viên.'), findsOneWidget);
   });
 
@@ -106,6 +116,7 @@ void main() {
 
   testWidgets('enrol: search, Thêm, toast', (tester) async {
     final repo = await show(tester);
+    await openRoster(tester);
     await tester.tap(find.widgetWithText(HvpButton, 'THÊM HỌC VIÊN VÀO LỚP'));
     await tester.pumpAndSettle();
     expect(find.text('Trần Thị B'), findsOneWidget); // listed before typing
@@ -124,6 +135,7 @@ void main() {
       ..enrolError = const ApiException(
           code: 'CLASS_FULL', message: 'Lớp đã đủ sĩ số', statusCode: 409);
     await show(tester, repo);
+    await openRoster(tester);
     await tester.tap(find.widgetWithText(HvpButton, 'THÊM HỌC VIÊN VÀO LỚP'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Trần');
@@ -137,6 +149,7 @@ void main() {
   testWidgets('remove asks for confirmation then calls the API',
       (tester) async {
     final repo = await show(tester);
+    await openRoster(tester);
     await tester.tap(find.byTooltip('Cho rời lớp'));
     await tester.pumpAndSettle();
     expect(repo.removed, isEmpty);

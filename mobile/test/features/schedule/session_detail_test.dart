@@ -84,9 +84,11 @@ void main() {
           );
     await _pumpDetail(tester, repo);
 
-    expect(find.text('Thứ Tư, 04/03/2026 · 18:00–19:30'), findsOneWidget);
+    expect(find.text('Thứ Tư, 04/03/2026'), findsOneWidget);
+    expect(find.text('18:00–19:30'), findsOneWidget);
     expect(find.text('📝 Boxing tối'), findsOneWidget);
-    expect(find.text('Nguyễn Văn A · The Corner'), findsOneWidget);
+    expect(find.text('Nguyễn Văn A'), findsOneWidget);
+    expect(find.text('The Corner'), findsOneWidget);
     expect(find.text('LỚP NHÓM'), findsOneWidget);
     expect(find.text('KIỂM TRA'), findsOneWidget);
     expect(find.text('ĐẠT'), findsOneWidget);

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hvp_forging/core/branch/branch.dart';
 import 'package:hvp_forging/core/error/api_exception.dart';
+import 'package:hvp_forging/core/widgets/hvp_button.dart';
 import 'package:hvp_forging/features/auth/presentation/providers/auth_controller.dart';
 import 'package:hvp_forging/features/branch_admin/domain/branch_admin_repository.dart';
 import 'package:hvp_forging/features/branch_admin/domain/branch_input.dart';
@@ -90,7 +91,7 @@ const _name = 0, _code = 1, _address = 2, _open = 3, _close = 4;
 const _position = 5, _radius = 6;
 
 Future<void> _openAdd(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Thêm chi nhánh'));
+  await tester.tap(find.widgetWithText(HvpButton, 'THÊM CHI NHÁNH'));
   await tester.pumpAndSettle();
 }
 

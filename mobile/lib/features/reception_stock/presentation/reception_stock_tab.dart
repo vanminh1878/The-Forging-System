@@ -11,9 +11,12 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/hvp_filter_chip.dart';
 import '../../../core/widgets/hvp_pagination_bar.dart';
+import '../../../core/widgets/hvp_sub_nav.dart';
 import '../../../core/widgets/hvp_text_field.dart';
 import '../../../core/widgets/hvp_toast.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/inline_banner.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/inventory.dart';
@@ -39,27 +42,14 @@ class _ReceptionStockTabState extends ConsumerState<ReceptionStockTab>
 
   @override
   Widget build(BuildContext context) {
-    final t = context.txt;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text('Kho quà', style: t.titleL),
-              const SizedBox(height: 4),
-              Text('Theo dõi tồn kho, điều chỉnh và tra cứu lịch sử.',
-                  style: t.bodySmall),
-            ],
-          ),
-        ),
-        TabBar(
+        HvpSubNav(
           controller: _tabs,
-          tabs: const <Widget>[
-            Tab(text: 'Kho quà'),
-            Tab(text: 'Lịch sử'),
+          items: const <HvpSubNavItem>[
+            HvpSubNavItem(label: 'Tồn kho', icon: HvpIcons.package),
+            HvpSubNavItem(label: 'Lịch sử', icon: HvpIcons.history),
           ],
         ),
         Expanded(
@@ -152,34 +142,45 @@ class _StockCatalogTabState extends ConsumerState<_StockCatalogTab> {
                                     children: <Widget>[
                                   Row(children: <Widget>[
                                     Expanded(
-                                        child: Text(reward.name,
+                                        child: IconLabel(
+                                            icon: HvpIcons.gift,
+                                            iconSize: 18,
+                                            label: reward.name,
                                             style: context.txt.titleS)),
                                     StatusChip(
                                         label: reward.isActive
                                             ? 'Đang bán'
                                             : 'Ngừng bán',
+                                        icon: reward.isActive
+                                            ? HvpIcons.storefront
+                                            : HvpIcons.block,
                                         tone: reward.isActive
                                             ? ChipTone.success
                                             : ChipTone.neutral)
                                   ]),
                                   const SizedBox(height: 4),
-                                  Text(
-                                      '${reward.sku} · Tồn kho ${formatInt(reward.stock)}',
-                                      style: context.txt.bodySmall),
+                                  IconLabel(
+                                      icon: HvpIcons.stock,
+                                      label:
+                                          '${reward.sku} · Tồn kho ${formatInt(reward.stock)}'),
                                   const SizedBox(height: 12),
-                                  Wrap(spacing: 8, children: <Widget>[
-                                    HvpButton.primary(
-                                        label: 'Nhập kho',
-                                        icon: HvpIcons.plus,
-                                        small: true,
-                                        onPressed: () => _adjust(reward, 'IN')),
-                                    HvpButton.secondary(
-                                        label: 'Xuất kho',
-                                        icon: HvpIcons.close,
-                                        small: true,
-                                        onPressed: () =>
-                                            _adjust(reward, 'OUT')),
-                                  ]),
+                                  Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children: <Widget>[
+                                        HvpButton.primary(
+                                            label: 'Nhập kho',
+                                            icon: HvpIcons.stockIn,
+                                            small: true,
+                                            onPressed: () =>
+                                                _adjust(reward, 'IN')),
+                                        HvpButton.secondary(
+                                            label: 'Xuất kho',
+                                            icon: HvpIcons.stockOut,
+                                            small: true,
+                                            onPressed: () =>
+                                                _adjust(reward, 'OUT')),
+                                      ]),
                                 ]))),
                       HvpPaginationBar(
                           page: page.page,
@@ -270,9 +271,10 @@ class _StockAdjustTabState extends ConsumerState<_StockAdjustTab> {
                   children: <Widget>[
                     Text(reward.name, style: t.titleS),
                     const SizedBox(height: 3),
-                    Text(
-                      '${reward.sku} · Tồn kho ${formatInt(reward.stock)}',
-                      style: t.bodySmall,
+                    IconLabel(
+                      icon: HvpIcons.stock,
+                      label:
+                          '${reward.sku} · Tồn kho ${formatInt(reward.stock)}',
                     ),
                   ],
                 ),
@@ -281,22 +283,23 @@ class _StockAdjustTabState extends ConsumerState<_StockAdjustTab> {
           ),
         ),
         const SizedBox(height: 18),
-        Text('Loại điều chỉnh', style: t.label),
+        IconLabel(
+            icon: HvpIcons.adjust, label: 'Loại điều chỉnh', style: t.label),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           children: <Widget>[
-            ChoiceChip(
-              label: const Text('Nhập kho'),
-              avatar: const Icon(HvpIcons.plus, size: 16),
+            HvpFilterChip(
+              label: 'Nhập kho',
+              icon: HvpIcons.stockIn,
               selected: _movementType == 'IN',
-              onSelected: (_) => setState(() => _movementType = 'IN'),
+              onSelected: () => setState(() => _movementType = 'IN'),
             ),
-            ChoiceChip(
-              label: const Text('Xuất kho'),
-              avatar: const Icon(HvpIcons.close, size: 16),
+            HvpFilterChip(
+              label: 'Xuất kho',
+              icon: HvpIcons.stockOut,
               selected: _movementType == 'OUT',
-              onSelected: (_) => setState(() => _movementType = 'OUT'),
+              onSelected: () => setState(() => _movementType = 'OUT'),
             ),
           ],
         ),
@@ -331,7 +334,7 @@ class _StockAdjustTabState extends ConsumerState<_StockAdjustTab> {
         HvpButton.primary(
           label:
               _movementType == 'IN' ? 'Xác nhận nhập kho' : 'Xác nhận xuất kho',
-          icon: _movementType == 'IN' ? HvpIcons.plus : HvpIcons.close,
+          icon: _movementType == 'IN' ? HvpIcons.stockIn : HvpIcons.stockOut,
           expand: true,
           loading: action.submitting,
           onPressed: _submit,
@@ -387,14 +390,14 @@ class _StockHistoryTabState extends ConsumerState<_StockHistoryTab> {
     return Column(
       children: <Widget>[
         SizedBox(
-          height: 56,
+          height: 64,
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             scrollDirection: Axis.horizontal,
             children: <Widget>[
-              _filterChip(null, 'Tất cả'),
-              _filterChip('IN', 'Nhập kho'),
-              _filterChip('OUT', 'Xuất kho'),
+              _filterChip(null, 'Tất cả', HvpIcons.all),
+              _filterChip('IN', 'Nhập kho', HvpIcons.stockIn),
+              _filterChip('OUT', 'Xuất kho', HvpIcons.stockOut),
               if (_rewardFilter == null)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -469,12 +472,13 @@ class _StockHistoryTabState extends ConsumerState<_StockHistoryTab> {
     );
   }
 
-  Widget _filterChip(String? value, String label) => Padding(
+  Widget _filterChip(String? value, String label, IconData icon) => Padding(
         padding: const EdgeInsets.only(right: 8),
-        child: ChoiceChip(
-          label: Text(label),
+        child: HvpFilterChip(
+          label: label,
+          icon: icon,
           selected: _movementType == value,
-          onSelected: (_) => _selectType(value),
+          onSelected: () => _selectType(value),
         ),
       );
 }
@@ -494,26 +498,34 @@ class _MovementCard extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Expanded(child: Text(item.rewardName, style: t.titleS)),
+              Expanded(
+                  child: IconLabel(
+                      icon: HvpIcons.gift,
+                      iconSize: 18,
+                      label: item.rewardName,
+                      style: t.titleS)),
               StatusChip(
                 label: item.isInbound ? 'Nhập kho' : 'Xuất kho',
                 tone: item.isInbound ? ChipTone.success : ChipTone.warning,
-                icon: item.isInbound ? HvpIcons.plus : HvpIcons.close,
+                icon: item.isInbound ? HvpIcons.stockIn : HvpIcons.stockOut,
               ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            '${item.rewardSku} · ${item.isInbound ? '+' : '-'}${formatInt(item.quantity)}',
-            style: t.bodySmall,
+          IconLabel(
+            icon: HvpIcons.stock,
+            label:
+                '${item.rewardSku} · ${item.isInbound ? '+' : '-'}${formatInt(item.quantity)}',
           ),
           if (item.reason != null) ...<Widget>[
             const SizedBox(height: 3),
-            Text(item.reason!, style: t.bodySmall),
+            IconLabel(icon: HvpIcons.note, label: item.reason!),
           ],
           const SizedBox(height: 3),
-          Text(
-            '${item.actorName ?? 'Hệ thống'} · ${formatDateTime(item.createdAt)}',
+          IconLabel(
+            icon: HvpIcons.user,
+            label:
+                '${item.actorName ?? 'Hệ thống'} · ${formatDateTime(item.createdAt)}',
             style: t.caption,
           ),
         ],

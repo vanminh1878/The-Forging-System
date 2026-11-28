@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../design/hvp_context.dart';
 
-/// Section title with a gold tape tick and an optional trailing action.
+/// Section title with a gold tape tick, an icon and an optional trailing action.
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
     super.key,
     required this.title,
+    this.icon,
     this.subtitle,
     this.actionLabel,
     this.onAction,
@@ -14,6 +15,7 @@ class SectionHeader extends StatelessWidget {
   });
 
   final String title;
+  final IconData? icon;
   final String? subtitle;
   final String? actionLabel;
   final VoidCallback? onAction;
@@ -30,13 +32,18 @@ class SectionHeader extends StatelessWidget {
         children: <Widget>[
           _SlashMark(height: subtitle == null ? 22 : 36),
           const SizedBox(width: 10),
+          if (icon != null) ...<Widget>[
+            Icon(icon, size: 22, color: c.gold),
+            const SizedBox(width: 8),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Semantics(
                   header: true,
-                  child: Text(title.toUpperCase(), style: t.titleM.copyWith(letterSpacing: 1.0)),
+                  child: Text(title.toUpperCase(),
+                      style: t.titleM.copyWith(letterSpacing: 1.0)),
                 ),
                 if (subtitle != null) Text(subtitle!, style: t.bodySmall),
               ],
@@ -45,8 +52,10 @@ class SectionHeader extends StatelessWidget {
           if (actionLabel != null && onAction != null)
             TextButton(
               onPressed: onAction,
-              style: TextButton.styleFrom(minimumSize: const Size(48, 48), foregroundColor: c.gold),
-              child: Text(actionLabel!, style: t.titleS.copyWith(color: c.gold)),
+              style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 48), foregroundColor: c.gold),
+              child:
+                  Text(actionLabel!, style: t.titleS.copyWith(color: c.gold)),
             ),
         ],
       ),
@@ -65,7 +74,10 @@ class _SlashMark extends StatelessWidget {
     final c = context.hvp;
     Widget bar(double width, Gradient gradient) => Transform(
           transform: Matrix4.skewX(-0.45),
-          child: Container(width: width, height: height, decoration: BoxDecoration(gradient: gradient)),
+          child: Container(
+              width: width,
+              height: height,
+              decoration: BoxDecoration(gradient: gradient)),
         );
     return Row(
       mainAxisSize: MainAxisSize.min,

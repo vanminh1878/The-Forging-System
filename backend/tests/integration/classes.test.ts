@@ -98,6 +98,19 @@ describe('classes: CRUD and enrollment', () => {
     expect([c.status, c.body.error.code]).toEqual([400, 'COACH_INVALID']);
   });
 
+  it('limits the class name to 60 characters after trimming, on create and on patch', async () => {
+    // Vietnamese letters count like any other; surrounding spaces do not count.
+    const longest = 'Đ'.repeat(60);
+    const ok = await post(body({ name: `  ${longest}  `, startTime: '07:00' }));
+    expect(ok.status).toBe(201);
+    expect(ok.body.data.name).toBe(longest);
+    expect((await post(body({ name: 'Đ'.repeat(61) }))).body.error.code).toBe('VALIDATION_ERROR');
+    const patch = (name: string) =>
+      ctx.api.patch(`/api/v1/admin/classes/${ok.body.data.id}`).set(bearer(admin)).send({ name });
+    expect((await patch('a'.repeat(59))).status).toBe(200);
+    expect((await patch('a'.repeat(61))).status).toBe(400);
+  });
+
   it('patches a class and audits it', async () => {
     const res = await ctx.api
       .patch(`/api/v1/admin/classes/${classId}`)

@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/hvp_context.dart';
 import '../../../../core/design/hvp_icons.dart';
+import '../../../../core/design/hvp_layout.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/hvp_bottom_sheet.dart';
+import '../../../../core/widgets/hvp_button.dart';
+import '../../../../core/widgets/hvp_refresh_overlay.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
 import '../../domain/staff_models.dart';
 import '../staff_providers.dart';
@@ -67,31 +70,29 @@ class _StaffDirectoryScreenState extends ConsumerState<StaffDirectoryScreen> {
   @override
   Widget build(BuildContext context) {
     final result = ref.watch(staffPageProvider(_query));
+    final refreshing = result.isRefreshing && result.hasValue;
     return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Row(children: <Widget>[
-                    Expanded(child: Text('NHÂN SỰ', style: context.txt.titleL)),
-                    IconButton(
-                        tooltip: 'Tạo nhân sự',
-                        icon: const Icon(HvpIcons.plus),
+                  Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
+                    HvpButton.gold(
+                        label: 'Tạo nhân sự',
+                        icon: HvpIcons.userPlus,
+                        small: true,
                         onPressed: () => showHvpSheet<void>(context,
                             title: 'Tạo nhân sự',
                             builder: (_) => const CreateStaffSheet())),
-                    IconButton(
-                        tooltip: 'Làm mới danh sách',
-                        icon: const Icon(HvpIcons.retry),
+                    HvpRefreshButton(
+                        refreshing: refreshing,
                         onPressed: () =>
                             ref.invalidate(staffPageProvider(_query))),
                   ]),
-                  Text('Coach, lễ tân và quản trị viên',
-                      style: context.txt.bodySmall),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   HvpTextField(
                       label: 'Tìm nhân sự',
                       hint: 'Tên, email hoặc số điện thoại',
@@ -104,71 +105,77 @@ class _StaffDirectoryScreenState extends ConsumerState<StaffDirectoryScreen> {
                         setState(() => _query = _query.withSearch(value));
                       }),
                   const SizedBox(height: 8),
-                  Wrap(spacing: 8, children: <Widget>[
-                    TextButton.icon(
-                        onPressed: _filter,
-                        icon: const Icon(HvpIcons.filter, size: 18),
-                        label: Text(_query.activeFilters == 0
+                  Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
+                    HvpButton.secondary(
+                        label: _query.activeFilters == 0
                             ? 'Bộ lọc'
-                            : 'Bộ lọc (${_query.activeFilters})')),
+                            : 'Bộ lọc (${_query.activeFilters})',
+                        icon: HvpIcons.filter,
+                        small: true,
+                        onPressed: _filter),
                     if (_query.activeFilters > 0 || _search.text.isNotEmpty)
-                      TextButton(
+                      TextButton.icon(
                           onPressed: _reset,
-                          child: const Text('Xóa tìm kiếm / lọc')),
+                          icon: const Icon(HvpIcons.close, size: 18),
+                          label: const Text('Xóa tìm kiếm / lọc')),
                   ]),
                 ],
               )),
           Expanded(
-              child: AsyncBody<StaffPage>(
-            value: result,
-            onRetry: () => ref.invalidate(staffPageProvider(_query)),
-            builder: (_, page) => RefreshIndicator(
-              onRefresh: () async {
-                ref.invalidate(staffPageProvider(_query));
-                await ref.read(staffPageProvider(_query).future);
-              },
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 110),
-                physics: const AlwaysScrollableScrollPhysics(),
-                children: <Widget>[
-                  Text(
-                      '${page.total} nhân sự · Trang ${page.page}/${page.totalPages}',
-                      style: context.txt.caption),
-                  const SizedBox(height: 12),
-                  if (page.items.isEmpty)
-                    EmptyState(
-                        icon: HvpIcons.users,
-                        title: 'Không có nhân sự phù hợp',
-                        message: 'Thử đổi từ khóa hoặc bộ lọc.',
-                        actionLabel: 'Xóa bộ lọc',
-                        onAction: _reset),
-                  for (final member in page.items)
-                    Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: StaffMemberCard(member: member)),
-                  if (page.totalPages > 1)
-                    Wrap(
-                        alignment: WrapAlignment.spaceBetween,
+              child: HvpRefreshOverlay(
+                  refreshing: refreshing,
+                  label: 'Đang làm mới danh sách…',
+                  child: AsyncBody<StaffPage>(
+                    value: result,
+                    onRetry: () => ref.invalidate(staffPageProvider(_query)),
+                    builder: (_, page) => RefreshIndicator(
+                      onRefresh: () async {
+                        ref.invalidate(staffPageProvider(_query));
+                        await ref.read(staffPageProvider(_query).future);
+                      },
+                      child: ListView(
+                        padding: const EdgeInsets.fromLTRB(
+                            16, 0, 16, HvpLayout.navClearance),
+                        physics: const AlwaysScrollableScrollPhysics(),
                         children: <Widget>[
-                          TextButton.icon(
-                              onPressed: page.page > 1
-                                  ? () => setState(() =>
-                                      _query = _query.withPage(page.page - 1))
-                                  : null,
-                              icon: const Icon(HvpIcons.caretLeft),
-                              label: const Text('Trang trước')),
-                          TextButton.icon(
-                              onPressed: page.hasMore
-                                  ? () => setState(() =>
-                                      _query = _query.withPage(page.page + 1))
-                                  : null,
-                              icon: const Icon(HvpIcons.caretRight),
-                              label: const Text('Trang sau')),
-                        ]),
-                ],
-              ),
-            ),
-          )),
+                          Text(
+                              '${page.total} nhân sự · Trang ${page.page}/${page.totalPages}',
+                              style: context.txt.caption),
+                          const SizedBox(height: 12),
+                          if (page.items.isEmpty)
+                            EmptyState(
+                                icon: HvpIcons.users,
+                                title: 'Không có nhân sự phù hợp',
+                                message: 'Thử đổi từ khóa hoặc bộ lọc.',
+                                actionLabel: 'Xóa bộ lọc',
+                                onAction: _reset),
+                          for (final member in page.items)
+                            Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: StaffMemberCard(member: member)),
+                          if (page.totalPages > 1)
+                            Wrap(
+                                alignment: WrapAlignment.spaceBetween,
+                                children: <Widget>[
+                                  TextButton.icon(
+                                      onPressed: page.page > 1
+                                          ? () => setState(() => _query =
+                                              _query.withPage(page.page - 1))
+                                          : null,
+                                      icon: const Icon(HvpIcons.caretLeft),
+                                      label: const Text('Trang trước')),
+                                  TextButton.icon(
+                                      onPressed: page.hasMore
+                                          ? () => setState(() => _query =
+                                              _query.withPage(page.page + 1))
+                                          : null,
+                                      icon: const Icon(HvpIcons.caretRight),
+                                      label: const Text('Trang sau')),
+                                ]),
+                        ],
+                      ),
+                    ),
+                  ))),
         ]);
   }
 }

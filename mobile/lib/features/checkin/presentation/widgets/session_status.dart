@@ -1,3 +1,6 @@
+import 'package:flutter/widgets.dart';
+
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../domain/checkin_session.dart';
@@ -33,5 +36,22 @@ ChipTone checkinStatusTone(CheckinState state) {
       return ChipTone.warning;
     case CheckinState.blocked:
       return ChipTone.danger;
+  }
+}
+
+IconData checkinStatusIcon(CheckinState state) {
+  switch (state) {
+    case CheckinState.open:
+      return HvpIcons.scan;
+    case CheckinState.checkedIn:
+      return HvpIcons.checkCircle;
+    case CheckinState.notYetOpen:
+      return HvpIcons.clock;
+    case CheckinState.closed:
+      return HvpIcons.lock;
+    case CheckinState.overlapsCheckedIn:
+      return HvpIcons.warning;
+    case CheckinState.blocked:
+      return HvpIcons.block;
   }
 }

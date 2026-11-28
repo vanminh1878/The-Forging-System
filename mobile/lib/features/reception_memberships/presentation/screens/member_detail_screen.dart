@@ -32,7 +32,7 @@ class MemberDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isAdmin = ref.watch(currentUserProvider)?.appRole == AppRole.admin;
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Học viên'),
+      appBar: const HvpAppBar(title: 'Học viên', titleIcon: HvpIcons.idCard),
       body: AsyncBody<MemberOverview>(
         value: ref.watch(memberOverviewProvider(memberId)),
         onRetry: () => ref.invalidate(memberOverviewProvider(memberId)),
@@ -66,6 +66,7 @@ class MemberDetailScreen extends ConsumerWidget {
                 const SizedBox(height: 12),
                 HvpButton.gold(
                   label: 'Kích hoạt / gia hạn gói',
+                  icon: HvpIcons.newPackage,
                   expand: true,
                   onPressed: () => askActivatePackage(context, ref,
                       memberId: memberId,

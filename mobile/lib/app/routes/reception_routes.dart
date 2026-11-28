@@ -1,7 +1,8 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/design/hvp_icons.dart';
+import '../../core/widgets/hvp_app_bar.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/branch_qr/presentation/branch_qr_route.dart';
 import '../../features/class_admin/presentation/screens/class_detail_screen.dart';
@@ -20,12 +21,13 @@ import '../route_paths.dart';
 import '../shell/profile_tab.dart';
 import '../shell/shell_tab.dart';
 
-/// Reception routes (tabs: Check-in, Gói tập, Lớp học, Kho quà, Giao quà, Hồ sơ).
+/// Reception routes (tabs: Check-in, Gói tập, Lớp học, Kho quà, Giao quà).
+/// Hồ sơ is opened from the app bar button, so five tabs fit a phone.
 /// Replace a tab's `builder` with the feature screen when it is implemented.
 List<RouteBase> receptionRoutes() => <RouteBase>[
       roleShellRoute(
         role: AppRole.reception,
-        accountInAppBar: false,
+        profilePath: ReceptionPaths.profile,
         actions: const <Widget>[
           NotificationBell(inboxPath: ReceptionPaths.notifications)
         ],
@@ -33,6 +35,7 @@ List<RouteBase> receptionRoutes() => <RouteBase>[
           ShellTab(
             path: ReceptionPaths.checkin,
             label: 'Check-in',
+            title: 'Check-in hỗ trợ',
             icon: HvpIcons.scan,
             activeIcon: HvpIcons.scanFill,
             builder: (_) => const ReceptionCheckinTab(),
@@ -66,16 +69,16 @@ List<RouteBase> receptionRoutes() => <RouteBase>[
             activeIcon: HvpIcons.giftFill,
             builder: (_) => const GiftHandoverTab(),
           ),
-          ShellTab(
-            path: ReceptionPaths.profile,
-            label: 'Hồ sơ',
-            icon: HvpIcons.user,
-            activeIcon: HvpIcons.userFill,
-            builder: (_) => const ProfileTab(studentSections: false),
-          ),
         ],
       ),
       // ---- pushed screens (full screen, outside the shell) ----
+      GoRoute(
+        path: ReceptionPaths.profile,
+        builder: (context, state) => const Scaffold(
+          appBar: HvpAppBar(title: 'Hồ sơ', titleIcon: HvpIcons.userFill),
+          body: ProfileTab(studentSections: false),
+        ),
+      ),
       GoRoute(
         path: ReceptionPaths.branchQr,
         builder: (context, state) => const BranchQrRoute(),

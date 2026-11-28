@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/color_utils.dart';
 import '../../../core/design/hvp_context.dart';
+import '../../../core/design/hvp_icons.dart';
 import '../../../core/design/hvp_layout.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/course.dart';
@@ -27,7 +29,7 @@ class LessonDetailScreen extends ConsumerWidget {
     // Already cached when the learner came from the course screen; only adds the course name.
     final courseName = ref.watch(courseDetailProvider(courseId)).valueOrNull?.course.name;
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Bài học'),
+      appBar: const HvpAppBar(title: 'Bài học', titleIcon: HvpIcons.lesson),
       body: AsyncBody<Lesson>(
         value: lesson,
         onRetry: () => ref.invalidate(lessonProvider(key)),
@@ -74,7 +76,7 @@ class _LessonHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(where.toUpperCase(), style: t.label.copyWith(color: c.gold)),
+          IconLabel(icon: HvpIcons.book, label: where.toUpperCase(), style: t.label.copyWith(color: c.gold)),
           const SizedBox(height: 6),
           Semantics(header: true, child: Text(s.title, style: t.titleL)),
           if (s.subtitle != null) ...<Widget>[
@@ -87,9 +89,9 @@ class _LessonHeader extends StatelessWidget {
               spacing: 6,
               runSpacing: 6,
               children: <Widget>[
-                if (s.isAssessment) const StatusChip(label: 'Kiểm tra', tone: ChipTone.info),
-                if (s.isGraduation) const StatusChip(label: 'Tốt nghiệp', tone: ChipTone.warning),
-                if (s.isAdvanced) const StatusChip(label: 'Nâng cao'),
+                if (s.isAssessment) const StatusChip(label: 'Kiểm tra', tone: ChipTone.info, icon: HvpIcons.exam),
+                if (s.isGraduation) const StatusChip(label: 'Tốt nghiệp', tone: ChipTone.warning, icon: HvpIcons.crown),
+                if (s.isAdvanced) const StatusChip(label: 'Nâng cao', icon: HvpIcons.star),
               ],
             ),
           ],
@@ -111,7 +113,7 @@ class _SectionBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        SectionHeader(title: section.title),
+        SectionHeader(title: section.title, icon: HvpIcons.objective),
         if (section.text != null) Text(section.text!, style: t.body),
         for (final (i, item) in section.items.indexed)
           Padding(

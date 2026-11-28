@@ -5,6 +5,7 @@ import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/design/hvp_layout.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/hvp_refresh.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../domain/schedule_models.dart';
 import 'session_card.dart';
 
@@ -58,7 +59,10 @@ class ScheduleList extends StatelessWidget {
           if (state != null)
             state!
           else ...<Widget>[
-            Text(heading.toUpperCase(), style: t.label),
+            IconLabel(
+                icon: HvpIcons.list,
+                label: heading.toUpperCase(),
+                style: t.label),
             if (onClearDay != null)
               Align(
                 alignment: Alignment.centerLeft,
@@ -70,14 +74,12 @@ class ScheduleList extends StatelessWidget {
               ),
             const SizedBox(height: 8),
             if (items.isEmpty)
-              SizedBox(
-                height: 300,
-                child: EmptyState(
-                  icon: HvpIcons.calendar,
-                  title: emptyTitle,
-                  actionLabel: onEmptyAction == null ? null : 'Bỏ lọc',
-                  onAction: onEmptyAction,
-                ),
+              // No fixed height: in a list it takes what it needs.
+              EmptyState(
+                icon: HvpIcons.calendar,
+                title: emptyTitle,
+                actionLabel: onEmptyAction == null ? null : 'Bỏ lọc',
+                onAction: onEmptyAction,
               )
             else
               for (final item in items) ...<Widget>[

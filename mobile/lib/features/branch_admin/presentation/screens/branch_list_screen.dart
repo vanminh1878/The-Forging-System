@@ -7,6 +7,8 @@ import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/hvp_app_bar.dart';
+import '../../../../core/widgets/hvp_button.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/hvp_card.dart';
 import '../../../../core/widgets/hvp_refresh.dart';
 import '../../../../core/widgets/status_chip.dart';
@@ -29,20 +31,21 @@ class BranchListScreen extends ConsumerWidget {
     Future<void> refresh() => ref.refresh(adminBranchesProvider.future);
 
     return Scaffold(
-      appBar: HvpAppBar(title: 'Chi nhánh', actions: <Widget>[
-        IconButton.filled(
-          tooltip: 'Thêm chi nhánh',
-          style: IconButton.styleFrom(
-              backgroundColor: c.gold,
-              foregroundColor: c.onGold,
-              minimumSize: const Size(48, 48)),
-          icon: const Icon(HvpIcons.branchAdd),
-          onPressed: () => _openForm(context),
-        ),
-        const SizedBox(width: 8),
-      ]),
+      appBar: const HvpAppBar(title: 'Chi nhánh', titleIcon: HvpIcons.mapPin),
       body: Column(
         children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: HvpButton.gold(
+                label: 'Thêm chi nhánh',
+                icon: HvpIcons.branchAdd,
+                small: true,
+                onPressed: () => _openForm(context),
+              ),
+            ),
+          ),
           SwitchListTile(
             value: showInactive,
             onChanged: ref.read(showInactiveBranchesProvider.notifier).set,
@@ -115,17 +118,23 @@ class _BranchCard extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Expanded(child: Text(branch.name, style: t.titleS)),
+              Expanded(
+                  child: IconLabel(
+                      icon: HvpIcons.storefront,
+                      iconSize: 18,
+                      label: branch.name,
+                      style: t.titleS)),
               const SizedBox(width: 8),
               StatusChip(
                 label: branch.isActive ? 'Đang hoạt động' : 'Ngừng hoạt động',
+                icon: branch.isActive ? HvpIcons.checkCircle : HvpIcons.block,
                 tone: branch.isActive ? ChipTone.success : ChipTone.neutral,
               ),
             ],
           ),
           if (line.isNotEmpty) ...<Widget>[
             const SizedBox(height: 6),
-            Text(line, style: t.bodySmall)
+            IconLabel(icon: HvpIcons.mapPin, label: line)
           ],
         ],
       ),

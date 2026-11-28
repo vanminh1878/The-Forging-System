@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/design/hvp_icons.dart';
 import '../../core/widgets/coming_soon_page.dart';
 import '../../core/widgets/hvp_button.dart';
+import '../../core/widgets/hvp_sub_nav.dart';
 import '../../features/auth/domain/auth_user.dart';
 import '../../features/armory/presentation/armory_catalog_screen.dart';
 import '../../features/armory/presentation/redemption_detail_screen.dart';
@@ -92,11 +93,18 @@ List<RouteBase> studentRoutes() => <RouteBase>[
             label: 'Lịch tập',
             icon: HvpIcons.calendar,
             activeIcon: HvpIcons.calendarFill,
-            builder: (_) => const ScheduleTab(),
+            builder: (_) => const HvpSubTabs(
+              items: <HvpSubNavItem>[
+                HvpSubNavItem(label: 'Lịch tập', icon: HvpIcons.calendar),
+                HvpSubNavItem(label: 'Giáo án', icon: HvpIcons.lesson),
+              ],
+              children: <Widget>[ScheduleTab(), CourseRoadmap()],
+            ),
           ),
           ShellTab(
             path: StudentPaths.checkin,
             label: 'Check-in',
+            title: 'Check-in tại quầy',
             icon: HvpIcons.scan,
             activeIcon: HvpIcons.scanFill,
             builder: (_) => const CheckinTab(),

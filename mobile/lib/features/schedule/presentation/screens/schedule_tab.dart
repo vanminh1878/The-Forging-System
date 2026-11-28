@@ -20,8 +20,7 @@ import '../widgets/week_strip.dart';
 /// "Lịch tập" tab of the student shell (body only; the shell provides the app bar).
 ///
 /// The controls, the calendar and the sessions are one scrollable page: the
-/// month grid is tall, and the floating bottom bar covers the lower part of the
-/// screen, so a fixed grid would leave almost no room for the list.
+/// month grid is tall, so a fixed grid would leave almost no room for the list.
 class ScheduleTab extends ConsumerWidget {
   const ScheduleTab({super.key});
 

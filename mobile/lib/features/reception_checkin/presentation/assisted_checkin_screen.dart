@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/route_paths.dart';
 import '../../../core/design/hvp_context.dart';
+import '../../../core/design/hvp_icons.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/evidence_photo_picker.dart';
 import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/inline_banner.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../checkin/domain/checkin_failure.dart';
@@ -92,7 +94,7 @@ class _AssistedCheckinScreenState extends ConsumerState<AssistedCheckinScreen> {
     final session = _sessionOf(ref.watch(memberTodayProvider(widget.memberId)).valueOrNull?.sessions);
     final photoField = ref.watch(assistedPhotoFieldBuilderProvider);
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Check-in hộ'),
+      appBar: const HvpAppBar(title: 'Check-in hộ', titleIcon: HvpIcons.userPlus),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: <Widget>[
@@ -112,6 +114,7 @@ class _AssistedCheckinScreenState extends ConsumerState<AssistedCheckinScreen> {
           ],
           HvpButton.gold(
             label: 'Xác nhận check-in hộ',
+            icon: HvpIcons.checkCircle,
             loading: submitting,
             onPressed: _photoUrl == null || submitting
                 ? null
@@ -144,12 +147,13 @@ class _SessionSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text('BUỔI CHECK-IN', style: t.label),
+          IconLabel(icon: HvpIcons.calendar, label: 'BUỔI CHECK-IN', style: t.label),
           const SizedBox(height: 4),
           Text(session.title, style: t.titleM),
           const SizedBox(height: 2),
-          Text('${formatTime(session.startsAt)} - ${formatTime(session.endsAt)} · ${session.branchName}', style: t.bodySmall),
-          if (session.coachName.isNotEmpty) Text('Coach ${session.coachName}', style: t.caption),
+          IconLabel(icon: HvpIcons.clock, label: '${formatTime(session.startsAt)} - ${formatTime(session.endsAt)}'),
+          if (session.branchName.isNotEmpty) IconLabel(icon: HvpIcons.mapPin, label: session.branchName),
+          if (session.coachName.isNotEmpty) IconLabel(icon: HvpIcons.glove, label: 'Coach ${session.coachName}', style: t.caption),
         ],
       ),
     );

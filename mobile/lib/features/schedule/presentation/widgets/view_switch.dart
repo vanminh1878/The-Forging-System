@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
+import '../../../../core/widgets/hvp_filter_chip.dart';
 import '../../domain/schedule_query.dart';
 
-/// "Tuần | Tháng" segmented control.
+/// "Tuần | Tháng" choice.
 class ViewSwitch extends StatelessWidget {
   const ViewSwitch({super.key, required this.view, required this.onChanged});
 
@@ -11,26 +12,22 @@ class ViewSwitch extends StatelessWidget {
   final ValueChanged<ScheduleView> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final c = context.hvp;
-    final t = context.txt;
-    return SegmentedButton<ScheduleView>(
-      showSelectedIcon: false,
-      style: SegmentedButton.styleFrom(
-        selectedBackgroundColor: c.goldSoft,
-        selectedForegroundColor: c.gold,
-        foregroundColor: c.textSecondary,
-        side: BorderSide(color: c.border),
-        textStyle: t.label,
-      ),
-      segments: const <ButtonSegment<ScheduleView>>[
-        ButtonSegment<ScheduleView>(
-            value: ScheduleView.week, label: Text('Tuần')),
-        ButtonSegment<ScheduleView>(
-            value: ScheduleView.month, label: Text('Tháng')),
-      ],
-      selected: <ScheduleView>{view},
-      onSelectionChanged: (s) => onChanged(s.first),
-    );
-  }
+  Widget build(BuildContext context) => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          HvpFilterChip(
+            label: 'Tuần',
+            icon: HvpIcons.weekView,
+            selected: view == ScheduleView.week,
+            onSelected: () => onChanged(ScheduleView.week),
+          ),
+          const SizedBox(width: 8),
+          HvpFilterChip(
+            label: 'Tháng',
+            icon: HvpIcons.monthView,
+            selected: view == ScheduleView.month,
+            onSelected: () => onChanged(ScheduleView.month),
+          ),
+        ],
+      );
 }

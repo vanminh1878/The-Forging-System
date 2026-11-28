@@ -14,6 +14,7 @@ import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/inline_banner.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/checkin_session.dart';
@@ -76,11 +77,10 @@ class _CheckinTabState extends ConsumerState<CheckinTab> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   children: <Widget>[
-                    Text('Check-in tại quầy', style: t.titleL),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Quét mã trên màn hình phòng tập. Điểm chỉ được cộng sau khi Coach xác nhận buổi.',
-                      style: t.bodySmall,
+                    const IconLabel(
+                      icon: HvpIcons.info,
+                      label:
+                          'Quét mã trên màn hình phòng tập. Điểm chỉ được cộng sau khi Coach xác nhận buổi.',
                     ),
                     if (!data.eligibility.canCheckin && data.eligibility.message != null) ...<Widget>[
                       const SizedBox(height: 12),
@@ -94,7 +94,10 @@ class _CheckinTabState extends ConsumerState<CheckinTab> {
                         message: 'Bạn không có buổi nào cần check-in hôm nay.',
                       )
                     else ...<Widget>[
-                      Text('BUỔI HÔM NAY', style: t.label),
+                      IconLabel(
+                          icon: HvpIcons.calendar,
+                          label: 'BUỔI HÔM NAY',
+                          style: t.label),
                       const SizedBox(height: 8),
                       for (final session in data.sessions)
                         Padding(
@@ -111,7 +114,6 @@ class _CheckinTabState extends ConsumerState<CheckinTab> {
               ),
             ),
             Padding(
-              // Clear of the floating bottom bar.
               padding: const EdgeInsets.fromLTRB(16, 4, 16, HvpLayout.navClearance),
               child: SizedBox(
                 width: double.infinity,
@@ -167,15 +169,21 @@ class _SessionCard extends StatelessWidget {
                 children: <Widget>[
                   Text(session.title, style: t.titleS),
                   const SizedBox(height: 2),
-                  Text('$range · ${session.branchName}', style: t.bodySmall),
-                  if (session.coachName.isNotEmpty) Text('Coach ${session.coachName}', style: t.caption),
+                  IconLabel(icon: HvpIcons.clock, label: range),
+                  if (session.branchName.isNotEmpty) IconLabel(icon: HvpIcons.mapPin, label: session.branchName),
+                  if (session.coachName.isNotEmpty)
+                    IconLabel(icon: HvpIcons.glove, label: 'Coach ${session.coachName}', style: t.caption),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
                     children: <Widget>[
-                      StatusChip(label: checkinStatusLabel(session), tone: checkinStatusTone(session.state)),
-                      if (session.isExam) const StatusChip(label: 'Kiểm tra', tone: ChipTone.info),
+                      StatusChip(
+                          label: checkinStatusLabel(session),
+                          tone: checkinStatusTone(session.state),
+                          icon: checkinStatusIcon(session.state)),
+                      if (session.isExam)
+                        const StatusChip(label: 'Kiểm tra', tone: ChipTone.info, icon: HvpIcons.exam),
                     ],
                   ),
                   if (!enabled && session.message != null && session.state != CheckinState.checkedIn) ...<Widget>[

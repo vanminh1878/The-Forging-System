@@ -53,7 +53,8 @@ class RankProgressTab extends ConsumerWidget {
         )
       else ...<Widget>[
         NextRankCard(progress: data),
-        const SectionHeader(title: 'Điều kiện lên hạng'),
+        const SectionHeader(
+            title: 'Điều kiện lên hạng', icon: HvpIcons.checks),
         RequirementsCard(requirements: requirements),
         TrialPanel(progress: data),
       ],

@@ -115,7 +115,7 @@ class HvpButton extends StatelessWidget {
         side = BorderSide(color: c.gold.fade(0.5), width: 1);
     }
     final shape = ChamferBorder(cut: small ? 9 : 13, side: side);
-    final height = small ? 40.0 : HvpLayout.minTap + 6;
+    final height = small ? HvpLayout.minTap : HvpLayout.minTap + 6;
     final textStyle = (small ? t.titleS : t.titleM).copyWith(color: fg, letterSpacing: 1.4);
 
     final row = Row(

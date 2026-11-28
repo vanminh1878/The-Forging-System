@@ -58,8 +58,8 @@ void main() {
 
     expect(desk.calls('GET /renewal-requests').single.queryParameters,
         containsPair('status', 'PENDING'));
-    expect(find.text('Yêu cầu'), findsOneWidget);
-    expect(find.text('Học viên'), findsWidgets);
+    expect(find.text('YÊU CẦU'), findsOneWidget);
+    expect(find.text('HỌC VIÊN'), findsOneWidget);
     expect(find.text('Nguyễn Văn A'), findsOneWidget);
     expect(find.text('0911000001 · HVP000123'), findsOneWidget);
     expect(find.text('BOOK II · 9.800.000đ'), findsOneWidget);

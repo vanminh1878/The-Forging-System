@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/hvp_context.dart';
 import '../../../core/design/hvp_icons.dart';
 import '../../../core/widgets/async_body.dart';
+import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_text_field.dart';
 import '../../../core/widgets/hvp_button.dart';
@@ -13,15 +14,16 @@ class RankConfigurationScreen extends ConsumerWidget {
   const RankConfigurationScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
-      appBar: AppBar(title: const Text('Cấu hình hạng')),
+      appBar:
+          const HvpAppBar(title: 'Cấu hình hạng', titleIcon: HvpIcons.trophy),
       body: AsyncBody<List<RankConfiguration>>(
           value: ref.watch(rankConfigurationsProvider),
           onRetry: () => ref.invalidate(rankConfigurationsProvider),
           builder: (_, ranks) =>
-               ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 120), children: <Widget>[
+              ListView(padding: const EdgeInsets.all(16), children: <Widget>[
                 for (final rank in ranks)
                   Padding(
-                       padding: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.only(bottom: 16),
                       child: _RankCard(rank: rank))
               ])));
 }
@@ -57,7 +59,22 @@ class _RankCardState extends ConsumerState<_RankCard> {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-            Row(children: <Widget>[Container(width: 42, height: 42, decoration: BoxDecoration(shape: BoxShape.circle, color: context.hvp.goldSoft), child: Icon(HvpIcons.trophy, color: context.hvp.gold)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[Text(widget.rank.name, style: context.txt.titleS), Text('Điều kiện thăng hạng', style: context.txt.bodySmall)]))]),
+            Row(children: <Widget>[
+              Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                      shape: BoxShape.circle, color: context.hvp.goldSoft),
+                  child: Icon(HvpIcons.trophy, color: context.hvp.gold)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                    Text(widget.rank.name, style: context.txt.titleS),
+                    Text('Điều kiện thăng hạng', style: context.txt.bodySmall)
+                  ]))
+            ]),
             const SizedBox(height: 20),
             Text('ĐIỀU KIỆN DUY TRÌ', style: context.txt.label),
             const SizedBox(height: 8),
@@ -68,7 +85,9 @@ class _RankCardState extends ConsumerState<_RankCard> {
             const SizedBox(height: 20),
             Text('RANK TRIAL', style: context.txt.label),
             const SizedBox(height: 4),
-            Text('Yêu cầu học viên hoàn thành thử thách trước khi được lên hạng.', style: context.txt.bodySmall),
+            Text(
+                'Yêu cầu học viên hoàn thành thử thách trước khi được lên hạng.',
+                style: context.txt.bodySmall),
             const SizedBox(height: 8),
             SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -82,12 +101,17 @@ class _RankCardState extends ConsumerState<_RankCard> {
                   items: const ['COACH', 'HEAD_COACH', 'ADMIN']
                       .map((v) => DropdownMenuItem(value: v, child: Text(v)))
                       .toList(),
-                   onChanged: (v) => setState(() => role = v)),
+                  onChanged: (v) => setState(() => role = v)),
             const SizedBox(height: 16),
-            HvpTextField(label: 'Lý do thay đổi', controller: reason, required: true, maxLines: 2),
+            HvpTextField(
+                label: 'Lý do thay đổi',
+                controller: reason,
+                required: true,
+                maxLines: 2),
             const SizedBox(height: 14),
             HvpButton.primary(
                 label: 'Lưu thay đổi',
+                icon: HvpIcons.check,
                 small: true,
                 onPressed: () async {
                   final value = int.tryParse(months.text);

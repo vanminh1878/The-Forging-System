@@ -97,11 +97,11 @@ void main() {
 
     expect(find.text('TẤT CẢ BUỔI TẬP TUẦN NÀY'), findsOneWidget);
     expect(find.text('Thứ Tư · 04/03/2026 · Hôm nay'), findsOneWidget);
-    expect(
-        find.text('Boxing tối · 18:00–19:30 · Nguyễn Văn A'), findsOneWidget);
-    expect(
-        find.text('📝 Thể lực · 18:00–19:30 · Nguyễn Văn A'), findsOneWidget);
-    expect(find.text('Lớp nhóm · 18:00–19:30'), findsOneWidget);
+    expect(find.text('Boxing tối'), findsOneWidget);
+    expect(find.text('📝 Thể lực'), findsOneWidget);
+    expect(find.text('Lớp nhóm'), findsOneWidget);
+    expect(find.text('18:00–19:30'), findsNWidgets(3));
+    expect(find.text('Nguyễn Văn A'), findsNWidgets(2)); // one has no coach
     expect(find.text('SẮP TỚI'), findsOneWidget);
     expect(find.text('ĐẠT'), findsOneWidget);
     expect(find.text('ĐÃ HUỶ'), findsOneWidget);
@@ -178,7 +178,7 @@ void main() {
   });
 
   testWidgets(
-      'month view: the grid and the sessions are one scrollable page and the last session clears the bottom bar',
+      'month view: the grid and the sessions are one scrollable page and the last session is reachable',
       (tester) async {
     final repo = FakeScheduleRepository()
       ..onSchedule = (_) async => ScheduleResult(items: <ScheduleItem>[
@@ -200,9 +200,8 @@ void main() {
     final last = find.textContaining('Buổi số 6');
     expect(last, findsOneWidget);
     final viewport = tester.getRect(find.byType(Scaffold).first);
-    // HvpLayout.navClearance keeps the bottom 108dp free for the floating bar
-    expect(
-        tester.getRect(last).bottom, lessThanOrEqualTo(viewport.bottom - 100));
+    // The shell keeps the whole page above the bottom bar.
+    expect(tester.getRect(last).bottom, lessThanOrEqualTo(viewport.bottom));
   });
 
   testWidgets(

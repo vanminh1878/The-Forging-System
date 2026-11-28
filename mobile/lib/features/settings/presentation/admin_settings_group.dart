@@ -8,6 +8,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_text_field.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../domain/admin_setting.dart';
 import 'admin_settings_providers.dart';
 import 'setting_ui_metadata.dart';
@@ -32,15 +33,16 @@ class AdminSettingsGroup extends ConsumerWidget {
           }
           final info = groupUi[group];
           return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               children: <Widget>[
                 if (info != null) ...<Widget>[
-                  Text(info.title.toUpperCase(), style: context.txt.titleL),
-                  const SizedBox(height: 4),
-                  Text(info.description, style: context.txt.bodySmall),
+                  IconLabel(icon: HvpIcons.info, label: info.description),
                   if (info.warning != null) ...<Widget>[
                     const SizedBox(height: 10),
-                    Text(info.warning!,
+                    IconLabel(
+                        icon: HvpIcons.warning,
+                        iconColor: context.hvp.amber,
+                        label: info.warning!,
                         style: context.txt.bodySmall
                             .copyWith(color: context.hvp.amber))
                   ],
@@ -89,7 +91,11 @@ class _SettingCardState extends ConsumerState<_SettingCard> {
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-          Text(meta.title, style: context.txt.titleS),
+          IconLabel(
+              icon: HvpIcons.gear,
+              iconSize: 18,
+              label: meta.title,
+              style: context.txt.titleS),
           const SizedBox(height: 4),
           Text(meta.description, style: context.txt.bodySmall),
           const SizedBox(height: 16),
@@ -130,6 +136,7 @@ class _SettingCardState extends ConsumerState<_SettingCard> {
           ],
           HvpButton.primary(
               label: 'Lưu thay đổi',
+              icon: HvpIcons.check,
               small: true,
               loading: _saving,
               onPressed: _saving

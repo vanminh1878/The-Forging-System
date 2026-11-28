@@ -85,6 +85,7 @@ class AccountPanel extends ConsumerWidget {
           ...middle,
           const SectionHeader(
               title: 'Giao diện',
+              icon: HvpIcons.appearance,
               padding: EdgeInsets.only(top: 20, bottom: 10)),
           const ThemeModeSelector(),
           const SizedBox(height: 24),

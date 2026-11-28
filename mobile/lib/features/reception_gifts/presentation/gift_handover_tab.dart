@@ -9,8 +9,11 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/hvp_filter_chip.dart';
 import '../../../core/widgets/hvp_pagination_bar.dart';
+import '../../../core/widgets/hvp_refresh_overlay.dart';
 import '../../../core/widgets/hvp_text_field.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/inline_banner.dart';
 import '../../../core/widgets/redemption_status_chip.dart';
 import '../domain/staff_redemption.dart';
@@ -84,12 +87,14 @@ class _GiftHandoverTabState extends ConsumerState<GiftHandoverTab> {
   Widget build(BuildContext context) {
     final results = ref.watch(staffRedemptionListProvider(_filter));
     final action = ref.watch(staffRedemptionActionProvider);
+    final refreshing = results.isRefreshing && results.hasValue;
     return Column(children: <Widget>[
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         child: HvpTextField(
           label: 'Tìm đơn / học viên',
           hint: 'Mã đơn, mã học viên hoặc họ tên',
+          prefixIcon: HvpIcons.search,
           onSubmitted: (value) => setState(() {
             _query = value.trim();
             _page = 1;
@@ -97,7 +102,7 @@ class _GiftHandoverTabState extends ConsumerState<GiftHandoverTab> {
         ),
       ),
       SizedBox(
-        height: 56,
+        height: 64,
         child: ListView(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           scrollDirection: Axis.horizontal,
@@ -110,60 +115,76 @@ class _GiftHandoverTabState extends ConsumerState<GiftHandoverTab> {
           ],
         ),
       ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: HvpRefreshButton(
+            refreshing: refreshing,
+            onPressed: () =>
+                ref.invalidate(staffRedemptionListProvider(_filter)),
+          ),
+        ),
+      ),
       if (action.error != null)
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: InlineBanner(message: action.error!),
         ),
       Expanded(
-        child: AsyncBody<StaffRedemptionPage>(
-          value: results,
-          onRetry: () => ref.invalidate(staffRedemptionListProvider(_filter)),
-          builder: (_, page) => RefreshIndicator(
-            onRefresh: () async {
-              ref.invalidate(staffRedemptionListProvider(_filter));
-              await ref.read(staffRedemptionListProvider(_filter).future);
-            },
-            child: page.items.isEmpty
-                ? ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    children: const <Widget>[
-                      SizedBox(
-                        height: 360,
-                        child: EmptyState(
-                          icon: HvpIcons.gift,
-                          title: 'Không có đơn cần xử lý',
-                        ),
-                      ),
-                    ],
-                  )
-                : ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                    children: <Widget>[
-                      Text(
-                        '${page.total} đơn · Trang ${page.page}/${page.totalPages}',
-                        style: context.txt.caption,
-                      ),
-                      const SizedBox(height: 8),
-                      for (final item in page.items)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _RedemptionCard(
-                            item: item,
-                            submitting: action.submitting,
-                            onApprove: () => _approve(item),
-                            onDeliver: () => _deliver(item),
-                            onReject: () => _reject(item),
+        child: HvpRefreshOverlay(
+          refreshing: refreshing,
+          label: 'Đang tải đơn quà…',
+          child: AsyncBody<StaffRedemptionPage>(
+            value: results,
+            onRetry: () => ref.invalidate(staffRedemptionListProvider(_filter)),
+            builder: (_, page) => RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(staffRedemptionListProvider(_filter));
+                await ref.read(staffRedemptionListProvider(_filter).future);
+              },
+              child: page.items.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const <Widget>[
+                        SizedBox(
+                          height: 360,
+                          child: EmptyState(
+                            icon: HvpIcons.gift,
+                            title: 'Không có đơn cần xử lý',
                           ),
                         ),
-                      HvpPaginationBar(
-                        page: page.page,
-                        totalPages: page.totalPages,
-                        onPageChanged: (value) => setState(() => _page = value),
-                      ),
-                    ],
-                  ),
+                      ],
+                    )
+                  : ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                      children: <Widget>[
+                        Text(
+                          '${page.total} đơn · Trang ${page.page}/${page.totalPages}',
+                          style: context.txt.caption,
+                        ),
+                        const SizedBox(height: 8),
+                        for (final item in page.items)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: _RedemptionCard(
+                              item: item,
+                              submitting: action.submitting,
+                              onApprove: () => _approve(item),
+                              onDeliver: () => _deliver(item),
+                              onReject: () => _reject(item),
+                            ),
+                          ),
+                        HvpPaginationBar(
+                          page: page.page,
+                          totalPages: page.totalPages,
+                          onPageChanged: (value) =>
+                              setState(() => _page = value),
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
@@ -172,10 +193,11 @@ class _GiftHandoverTabState extends ConsumerState<GiftHandoverTab> {
 
   Widget _filterChip(String? value, String label) => Padding(
         padding: const EdgeInsets.only(right: 8),
-        child: ChoiceChip(
-          label: Text(label),
+        child: HvpFilterChip(
+          label: label,
+          icon: value == null ? HvpIcons.all : redemptionStatusIcon(value),
           selected: _status == value,
-          onSelected: (_) => _selectStatus(value),
+          onSelected: () => _selectStatus(value),
         ),
       );
 }
@@ -202,40 +224,54 @@ class _RedemptionCard extends StatelessWidget {
             children: <Widget>[
               Row(children: <Widget>[
                 Expanded(
-                    child: Text(item.rewardName, style: context.txt.titleS)),
+                    child: IconLabel(
+                        icon: HvpIcons.gift,
+                        iconSize: 18,
+                        label: item.rewardName,
+                        style: context.txt.titleS)),
                 RedemptionStatusChip(status: item.status),
               ]),
               const SizedBox(height: 4),
-              Text('${item.memberFullName} · ${item.memberCode}',
-                  style: context.txt.bodySmall),
+              IconLabel(
+                  icon: HvpIcons.user,
+                  label: '${item.memberFullName} · ${item.memberCode}'),
               const SizedBox(height: 3),
-              Text(
-                  '${item.redemptionCode} · ${formatInt(item.marksCost)} Marks',
-                  style: context.txt.bodySmall),
+              IconLabel(
+                  icon: HvpIcons.coins,
+                  label:
+                      '${item.redemptionCode} · ${formatInt(item.marksCost)} Marks'),
               const SizedBox(height: 3),
-              Text(
-                  '${item.pickupBranchName} · ${formatDateTime(item.requestedAt)}',
+              IconLabel(
+                  icon: HvpIcons.storefront,
+                  label:
+                      '${item.pickupBranchName} · ${formatDateTime(item.requestedAt)}',
                   style: context.txt.caption),
               if (item.reason != null) ...<Widget>[
                 const SizedBox(height: 3),
-                Text(item.reason!, style: context.txt.caption),
+                IconLabel(
+                    icon: HvpIcons.note,
+                    label: item.reason!,
+                    style: context.txt.caption),
               ],
               const SizedBox(height: 12),
               Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
                 if (item.status == 'PENDING_PICKUP')
                   HvpButton.primary(
                       label: 'Duyệt',
+                      icon: HvpIcons.check,
                       small: true,
                       onPressed: submitting ? null : onApprove),
                 if (item.status == 'READY_PICKUP')
                   HvpButton.gold(
                       label: 'Giao quà',
+                      icon: HvpIcons.handover,
                       small: true,
                       onPressed: submitting ? null : onDeliver),
                 if (item.status == 'PENDING_PICKUP' ||
                     item.status == 'READY_PICKUP')
                   HvpButton.danger(
                       label: 'Từ chối',
+                      icon: HvpIcons.block,
                       small: true,
                       onPressed: submitting ? null : onReject),
               ]),
@@ -308,6 +344,7 @@ class _DeliverySheetState extends ConsumerState<_DeliverySheet> {
           const SizedBox(height: 20),
           HvpButton.gold(
             label: 'Xác nhận đã giao',
+            icon: HvpIcons.handover,
             expand: true,
             onPressed: _submit,
           ),
@@ -361,7 +398,10 @@ class _RejectReasonSheetState extends State<_RejectReasonSheet> {
           ],
           const SizedBox(height: 20),
           HvpButton.danger(
-              label: 'Xác nhận từ chối', expand: true, onPressed: _submit),
+              label: 'Xác nhận từ chối',
+              icon: HvpIcons.block,
+              expand: true,
+              onPressed: _submit),
         ]),
       );
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../domain/course.dart';
 
@@ -47,11 +48,16 @@ class CourseStatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (status) {
       case CourseStatus.completed:
-        return const StatusChip(label: 'Hoàn thành', tone: ChipTone.success);
+        return const StatusChip(
+            label: 'Hoàn thành',
+            tone: ChipTone.success,
+            icon: HvpIcons.checkCircle);
       case CourseStatus.inProgress:
-        return const StatusChip(label: 'Đang học', tone: ChipTone.gold);
+        return const StatusChip(
+            label: 'Đang học', tone: ChipTone.gold, icon: HvpIcons.play);
       case CourseStatus.notStarted:
-        return const StatusChip(label: 'Chưa bắt đầu');
+        return const StatusChip(
+            label: 'Chưa bắt đầu', icon: HvpIcons.hourglass);
     }
   }
 }

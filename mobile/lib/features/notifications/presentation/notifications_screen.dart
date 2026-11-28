@@ -14,6 +14,7 @@ import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_refresh.dart';
 import '../../../core/widgets/hvp_toast.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../domain/app_notification.dart';
 import 'notification_providers.dart';
 import 'notification_target.dart';
@@ -56,9 +57,13 @@ class NotificationsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: HvpAppBar(
         title: 'Thông báo',
+        titleIcon: HvpIcons.bellFill,
         actions: <Widget>[
           if (unread > 0)
-            TextButton(onPressed: readAll, child: const Text('Đọc tất cả')),
+            TextButton.icon(
+                onPressed: readAll,
+                icon: const Icon(HvpIcons.checks, size: 18),
+                label: const Text('Đọc tất cả')),
         ],
       ),
       body: AsyncBody<NotificationsState>(
@@ -165,7 +170,11 @@ class _NotificationTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(item.body, style: t.bodySmall),
                 const SizedBox(height: 6),
-                Text(formatRelative(item.createdAt), style: t.caption),
+                IconLabel(
+                    icon: HvpIcons.clock,
+                    iconSize: 13,
+                    label: formatRelative(item.createdAt),
+                    style: t.caption),
               ],
             ),
           ),

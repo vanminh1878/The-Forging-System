@@ -33,16 +33,17 @@ void main() {
           .overrideWithValue(_FakeSettingsRepository()),
     ]);
 
-    expect(find.text('CẤU HÌNH HỆ THỐNG'), findsOneWidget);
+    // The page title is in the shell app bar, not repeated in the body.
+    expect(find.text('CẤU HÌNH HỆ THỐNG'), findsNothing);
     expect(find.text('Chi nhánh'), findsOneWidget);
-    expect(find.text('Điểm & hạng'), findsOneWidget);
+    expect(find.text('ĐIỂM & HẠNG'), findsOneWidget);
 
-    await tester.tap(find.text('Điểm & hạng'));
+    await tester.tap(find.text('ĐIỂM & HẠNG'));
     await tester.pumpAndSettle();
 
     expect(find.text('Hạn mức DP mỗi tháng'), findsOneWidget);
 
-    final armoryTab = find.text('Armory');
+    final armoryTab = find.text('ARMORY');
     await tester.ensureVisible(armoryTab);
     await tester.tap(armoryTab);
     await tester.pumpAndSettle();

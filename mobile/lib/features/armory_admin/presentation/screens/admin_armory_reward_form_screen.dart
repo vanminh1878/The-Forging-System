@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/hvp_app_bar.dart';
 import '../../../../core/widgets/hvp_button.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/inline_banner.dart';
 import '../../domain/admin_armory_repository.dart';
 import '../admin_armory_providers.dart';
@@ -151,7 +153,9 @@ class _AdminArmoryRewardFormScreenState
         ? updateArmoryRewardSubmitProvider
         : createArmoryRewardSubmitProvider);
     return Scaffold(
-      appBar: HvpAppBar(title: _isEdit ? 'Chi tiết quà' : 'Tạo quà Armory'),
+      appBar: HvpAppBar(
+          title: _isEdit ? 'Chi tiết quà' : 'Tạo quà Armory',
+          titleIcon: HvpIcons.gift),
       body: AsyncBody<List<AdminArmoryTier>>(
         value: tiers,
         onRetry: () => ref.invalidate(adminArmoryTiersProvider),
@@ -164,7 +168,11 @@ class _AdminArmoryRewardFormScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  Text('THÔNG TIN QUÀ', style: context.txt.titleL),
+                  IconLabel(
+                      icon: HvpIcons.gift,
+                      iconSize: 22,
+                      label: 'THÔNG TIN QUÀ',
+                      style: context.txt.titleL),
                   const SizedBox(height: 16),
                   HvpTextField(
                     label: 'SKU',

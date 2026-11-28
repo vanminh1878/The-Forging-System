@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/hvp_app_bar.dart';
 import '../../../../core/widgets/hvp_button.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/inline_banner.dart';
 import '../../domain/admin_armory_repository.dart';
 import '../admin_armory_providers.dart';
@@ -125,7 +127,9 @@ class _AdminArmoryTiersScreenState
         ? updateArmoryTierSubmitProvider
         : createArmoryTierSubmitProvider);
     return Scaffold(
-      appBar: HvpAppBar(title: _isEdit ? 'Chi tiết tier' : 'Tạo tier Armory'),
+      appBar: HvpAppBar(
+          title: _isEdit ? 'Chi tiết tier' : 'Tạo tier Armory',
+          titleIcon: HvpIcons.tag),
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
@@ -135,7 +139,11 @@ class _AdminArmoryTiersScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                Text('THÔNG TIN TIER', style: context.txt.titleL),
+                IconLabel(
+                    icon: HvpIcons.tag,
+                    iconSize: 22,
+                    label: 'THÔNG TIN TIER',
+                    style: context.txt.titleL),
                 const SizedBox(height: 6),
                 Text(
                   'Tier dùng để phân loại quà theo số Marks tích lũy.',
@@ -235,6 +243,7 @@ class _AdminArmoryTiersScreenState
                 const SizedBox(height: 28),
                 HvpButton.primary(
                   label: _isEdit ? 'Lưu thay đổi' : 'Tạo tier',
+                  icon: _isEdit ? HvpIcons.check : HvpIcons.newTier,
                   expand: true,
                   loading: submit.submitting,
                   onPressed: submit.submitting ? null : _submit,

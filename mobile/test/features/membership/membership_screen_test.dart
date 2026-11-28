@@ -71,6 +71,11 @@ MyMembership _m({
       renewNotice: notice,
     );
 
+Future<void> _openHistory(WidgetTester tester) async {
+  await tester.tap(find.text('LỊCH SỬ'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('shows shimmer while loading', (tester) async {
     final completer = Completer<MyMembership>();
@@ -135,14 +140,25 @@ void main() {
     expect(find.text('30/36 buổi đã dùng · còn 6'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
     expect(find.text('01/11/2026'), findsOneWidget);
+    expect(find.text('Đã gửi yêu cầu · chờ lễ tân xác nhận'), findsOneWidget);
+    expect(find.text('CHỜ DUYỆT'), findsOneWidget);
+    expect(find.text('BOOK III · gửi 24/10/2026'), findsOneWidget);
+
+    await tester.tap(find.text('SẮP TỚI'));
+    await tester.pumpAndSettle();
     expect(find.text('02/11/2026 → 01/02/2027'), findsOneWidget);
     expect(
         find.text(
             'Gói này tự kích hoạt khi gói hiện tại hết hạn, thời hạn không bị mất.'),
         findsOneWidget);
-    expect(find.text('Đã gửi yêu cầu · chờ lễ tân xác nhận'), findsOneWidget);
-    expect(find.text('CHỜ DUYỆT'), findsOneWidget);
-    expect(find.text('BOOK III · gửi 24/10/2026'), findsOneWidget);
+  });
+
+  testWidgets('without a queued package the Sắp tới tab says so',
+      (tester) async {
+    await _pump(tester, () async => _m(current: _current));
+    await tester.tap(find.text('SẮP TỚI'));
+    await tester.pumpAndSettle();
+    expect(find.text('Bạn chưa có gói nào chờ kích hoạt.'), findsOneWidget);
   });
 
   testWidgets('unlimited sessions and no expiry', (tester) async {
@@ -240,7 +256,8 @@ void main() {
       currentUserIdProvider.overrideWithValue('u1'),
     ]);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('BOOK I'), 200);
+    await _openHistory(tester);
+    expect(find.text('BOOK I'), findsOneWidget);
     expect(find.text('ĐÃ HUỶ'), findsOneWidget);
     expect(find.text('ĐÃ GIA HẠN'), findsOneWidget);
     expect(find.text('Gửi 24/10/2026 · 9.800.000đ'), findsOneWidget);
@@ -250,8 +267,7 @@ void main() {
 
   testWidgets('empty history', (tester) async {
     await _pump(tester, () async => _m(notice: RenewNotice.noPackage));
-    await tester.scrollUntilVisible(
-        find.text('Bạn chưa gửi yêu cầu gia hạn nào'), 200);
+    await _openHistory(tester);
     expect(find.text('Bạn chưa gửi yêu cầu gia hạn nào'), findsOneWidget);
   });
 
@@ -269,8 +285,10 @@ void main() {
       currentUserIdProvider.overrideWithValue('u1'),
     ]);
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Lỗi lịch sử'), 200);
+    // A failing history never hides the package itself.
     expect(find.text('CHƯA CÓ GÓI TẬP'), findsOneWidget);
+    await _openHistory(tester);
+    expect(find.text('Lỗi lịch sử'), findsOneWidget);
     fail = false;
     await tester.tap(find.widgetWithText(HvpButton, 'THỬ LẠI'));
     await tester.pumpAndSettle();
