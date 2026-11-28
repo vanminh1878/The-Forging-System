@@ -81,6 +81,11 @@ const List<_SettingsTab> _settingsTabs = <_SettingsTab>[
       description: 'Hạn nhận quà và ngưỡng cảnh báo tồn kho.',
       icon: HvpIcons.armory),
   _SettingsTab(
+      label: 'Check-in',
+      title: 'Check-in',
+      description: 'Mã QR, khung thời gian và vị trí check-in.',
+      icon: HvpIcons.scan),
+  _SettingsTab(
       label: 'Khác',
       title: 'Khác',
       description: 'Gói tập, lớp học, check-in và bảo mật.',
@@ -152,8 +157,15 @@ class _ConfigTab extends StatelessWidget {
       'Chuỗi tập' => 'STREAK',
       'Thử thách' => 'CHALLENGE',
       'Armory' => 'ARMORY',
+      'Check-in' => 'CHECKIN',
       _ => 'CHECKIN',
     };
+    if (tab.label == 'Điểm & hạng') {
+      return Column(children: <Widget>[
+        Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: HvpCard(onTap: () => context.push(AdminPaths.rankConfiguration), child: Row(children: <Widget>[Icon(HvpIcons.trophy, color: context.hvp.gold), const SizedBox(width: 12), Expanded(child: Text('Cấu hình hạng', style: context.txt.titleS)), Icon(HvpIcons.caretRight, color: context.hvp.textMuted)]))),
+        const Expanded(child: AdminSettingsGroup(group: 'POINTS')),
+      ]);
+    }
     if (tab.label != 'Khác') return AdminSettingsGroup(group: group);
     return ListView(
       padding: const EdgeInsets.all(16),
