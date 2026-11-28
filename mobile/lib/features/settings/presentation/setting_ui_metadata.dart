@@ -147,6 +147,10 @@ const _m = <String, SettingUiMetadata>{
   'checkin.geofence_enabled': SettingUiMetadata(
       title: 'Yêu cầu vị trí chi nhánh',
       description: 'Từ chối check-in khi học viên ở ngoài khu vực chi nhánh.'),
+  'challenge.monthly_reward_limit': SettingUiMetadata(title: 'Giới hạn thử thách có thưởng mỗi tháng', description: 'Số thử thách có thưởng tối đa một học viên được nhận trong tháng.', unit: 'thử thách', min: 0),
+  'challenge.nudge_hours_before_end': SettingUiMetadata(title: 'Nhắc trước khi thử thách kết thúc', description: 'Thời điểm gửi nhắc học viên chưa hoàn thành thử thách.', unit: 'giờ', min: 1),
+  'armory.pending_pickup_expiry_days': SettingUiMetadata(title: 'Hạn nhận quà', description: 'Số ngày chờ tối đa trước khi yêu cầu nhận quà hết hạn.', unit: 'ngày', min: 1),
+  'armory.low_stock_threshold': SettingUiMetadata(title: 'Ngưỡng cảnh báo tồn kho thấp', description: 'Tồn kho bằng hoặc thấp hơn ngưỡng này sẽ được cảnh báo.', unit: 'sản phẩm', min: 0),
 };
 
 SettingUiMetadata settingUi(AdminSetting setting) =>
@@ -169,4 +173,6 @@ const groupUi = <String, ({String title, String description, String? warning})>{
     description: 'Thiết lập mã QR, khung thời gian và yêu cầu vị trí check-in.',
     warning: 'Thay đổi thời hạn mã sẽ ảnh hưởng ngay tới các mã đang phát hành.'
   ),
+  'CHALLENGE': (title: 'Thử thách', description: 'Thiết lập giới hạn phần thưởng và thời điểm nhắc học viên.', warning: null),
+  'ARMORY': (title: 'Armory', description: 'Thiết lập hạn nhận quà và ngưỡng cảnh báo tồn kho.', warning: null),
 };

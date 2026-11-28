@@ -41,6 +41,7 @@ class AuditLogPage {
 
 abstract interface class AuditLogRepository {
   Future<AuditLogPage> list({
+    String? query,
     String? action,
     String? entityType,
     String? entityId,

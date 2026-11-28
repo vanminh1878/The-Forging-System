@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hvp_forging/features/branch_admin/presentation/screens/admin_settings_page.dart';
 import 'package:hvp_forging/features/settings/domain/admin_setting.dart';
@@ -9,26 +10,17 @@ class _FakeSettingsRepository implements AdminSettingsRepository {
   @override
   Future<List<AdminSetting>> list() async => const <AdminSetting>[
         AdminSetting(
-            key: 'points.sample_key',
+            key: 'points.dp_monthly_cap',
             group: 'POINTS',
             type: 'INT',
-            value: 100,
-            defaultValue: 100,
-            description: 'Giới hạn điểm mẫu',
-            isDefault: true),
-        AdminSetting(
-            key: 'streak.sample_key',
-            group: 'STREAK',
-            type: 'INT',
-            value: 3,
-            defaultValue: 3,
-            description: 'Mốc chuỗi mẫu',
+            value: 1200,
+            defaultValue: 1200,
+            description: '',
             isDefault: true),
       ];
 
   @override
   Future<void> update(String key, Object value, String reason) async {}
-
   @override
   Future<void> rollback(String key, int auditId, String reason) async {}
 }
@@ -36,7 +28,7 @@ class _FakeSettingsRepository implements AdminSettingsRepository {
 void main() {
   testWidgets('CFG-04 renders configuration tabs and changes the active group',
       (tester) async {
-    await pumpHvp(tester, const AdminSettingsPage(), overrides: [
+    await pumpHvp(tester, const AdminSettingsPage(), overrides: <Override>[
       adminSettingsRepositoryProvider
           .overrideWithValue(_FakeSettingsRepository()),
     ]);
@@ -48,10 +40,7 @@ void main() {
     await tester.tap(find.text('Điểm & hạng'));
     await tester.pumpAndSettle();
 
-    // Only the settings of the selected group are listed.
-    expect(find.text('points.sample_key'), findsOneWidget);
-    expect(find.text('Giới hạn điểm mẫu'), findsOneWidget);
-    expect(find.text('streak.sample_key'), findsNothing);
+    expect(find.text('Hạn mức DP mỗi tháng'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -11,7 +11,8 @@ import '../../helpers/test_harness.dart';
 class _AuditRepo implements AuditLogRepository {
   @override
   Future<AuditLogPage> list(
-          {String? action,
+          {String? query,
+          String? action,
           String? entityType,
           String? entityId,
           DateTime? from,
