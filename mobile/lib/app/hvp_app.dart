@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/design/hvp_theme.dart';
 import '../core/design/theme_mode_controller.dart';
+import '../core/widgets/hvp_system_insets.dart';
 import 'router.dart';
 
 /// Lets mouse and trackpad drag scrollables (useful when debugging in Chrome).
@@ -37,6 +38,8 @@ class HvpApp extends ConsumerWidget {
       themeMode: themeMode,
       routerConfig: router,
       scrollBehavior: const HvpScrollBehavior(),
+      builder: (context, child) =>
+          HvpSystemInsets(child: child ?? const SizedBox.shrink()),
       locale: const Locale('vi', 'VN'),
       supportedLocales: const <Locale>[Locale('vi', 'VN')],
       localizationsDelegates: const <LocalizationsDelegate<dynamic>>[

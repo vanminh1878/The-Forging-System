@@ -57,6 +57,33 @@ void main() {
     expect(validateStartTime(''), isNotNull);
   });
 
+  test('text limits: one under, at and over, counted like the server', () {
+    final cases = <(String? Function(String?), int, String)>[
+      (validateClassName, 60, 'Tên lớp tối đa 60 ký tự.'),
+      (validateSessionTitle, 100, 'Tiêu đề tối đa 100 ký tự.'),
+      (validateExamTitle, 100, 'Tên buổi kiểm tra tối đa 100 ký tự.'),
+      (validateSessionNotes, 1000, 'Ghi chú tối đa 1000 ký tự.'),
+      (validateCancelReason, 255, 'Lý do huỷ tối đa 255 ký tự.'),
+    ];
+    for (final (validate, max, message) in cases) {
+      expect(validate('Đ' * (max - 1)), isNull, reason: message);
+      expect(validate('Đ' * max), isNull, reason: message);
+      expect(validate('  ${'a' * max}  '), isNull, reason: 'trimmed first');
+      expect(validate('Đ' * (max + 1)), message);
+    }
+    // An emoji is two units for the server, so half as many fit.
+    expect(validateClassName('🥊' * 30), isNull);
+    expect(validateClassName('🥊' * 31), isNotNull);
+    // Decomposed Vietnamese: "e" + combining circumflex counts as two.
+    expect(validateClassName('e\u0302' * 31), isNotNull);
+    // The optional fields may stay empty.
+    expect(validateExamTitle(''), isNull);
+    expect(validateSessionNotes(null), isNull);
+    // The default exam title of the longest class name still fits.
+    expect('Kiểm tra — ${'a' * classNameMax}'.length,
+        lessThanOrEqualTo(sessionTitleMax));
+  });
+
   test('repository create posts the draft, update patches only changes',
       () async {
     final t = buildRepo(
@@ -228,19 +255,43 @@ void main() {
     });
 
     testWidgets(
-        'name: whitespace only is rejected, 120 characters is the limit and the input is kept',
+        'name: whitespace only is rejected, 60 characters is the limit and the input is kept',
         (tester) async {
       final repo = await show(tester);
       await tester.enterText(field(0), '    ');
       await tapSubmit(tester);
       expect(find.text('Nhập tên lớp.'), findsOneWidget);
-      await tester.enterText(field(0), 'Ñ' * 130);
-      expect(text(tester, 0).length, 120);
+      await tester.enterText(field(0), 'Ñ' * 70);
+      expect(text(tester, 0).length, 60);
       await tester.enterText(field(0), 'Lớp 💪 Thể lực');
       await tapSubmit(tester);
       expect(text(tester, 0),
           'Lớp 💪 Thể lực'); // a failed submit keeps what was typed
       expect(repo.created, isEmpty); // branch and weekday still missing
+    });
+
+    testWidgets(
+        'edit: a class saved with a longer name must be shortened before it saves',
+        (tester) async {
+      final repo = await show(tester,
+          existing: ClassSummary(
+            id: 'c1',
+            branchId: 'b1',
+            name: 'a' * 61,
+            sessionTypeCode: 'GROUP',
+            weekdays: const <int>[1],
+            startTime: '06:30',
+            durationMinutes: 60,
+            isActive: true,
+            enrolledCount: 0,
+          ));
+      await tapSubmit(tester);
+      expect(find.text('Tên lớp tối đa 60 ký tự.'), findsOneWidget);
+      expect(repo.updated, isEmpty);
+
+      await tester.enterText(field(0), 'a' * 60);
+      await tapSubmit(tester);
+      expect(repo.updated.single, <String, Object?>{'name': 'a' * 60});
     });
 
     testWidgets('API error stays in the sheet', (tester) async {

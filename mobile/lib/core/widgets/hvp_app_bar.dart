@@ -46,10 +46,18 @@ class HvpHeaderRule extends StatelessWidget {
 /// title row under it (left aligned), back arrow / actions at the sides.
 class HvpAppBar extends StatelessWidget implements PreferredSizeWidget {
   const HvpAppBar(
-      {super.key, this.title, this.actions, this.bottom, this.logoHeight = 38});
+      {super.key,
+      this.title,
+      this.titleIcon,
+      this.actions,
+      this.bottom,
+      this.logoHeight = 38});
 
   /// Page title shown under the logo (upper-cased). Omit on screens that carry their own heading.
   final String? title;
+
+  /// Icon of the page, drawn before [title].
+  final IconData? titleIcon;
   final List<Widget>? actions;
 
   /// Extra row under the title (e.g. a [TabBar]).
@@ -97,6 +105,10 @@ class HvpAppBar extends StatelessWidget implements PreferredSizeWidget {
                           child: Container(width: 5, height: 20, color: c.gold),
                         ),
                         const SizedBox(width: 10),
+                        if (titleIcon != null) ...<Widget>[
+                          Icon(titleIcon, size: 22, color: c.gold),
+                          const SizedBox(width: 8),
+                        ],
                         Flexible(
                           child: Semantics(
                             header: true,

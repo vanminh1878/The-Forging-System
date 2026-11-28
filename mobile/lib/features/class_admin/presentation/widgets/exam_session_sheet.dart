@@ -8,6 +8,7 @@ import '../../../../core/widgets/hvp_button.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
 import '../../../../core/widgets/hvp_toast.dart';
 import '../../../../core/widgets/inline_banner.dart';
+import '../../domain/class_rules.dart';
 import '../class_providers.dart';
 
 /// CLS-09: exam session of a class on a chosen day.
@@ -106,8 +107,9 @@ class _ExamSessionSheetState extends ConsumerState<ExamSessionSheet> {
               HvpTextField(
                   label: 'Tên buổi kiểm tra',
                   controller: _title,
-                  maxLength: 200,
-                  textCapitalization: TextCapitalization.sentences),
+                  maxLength: sessionTitleMax,
+                  textCapitalization: TextCapitalization.sentences,
+                  validator: validateExamTitle),
               if (submit.error != null) InlineBanner(message: submit.error!),
               const SizedBox(height: 16),
               HvpButton.primary(

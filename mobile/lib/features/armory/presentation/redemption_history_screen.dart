@@ -10,7 +10,9 @@ import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/hvp_filter_chip.dart';
 import '../../../core/widgets/hvp_pagination_bar.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/redemption_status_chip.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/redemption.dart';
@@ -34,7 +36,8 @@ class _RedemptionHistoryScreenState
     final query = (status: status, page: page);
     final history = ref.watch(redemptionHistoryProvider(query));
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Lịch sử đổi quà'),
+      appBar: const HvpAppBar(
+          title: 'Lịch sử đổi quà', titleIcon: HvpIcons.history),
       body: Column(children: <Widget>[
         SizedBox(
           height: 56,
@@ -47,10 +50,10 @@ class _RedemptionHistoryScreenState
                   'PENDING_PICKUP', redemptionStatusLabel('PENDING_PICKUP')),
               _filterChip(
                   'READY_PICKUP', redemptionStatusLabel('READY_PICKUP')),
-              _filterChip('DELIVERED', 'Đã giao'),
-              _filterChip('REJECTED', 'Từ chối'),
-              _filterChip('CANCELLED', 'Đã hủy'),
-              _filterChip('EXPIRED', 'Hết hạn'),
+              _filterChip('DELIVERED', redemptionStatusLabel('DELIVERED')),
+              _filterChip('REJECTED', redemptionStatusLabel('REJECTED')),
+              _filterChip('CANCELLED', redemptionStatusLabel('CANCELLED')),
+              _filterChip('EXPIRED', redemptionStatusLabel('EXPIRED')),
             ],
           ),
         ),
@@ -104,10 +107,11 @@ class _RedemptionHistoryScreenState
 
   Widget _filterChip(String? value, String label) => Padding(
         padding: const EdgeInsets.only(right: 8),
-        child: ChoiceChip(
-          label: Text(label),
+        child: HvpFilterChip(
+          label: label,
+          icon: value == null ? HvpIcons.all : redemptionStatusIcon(value),
           selected: status == value,
-          onSelected: (_) => setState(() {
+          onSelected: () => setState(() {
             status = value;
             page = 1;
           }),
@@ -134,14 +138,18 @@ class _RedemptionCard extends StatelessWidget {
                     children: <Widget>[
                       Text(redemption.rewardName, style: context.txt.titleS),
                       const SizedBox(height: 4),
-                      Text(
-                          '#${redemption.code} · ${formatDateTime(redemption.requestedAt)}',
+                      IconLabel(
+                          icon: HvpIcons.receipt,
+                          iconSize: 13,
+                          label:
+                              '#${redemption.code} · ${formatDateTime(redemption.requestedAt)}',
                           style: context.txt.caption),
                       const SizedBox(height: 8),
                       Wrap(spacing: 8, runSpacing: 6, children: <Widget>[
                         StatusChip(
                             label: '${formatInt(redemption.marksCost)} Marks',
-                            tone: ChipTone.gold),
+                            tone: ChipTone.gold,
+                            icon: HvpIcons.coins),
                         RedemptionStatusChip(status: redemption.status),
                       ]),
                     ]),

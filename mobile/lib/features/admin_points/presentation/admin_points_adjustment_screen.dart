@@ -8,6 +8,8 @@ import '../../../core/error/error_mapper.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/hvp_app_bar.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_text_field.dart';
@@ -43,12 +45,11 @@ class _AdminPointsAdjustmentScreenState
         ? null
         : ref.watch(adminPointsSearchProvider(_query));
     return Scaffold(
-      appBar: AppBar(title: const Text('Điều chỉnh DP / Marks')),
+      appBar: const HvpAppBar(
+          title: 'Điều chỉnh DP / Marks', titleIcon: HvpIcons.adjust),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          Text('TÌM HỌC VIÊN', style: context.txt.titleL),
-          const SizedBox(height: 8),
           HvpTextField(
             label: 'Tên, mã học viên hoặc số điện thoại',
             controller: _search,
@@ -113,9 +114,10 @@ class _MemberResult extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(member.fullName, style: context.txt.titleS),
-                  Text(
-                      '${member.memberCode}${member.phone == null ? '' : ' · ${member.phone}'}',
-                      style: context.txt.bodySmall),
+                  IconLabel(
+                      icon: HvpIcons.idCard,
+                      label:
+                          '${member.memberCode}${member.phone == null ? '' : ' · ${member.phone}'}'),
                 ]),
           ),
           Icon(selected ? HvpIcons.checkCircle : HvpIcons.caretRight,
@@ -140,7 +142,10 @@ class _MemberLedger extends ConsumerWidget {
     return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text('SỔ ĐIỂM · ${member.fullName.toUpperCase()}',
+          IconLabel(
+              icon: HvpIcons.receipt,
+              iconSize: 22,
+              label: 'SỔ ĐIỂM · ${member.fullName.toUpperCase()}',
               style: context.txt.titleL),
           const SizedBox(height: 10),
           monthly.when(
@@ -152,7 +157,11 @@ class _MemberLedger extends ConsumerWidget {
           const SizedBox(height: 12),
           _AdjustmentForm(memberId: member.id, onSaved: () => _refresh(ref)),
           const SizedBox(height: 20),
-          Text('GIAO DỊCH GẦN ĐÂY', style: context.txt.titleM),
+          IconLabel(
+              icon: HvpIcons.history,
+              iconSize: 20,
+              label: 'GIAO DỊCH GẦN ĐÂY',
+              style: context.txt.titleM),
           const SizedBox(height: 8),
           AsyncBody<PointsPage>(
             value: ledger,
@@ -176,6 +185,7 @@ class _MemberLedger extends ConsumerWidget {
                             alignment: Alignment.centerRight,
                             child: HvpButton.ghost(
                               label: 'Đảo giao dịch',
+                              icon: HvpIcons.retry,
                               small: true,
                               onPressed: () =>
                                   _showReverse(context, ref, transaction),
@@ -345,7 +355,11 @@ class _AdjustmentFormState extends ConsumerState<_AdjustmentForm> {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text('ĐIỀU CHỈNH THỦ CÔNG', style: context.txt.titleM),
+                IconLabel(
+                    icon: HvpIcons.adjust,
+                    iconSize: 20,
+                    label: 'ĐIỀU CHỈNH THỦ CÔNG',
+                    style: context.txt.titleM),
                 const SizedBox(height: 10),
                 HvpTextField(
                     label: 'Thay đổi DP',
@@ -371,6 +385,7 @@ class _AdjustmentFormState extends ConsumerState<_AdjustmentForm> {
                 const SizedBox(height: 12),
                 HvpButton.primary(
                     label: 'Ghi nhận điều chỉnh',
+                    icon: HvpIcons.check,
                     expand: true,
                     loading: _submitting,
                     onPressed: _submitting ? null : _submit),

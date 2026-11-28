@@ -5,6 +5,8 @@ import '../../../../app/route_paths.dart';
 import '../../../../core/design/hvp_context.dart';
 import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../../core/widgets/hvp_sub_nav.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../settings/presentation/admin_settings_group.dart';
 
 /// Body of the admin "Cấu hình" tab: a menu of settings screens.
@@ -13,31 +15,15 @@ class AdminSettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: _settingsTabs.length,
-      child: Column(
-        children: <Widget>[
-          Material(
-            color: context.hvp.surface,
-            child: TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: <Widget>[
-                for (final tab in _settingsTabs) Tab(text: tab.label)
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              children: <Widget>[
-                _OverviewTab(
-                    onBranches: () => context.push(AdminPaths.branches)),
-                for (final tab in _settingsTabs.skip(1)) _ConfigTab(tab: tab),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return HvpSubTabs(
+      items: <HvpSubNavItem>[
+        for (final tab in _settingsTabs)
+          HvpSubNavItem(label: tab.label, icon: tab.icon)
+      ],
+      children: <Widget>[
+        _OverviewTab(onBranches: () => context.push(AdminPaths.branches)),
+        for (final tab in _settingsTabs.skip(1)) _ConfigTab(tab: tab),
+      ],
     );
   }
 }
@@ -59,7 +45,7 @@ const List<_SettingsTab> _settingsTabs = <_SettingsTab>[
       label: 'Tổng quan',
       title: 'Tổng quan',
       description: 'Quản lý các danh mục và cấu hình chung của hệ thống.',
-      icon: HvpIcons.gear),
+      icon: HvpIcons.overview),
   _SettingsTab(
       label: 'Điểm & hạng',
       title: 'Điểm và hạng',
@@ -89,7 +75,7 @@ const List<_SettingsTab> _settingsTabs = <_SettingsTab>[
       label: 'Khác',
       title: 'Khác',
       description: 'Gói tập, lớp học, check-in và bảo mật.',
-      icon: HvpIcons.gear),
+      icon: HvpIcons.more),
 ];
 
 class _OverviewTab extends StatelessWidget {
@@ -100,11 +86,10 @@ class _OverviewTab extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
-          Text('CẤU HÌNH HỆ THỐNG', style: context.txt.titleL),
-          const SizedBox(height: 4),
-          Text(
-              'Chọn nhóm cấu hình ở các tab bên trên để thiết lập quy tắc vận hành.',
-              style: context.txt.bodySmall),
+          const IconLabel(
+              icon: HvpIcons.info,
+              label:
+                  'Chọn nhóm cấu hình ở các tab bên trên để thiết lập quy tắc vận hành.'),
           const SizedBox(height: 16),
           HvpCard(
             onTap: onBranches,
@@ -170,11 +155,7 @@ class _ConfigTab extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: <Widget>[
-        Icon(tab.icon, size: 36, color: context.hvp.gold),
-        const SizedBox(height: 12),
-        Text(tab.title.toUpperCase(), style: context.txt.titleL),
-        const SizedBox(height: 6),
-        Text(tab.description, style: context.txt.bodySmall),
+        IconLabel(icon: tab.icon, label: tab.description),
         const SizedBox(height: 18),
         HvpCard(
           child: Row(children: <Widget>[
@@ -202,7 +183,7 @@ class _ConfigTab extends StatelessWidget {
           HvpCard(
             onTap: () => context.push(AdminPaths.auditLogs),
             child: Row(children: <Widget>[
-              Icon(HvpIcons.history, color: context.hvp.gold),
+              Icon(HvpIcons.audit, color: context.hvp.gold),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

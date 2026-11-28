@@ -146,21 +146,12 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('roster, sessions and lesson plan, but no action',
-        (tester) async {
-      final repo = FakeClassRepository()..detailSummary = _withCourse;
-      await show(tester, repo);
+    Future<void> openTab(WidgetTester tester, String label) async {
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
 
-      expect(find.text('Nguyễn Văn A', skipOffstage: false), findsOneWidget);
-      expect(
-          find.text('GIÁO ÁN / BÀI HỌC', skipOffstage: false), findsOneWidget);
-      expect(
-          find.text('BOOK I · Nền tảng', skipOffstage: false), findsOneWidget);
-      expect(find.text('Tuần 1', skipOffstage: false), findsOneWidget);
-      expect(find.text('Bài 1 · Tư thế đứng', skipOffstage: false),
-          findsOneWidget);
-      expect(find.text('Kiểm tra', skipOffstage: false), findsOneWidget);
-
+    void expectNoAction() {
       expect(find.byTooltip('Sửa lớp'), findsNothing);
       expect(find.byTooltip('Cho rời lớp'), findsNothing);
       expect(find.widgetWithText(HvpButton, 'TẠO BUỔI KIỂM TRA'), findsNothing);
@@ -168,11 +159,34 @@ void main() {
           findsNothing);
       expect(find.text('Huỷ buổi'), findsNothing);
       expect(find.textContaining('không tạo được buổi kiểm tra'), findsNothing);
+    }
+
+    testWidgets('roster, sessions and lesson plan, but no action',
+        (tester) async {
+      final repo = FakeClassRepository()..detailSummary = _withCourse;
+      await show(tester, repo);
+      expectNoAction(); // sessions tab
+
+      await openTab(tester, 'GIÁO ÁN');
+      expectNoAction();
+      expect(
+          find.text('GIÁO ÁN / BÀI HỌC', skipOffstage: false), findsOneWidget);
+      expect(
+          find.text('BOOK I · Nền tảng', skipOffstage: false), findsOneWidget);
+      expect(find.text('Tuần 1', skipOffstage: false), findsOneWidget);
+      expect(find.text('Bài 1 · Tư thế đứng', skipOffstage: false),
+          findsOneWidget);
+      expect(find.text('KIỂM TRA', skipOffstage: false), findsOneWidget);
+
+      await openTab(tester, 'HỌC VIÊN');
+      expect(find.text('Nguyễn Văn A', skipOffstage: false), findsOneWidget);
+      expectNoAction();
     });
 
     testWidgets('a class without a course says there is no lesson plan',
         (tester) async {
       await show(tester, FakeClassRepository());
+      await openTab(tester, 'GIÁO ÁN');
       expect(
           find.text('Lớp chưa gắn khóa học nên chưa có giáo án.',
               skipOffstage: false),
@@ -181,6 +195,7 @@ void main() {
 
     testWidgets('an empty roster is explained', (tester) async {
       await show(tester, FakeClassRepository()..roster = <RosterEntry>[]);
+      await openTab(tester, 'HỌC VIÊN');
       expect(find.text('Lớp chưa có học viên.', skipOffstage: false),
           findsOneWidget);
     });

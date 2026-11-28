@@ -102,7 +102,7 @@ Tạo lớp. Quyền: **A**. Trả 201 với `ClassRow`.
 | Field             | Kiểu       | Bắt buộc | Giới hạn / mặc định                                                   |
 | ----------------- | ---------- | -------- | --------------------------------------------------------------------- |
 | `branchId`        | uuid       | có       | Chi nhánh phải đang hoạt động                                         |
-| `name`            | string     | có       | 1–120 ký tự                                                           |
+| `name`            | string     | có       | 1–60 ký tự                                                            |
 | `sessionTypeCode` | string     | có       | Phải tồn tại (và đang bật)                                            |
 | `courseId`        | uuid\|null | không    | Mặc định `null`; phải tồn tại                                         |
 | `defaultCoachId`  | uuid\|null | không    | Mặc định `null`; user phải có role COACH/HEAD_COACH/ADMIN/SUPER_ADMIN |
@@ -129,6 +129,7 @@ Sửa lớp. Quyền: **A**. Body là các field như trên, **tất cả tuỳ 
 
 - Chỉ kiểm tra lại chi nhánh / loại buổi / khoá học / HLV khi giá trị **thay đổi**; lớp thuộc chi nhánh đã ngừng hoạt động vẫn sửa tên, giờ... được.
 - Giảm `capacity` xuống thấp hơn sĩ số hiện tại không bị chặn; chỉ ảnh hưởng lần ghi danh sau.
+- Lớp tạo trước khi hạ giới hạn có thể còn tên dài hơn 60 ký tự: vẫn đọc được; sửa trên app thì phải rút ngắn tên.
 - Tắt lớp bằng `isActive: false` (không xoá). Lớp tắt không nhận ghi danh mới.
 
 Lỗi như POST, thêm `404 NOT_FOUND` (Lớp học not found). Ghi audit `CLASS_UPDATED` (before/after).
@@ -241,7 +242,7 @@ Vai trò: coach, trưởng coach, admin (`COACH`, `HEAD_COACH`, `ADMIN`, `SUPER_
 | `branchId`        | uuid        | có       | Chi nhánh đang hoạt động                                                     |
 | `startsAt`        | ISO 8601    | có       | Có múi giờ, ví dụ `2026-03-03T11:00:00Z`; phải sau thời điểm hiện tại        |
 | `durationMinutes` | int         | có       | 15–480                                                                       |
-| `title`           | string      | có       | 1–200 ký tự                                                                  |
+| `title`           | string      | có       | 1–100 ký tự                                                                  |
 | `coachId`         | uuid        | không    | Mặc định là người gọi. Coach không được đặt người khác                       |
 | `classId`         | uuid        | không    | Gắn buổi vào một lớp                                                         |
 | `lessonPlanId`    | uuid        | không    | Giáo án                                                                      |
@@ -296,7 +297,7 @@ Quy tắc: trùng giờ được tính theo khoảng `[startsAt, endsAt)` với 
 
 ### POST `/classes/:id/exam-sessions`: buổi kiểm tra của lớp
 
-Body: `{ "date": "2026-03-04", "title"?: string, "lessonPlanId"?: uuid }`. Giờ bắt đầu và độ dài lấy theo lớp (`startTime`, `durationMinutes`). `title` mặc định `Kiểm tra — {tên lớp}`.
+Body: `{ "date": "2026-03-04", "title"?: string, "lessonPlanId"?: uuid }`. Giờ bắt đầu và độ dài lấy theo lớp (`startTime`, `durationMinutes`). `title` tối đa 100 ký tự, mặc định `Kiểm tra — {tên lớp}`.
 
 - Nếu lớp đã có buổi `SCHEDULED` đúng giờ đó (do hệ thống sinh), buổi ấy được đánh dấu `isExam = true` kèm `title` và `lessonPlanId`. Chưa có thì tạo buổi mới (coach là coach mặc định của lớp, nếu lớp chưa có thì là người gọi) và kiểm tra trùng giờ coach.
 - Học viên đang ghi danh lớp (và học viên có điểm danh buổi đó), tài khoản `ACTIVE`, nhận thông báo `EXAM`: "BUỔI KIỂM TRA MỚI" / "{title} — dd/MM/yyyy HH:mm.". Mỗi học viên nhận tối đa một lần cho mỗi buổi.
@@ -314,7 +315,7 @@ Body: `{ "date": "2026-03-04", "title"?: string, "lessonPlanId"?: uuid }`. Giờ
 
 ### POST `/sessions/:id/cancel`: huỷ một buổi (ví dụ ngày nghỉ lễ)
 
-Body: `{ "reason": "Nghỉ lễ" }`, bắt buộc, không được rỗng. Response `200` trả buổi với `status = CANCELLED`.
+Body: `{ "reason": "Nghỉ lễ" }`, bắt buộc, không được rỗng, tối đa 255 ký tự (quá thì 400 `VALIDATION_ERROR`). Response `200` trả buổi với `status = CANCELLED`.
 
 - Chỉ huỷ được buổi `SCHEDULED` chưa bắt đầu (`startsAt` còn sau thời điểm hiện tại), nếu không 409 `SESSION_NOT_CANCELLABLE` "Chỉ huỷ được buổi chưa diễn ra."
 - Buổi được giữ lại với `status = CANCELLED`, không xoá. Job sinh buổi sẽ không sinh lại buổi này.

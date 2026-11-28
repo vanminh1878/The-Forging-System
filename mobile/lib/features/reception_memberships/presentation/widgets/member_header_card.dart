@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../reception_checkin/presentation/widgets/member_card.dart';
 import '../../domain/member_models.dart';
 import 'member_avatar.dart';
@@ -16,12 +18,14 @@ class MemberHeaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.txt;
-    final lines = <String>[
-      if (profile.phone != null) profile.phone!,
-      if (profile.email != null) profile.email!,
-      profile.memberCode,
-      if (profile.homeBranchName != null) profile.homeBranchName!,
-      if (profile.joinedAt != null) 'Tham gia ${formatDate(profile.joinedAt!)}',
+    final lines = <(IconData, String)>[
+      if (profile.phone != null) (HvpIcons.phone, profile.phone!),
+      if (profile.email != null) (HvpIcons.mail, profile.email!),
+      (HvpIcons.idCard, profile.memberCode),
+      if (profile.homeBranchName != null)
+        (HvpIcons.storefront, profile.homeBranchName!),
+      if (profile.joinedAt != null)
+        (HvpIcons.event, 'Tham gia ${formatDate(profile.joinedAt!)}'),
     ];
     return HvpCard(
       highlighted: true,
@@ -39,12 +43,18 @@ class MemberHeaderCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(profile.fullName, style: t.titleM),
-                for (final line in lines) Text(line, style: t.bodySmall),
+                for (final (icon, line) in lines)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: IconLabel(icon: icon, label: line),
+                  ),
                 const SizedBox(height: 8),
                 memberStatusChip(profile.status),
                 if (profile.statusReason != null) ...<Widget>[
                   const SizedBox(height: 6),
-                  Text('Lý do: ${profile.statusReason}', style: t.bodySmall),
+                  IconLabel(
+                      icon: HvpIcons.note,
+                      label: 'Lý do: ${profile.statusReason}'),
                 ],
               ],
             ),

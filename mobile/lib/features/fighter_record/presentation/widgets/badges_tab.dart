@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/design/hvp_layout.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/entrance.dart';
@@ -39,6 +40,7 @@ class BadgesTab extends ConsumerWidget {
             _grid(context, data).entrance(0),
             SectionHeader(
               title: 'Lịch sử huy hiệu',
+              icon: HvpIcons.history,
               subtitle: data.history.isEmpty ? null : '${data.history.length} mốc gần nhất',
             ),
             _timeline(data).entrance(1),

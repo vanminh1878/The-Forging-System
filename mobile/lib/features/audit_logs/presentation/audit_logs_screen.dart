@@ -6,6 +6,8 @@ import '../../../core/design/hvp_icons.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/hvp_app_bar.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_pagination_bar.dart';
@@ -81,7 +83,8 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   Widget build(BuildContext context) {
     final filter = _filter;
     return Scaffold(
-      appBar: AppBar(title: const Text('Nhật ký Audit')),
+      appBar:
+          const HvpAppBar(title: 'Nhật ký Audit', titleIcon: HvpIcons.audit),
       body: Column(
         children: <Widget>[
           Padding(
@@ -174,7 +177,10 @@ class _Filters extends StatelessWidget {
         child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text('BỘ LỌC', style: context.txt.label),
+              IconLabel(
+                  icon: HvpIcons.filter,
+                  label: 'BỘ LỌC',
+                  style: context.txt.label),
               HvpTextField(
                   label: 'Hành động',
                   controller: action,
@@ -200,10 +206,16 @@ class _Filters extends StatelessWidget {
               Row(children: <Widget>[
                 Expanded(
                     child: HvpButton.primary(
-                        label: 'Áp dụng', small: true, onPressed: onApply)),
+                        label: 'Áp dụng',
+                        icon: HvpIcons.check,
+                        small: true,
+                        onPressed: onApply)),
                 const SizedBox(width: 8),
                 HvpButton.secondary(
-                    label: 'Xóa lọc', small: true, onPressed: onClear),
+                    label: 'Xóa lọc',
+                    icon: HvpIcons.close,
+                    small: true,
+                    onPressed: onClear),
               ]),
             ]),
       );
@@ -232,6 +244,7 @@ class _AuditCard extends StatelessWidget {
   Widget build(BuildContext context) => HvpCard(
         child: ExpansionTile(
           tilePadding: EdgeInsets.zero,
+          leading: Icon(HvpIcons.audit, color: context.hvp.gold),
           childrenPadding: const EdgeInsets.only(top: 8),
           title: Text(_actionLabel(item.action), style: context.txt.titleS),
           subtitle: Text(

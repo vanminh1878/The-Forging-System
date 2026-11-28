@@ -4,6 +4,7 @@ import '../../../../core/design/hvp_context.dart';
 import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/hvp_avatar.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../domain/member_hit.dart';
 
@@ -17,10 +18,7 @@ class MemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.txt;
-    final contact = <String>[
-      if (member.phone != null) member.phone!,
-      member.memberCode
-    ].where((p) => p.isNotEmpty).join(' · ');
+    final phone = member.phone;
     return HvpCard(
       onTap: onTap,
       semanticLabel: 'Học viên ${member.fullName}',
@@ -33,8 +31,18 @@ class MemberCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(member.fullName, style: t.titleS),
-                if (contact.isNotEmpty) Text(contact, style: t.bodySmall),
+                Text(member.fullName,
+                    style: t.titleS,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+                if (phone != null && phone.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 4),
+                  IconLabel(icon: HvpIcons.phone, label: phone),
+                ],
+                if (member.memberCode.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 4),
+                  IconLabel(icon: HvpIcons.idCard, label: member.memberCode),
+                ],
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
@@ -42,10 +50,13 @@ class MemberCard extends StatelessWidget {
                   children: <Widget>[
                     memberStatusChip(member.status),
                     if (member.packageName != null)
-                      StatusChip(label: member.packageName!)
+                      StatusChip(
+                          label: member.packageName!, icon: HvpIcons.ticket)
                     else
                       const StatusChip(
-                          label: 'Chưa có gói', tone: ChipTone.warning),
+                          label: 'Chưa có gói',
+                          tone: ChipTone.warning,
+                          icon: HvpIcons.warning),
                   ],
                 ),
               ],
@@ -64,8 +75,14 @@ StatusChip memberStatusChip(String status) {
       return const StatusChip(
           label: 'Đã đóng băng', tone: ChipTone.info, icon: HvpIcons.frozen);
     case 'INACTIVE':
-      return const StatusChip(label: 'Không hoạt động', tone: ChipTone.danger);
+      return const StatusChip(
+          label: 'Không hoạt động',
+          tone: ChipTone.danger,
+          icon: HvpIcons.block);
     default:
-      return const StatusChip(label: 'Hoạt động', tone: ChipTone.success);
+      return const StatusChip(
+          label: 'Hoạt động',
+          tone: ChipTone.success,
+          icon: HvpIcons.checkCircle);
   }
 }

@@ -18,7 +18,8 @@ class BranchQrRoute extends ConsumerWidget {
     final branchId = ref.watch(authControllerProvider.select((s) => s.user?.branchId));
     if (branchId == null || branchId.isEmpty) {
       return Scaffold(
-        appBar: const HvpAppBar(title: 'Mã QR quầy'),
+        appBar: const HvpAppBar(
+            title: 'Mã QR quầy', titleIcon: HvpIcons.qrCode),
         body: EmptyState(
           icon: HvpIcons.scan,
           title: 'Chưa có chi nhánh',

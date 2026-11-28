@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/hvp_context.dart';
+import '../../../core/design/hvp_icons.dart';
 import '../../../core/widgets/async_body.dart';
+import '../../../core/widgets/hvp_app_bar.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_text_field.dart';
 import '../../../core/widgets/hvp_button.dart';
@@ -12,7 +15,8 @@ class RankConfigurationScreen extends ConsumerWidget {
   const RankConfigurationScreen({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) => Scaffold(
-      appBar: AppBar(title: const Text('Cấu hình hạng')),
+      appBar:
+          const HvpAppBar(title: 'Cấu hình hạng', titleIcon: HvpIcons.trophy),
       body: AsyncBody<List<RankConfiguration>>(
           value: ref.watch(rankConfigurationsProvider),
           onRetry: () => ref.invalidate(rankConfigurationsProvider),
@@ -56,7 +60,10 @@ class _RankCardState extends ConsumerState<_RankCard> {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-            Text('${widget.rank.name} · ${widget.rank.code}',
+            IconLabel(
+                icon: HvpIcons.medal,
+                iconSize: 18,
+                label: '${widget.rank.name} · ${widget.rank.code}',
                 style: context.txt.titleS),
             HvpTextField(
                 label: 'Thời gian ở hạng (tháng)',
@@ -78,6 +85,7 @@ class _RankCardState extends ConsumerState<_RankCard> {
             HvpTextField(label: 'Lý do thay đổi', controller: reason),
             HvpButton.primary(
                 label: 'Lưu',
+                icon: HvpIcons.check,
                 small: true,
                 onPressed: () async {
                   final value = int.tryParse(months.text);

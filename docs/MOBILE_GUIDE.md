@@ -27,8 +27,17 @@ Giới hạn: web không có camera quét QR thật (đã dùng `mobile_scanner`
 - **Font**: Bebas Neue (tiêu đề/số lớn), Oswald (nhãn), Inter (nội dung), JetBrains Mono (mã/số liệu) qua `google_fonts` (tải khi chạy lần đầu; muốn offline hãy bundle font vào `assets/fonts`).
 - **Token**: chỉ dùng `context.hvp` (màu) và `context.txt` (kiểu chữ) — không hex trong widget tính năng.
 - **Linh kiện** (`lib/core/widgets`, `lib/core/design`): `HvpButton`, `HvpCard` (viền vát chamfer), `HvpTextField`, `StatTile`, `SectionHeader`, `RankBadge` (7 huy hiệu kim loại, trạng thái khoá/thu hồi), `DpGauge` ("heat gauge"), `StreakFlame`, `TapeDivider` (băng quấn tay), `ScanFrame` (khung 4 góc quét QR), `AsyncBody` (shimmer + lỗi + retry), `EmptyState`, `ErrorState`, `HvpRefresh`, `EvidencePhotoPicker`, `BranchPicker`, `HvpToast`, `HvpBottomSheet`, `ConfettiBurst`, `CountUpText`, `.entrance(i)` (xuất hiện lần lượt), `HvpNavBar` nổi với nút Check-in giữa.
-- **Icon**: `phosphor_flutter` (có găng tay, ngọn lửa, cúp, huy chương…) — khai báo tập trung ở `hvp_icons.dart`.
+- **Icon**: bộ Material có sẵn của Flutter (không thêm thư viện) — khai báo tập trung ở `hvp_icons.dart`, widget tính năng không gọi `Icons.*` trực tiếp.
 - **Mọi màn** phải có 3 trạng thái: loading (shimmer), rỗng (icon + câu tiếng Việt + CTA), lỗi (thử lại).
+
+### Quy ước giao diện chung
+
+- **Tiêu đề trang**: `HvpAppBar(title, titleIcon)` luôn có icon; thân trang không lặp lại tiêu đề. Tiêu đề mục dùng `SectionHeader(title, icon)`.
+- **Nội dung thẻ**: mỗi dòng thông tin có icon (`IconLabel`). Tên dài cắt bằng `maxLines` hoặc `ExpandableText` ("Xem đầy đủ").
+- **Điều hướng phụ**: chia trang dài bằng `HvpSubTabs` / `HvpSubNav` (icon + chữ), không dùng `TabBar` hay `SegmentedButton` trần.
+- **Bộ lọc**: `HvpFilterChip` (icon + chữ). Màu chọn lấy từ `chipTheme`: vàng đậm ở giao diện Sáng, cam ở giao diện Tối.
+- **Hành động của danh sách**: nút chữ nhật có chữ và icon (`HvpButton`), không dùng nút chỉ có icon hay dấu "+" trơn. Làm mới dùng `HvpRefreshButton` + `HvpRefreshOverlay(refreshing: ...)`.
+- **Vùng an toàn**: `HvpSystemInsets` bọc cả app nên màn hình không tự chừa thanh điều hướng của điện thoại. `HvpNavBar` không đè lên nội dung; cuối danh sách chỉ cần `HvpLayout.navClearance`. Thanh dưới tự hiện mũi tên khi còn mục để cuộn ngang.
 
 ## 3. Thêm một tính năng (vibe-code)
 
@@ -46,7 +55,7 @@ Dùng `lib/features/fighter_record/` làm mẫu (xem công thức 7 bước ở 
 |---|---|
 | student | Trang chủ · Lịch tập · **Check-in** (giữa) · Armory · Hồ sơ |
 | coach | Hôm nay · Lớp & bài học (lớp được phân công → học viên, buổi sắp tới, giáo án) · Challenge · Rank Trial · Lịch sử |
-| reception | Check-in · Gói tập (Yêu cầu / Học viên / Theo gói) · Lớp học (chỉ xem lớp và danh sách học viên) · Kho quà · Giao quà · Hồ sơ (tài khoản, Sáng/Tối, đăng xuất) |
+| reception | Check-in · Gói tập (Yêu cầu / Học viên) · Lớp học (chỉ xem lớp và danh sách học viên) · Kho quà · Giao quà. Hồ sơ (tài khoản, Sáng/Tối, đăng xuất) mở từ icon góc trên phải |
 | admin | Dashboard · Thành viên · Đào tạo · Thử thách (Challenge / Đơn quà / Kho quà) · Thông báo · Cấu hình (Quy tắc / Hạng / Chi nhánh / Nhật ký) |
 
 Hiện tại các tab là `ComingSoonPage`; đã hoàn chỉnh: đăng nhập/đăng ký/quên mật khẩu, khung 4 role, Fighter Record (Lên hạng / Huy hiệu / Sổ điểm).

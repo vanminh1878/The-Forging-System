@@ -8,6 +8,9 @@ import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/hvp_app_bar.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../../core/widgets/hvp_filter_chip.dart';
+import '../../../../core/widgets/hvp_sub_nav.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/hvp_pagination_bar.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
 import '../../../../core/widgets/status_chip.dart';
@@ -28,34 +31,44 @@ class AdminArmoryManagementScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminArmoryManagementScreenState
-    extends ConsumerState<AdminArmoryManagementScreen> {
+    extends ConsumerState<AdminArmoryManagementScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs =
+      TabController(length: 2, initialIndex: widget.initialTab, vsync: this)
+        ..addListener(_onTab);
   late int _tab = widget.initialTab;
+
+  void _onTab() {
+    if (_tabs.index != _tab) setState(() => _tab = _tabs.index);
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: const HvpAppBar(title: 'Quản lý Armory'),
+        appBar: const HvpAppBar(
+            title: 'Quản lý Armory', titleIcon: HvpIcons.armoryFill),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => context.push(
             _tab == 0
                 ? AdminPaths.armoryTierCreate
                 : AdminPaths.armoryRewardCreate,
           ),
-          icon: const Icon(HvpIcons.plus),
+          icon: Icon(_tab == 0 ? HvpIcons.newTier : HvpIcons.newGift),
           label: Text(_tab == 0 ? 'Tạo tier' : 'Tạo quà'),
         ),
         body: Column(
           children: <Widget>[
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: SegmentedButton<int>(
-                segments: const <ButtonSegment<int>>[
-                  ButtonSegment<int>(value: 0, label: Text('Tier')),
-                  ButtonSegment<int>(value: 1, label: Text('Quà tặng')),
-                ],
-                selected: <int>{_tab},
-                onSelectionChanged: (value) =>
-                    setState(() => _tab = value.first),
-              ),
+            HvpSubNav(
+              controller: _tabs,
+              items: const <HvpSubNavItem>[
+                HvpSubNavItem(label: 'Tier', icon: HvpIcons.tag),
+                HvpSubNavItem(label: 'Quà tặng', icon: HvpIcons.gift),
+              ],
             ),
             Expanded(
                 child: _tab == 0
@@ -92,9 +105,10 @@ class _TierList extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(tier.name, style: context.txt.titleS),
-                  Text(
-                      '${tier.code} · ${tier.minMarks}${tier.maxMarks == null ? '+' : '–${tier.maxMarks}'} Marks',
-                      style: context.txt.bodySmall),
+                  IconLabel(
+                      icon: HvpIcons.coins,
+                      label:
+                          '${tier.code} · ${tier.minMarks}${tier.maxMarks == null ? '+' : '–${tier.maxMarks}'} Marks'),
                 ],
               )),
               IconButton(
@@ -146,7 +160,7 @@ class _RewardListState extends ConsumerState<_RewardList> {
             }),
           )),
       SizedBox(
-          height: 52,
+          height: 60,
           child: AsyncBody<List<AdminArmoryTier>>(
             value: tiers,
             onRetry: () => ref.invalidate(adminArmoryTiersProvider),
@@ -158,20 +172,22 @@ class _RewardListState extends ConsumerState<_RewardList> {
                 children: <Widget>[
                   Padding(
                       padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                          label: const Text('Tất cả tier'),
+                      child: HvpFilterChip(
+                          label: 'Tất cả tier',
+                          icon: HvpIcons.all,
                           selected: _tierCode == null,
-                          onSelected: (_) => setState(() {
+                          onSelected: () => setState(() {
                                 _tierCode = null;
                                 _page = 1;
                               }))),
                   for (final tier in items)
                     Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                            label: Text(tier.name),
+                        child: HvpFilterChip(
+                            label: tier.name,
+                            icon: HvpIcons.tag,
                             selected: _tierCode == tier.code,
-                            onSelected: (_) => setState(() {
+                            onSelected: () => setState(() {
                                   _tierCode = tier.code;
                                   _page = 1;
                                 }))),
@@ -206,13 +222,21 @@ class _RewardListState extends ConsumerState<_RewardList> {
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                        Text(reward.name, style: context.txt.titleS),
-                        Text(
-                            '${reward.sku} · ${reward.marksCost} Marks · tồn ${reward.stock}',
-                            style: context.txt.bodySmall),
+                        IconLabel(
+                            icon: HvpIcons.gift,
+                            iconSize: 18,
+                            label: reward.name,
+                            style: context.txt.titleS),
+                        IconLabel(
+                            icon: HvpIcons.coins,
+                            label:
+                                '${reward.sku} · ${reward.marksCost} Marks · tồn ${reward.stock}'),
                       ])),
                   StatusChip(
                       label: reward.isActive ? 'Đang bán' : 'Ngừng bán',
+                      icon: reward.isActive
+                          ? HvpIcons.storefront
+                          : HvpIcons.block,
                       tone: reward.isActive
                           ? ChipTone.success
                           : ChipTone.neutral),

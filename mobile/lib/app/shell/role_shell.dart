@@ -12,7 +12,7 @@ import 'account_panel.dart';
 import 'shell_tab.dart';
 
 /// Scaffold shared by the four roles: titled app bar, the tab body kept alive
-/// by go_router, and the floating bottom bar.
+/// by go_router, and the floating bottom bar. The body ends above the bar.
 class RoleShell extends StatelessWidget {
   const RoleShell({
     super.key,
@@ -21,6 +21,7 @@ class RoleShell extends StatelessWidget {
     required this.navigationShell,
     this.raisedIndex,
     this.accountInAppBar = true,
+    this.profilePath,
     this.actions = const <Widget>[],
   });
 
@@ -30,6 +31,10 @@ class RoleShell extends StatelessWidget {
   final int? raisedIndex;
   final bool accountInAppBar;
 
+  /// Profile screen opened from the round app bar button (roles without a
+  /// profile tab).
+  final String? profilePath;
+
   /// Extra app bar buttons of this role, shown before the account button (e.g. the student's bell).
   final List<Widget> actions;
 
@@ -37,21 +42,26 @@ class RoleShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final index = navigationShell.currentIndex;
     final current = tabs[index];
-    final c = context.hvp;
+    final profile = profilePath;
     return Scaffold(
-      extendBody: true,
       appBar: HvpAppBar(
-        title: current.label,
+        title: current.title ?? current.label,
+        titleIcon: current.activeIcon,
         actions: <Widget>[
           ...actions,
-          if (accountInAppBar)
-            IconButton(
+          if (profile != null)
+            _AccountButton(
+              tooltip: 'Hồ sơ',
+              onPressed: () => context.push(profile),
+            )
+          else if (accountInAppBar)
+            _AccountButton(
               tooltip: 'Tài khoản',
-              icon: Icon(HvpIcons.user, color: c.gold),
               onPressed: () => showHvpSheet<void>(
                 context,
                 title: 'Tài khoản',
-                builder: (_) => const SingleChildScrollView(child: AccountPanel(inSheet: true)),
+                builder: (_) => const SingleChildScrollView(
+                    child: AccountPanel(inSheet: true)),
               ),
             ),
         ],
@@ -59,11 +69,39 @@ class RoleShell extends StatelessWidget {
       body: HvpBackdrop(glow: 0.6, child: navigationShell),
       bottomNavigationBar: HvpNavBar(
         items: <HvpNavItem>[
-          for (final tab in tabs) HvpNavItem(label: tab.label, icon: tab.icon, activeIcon: tab.activeIcon),
+          for (final tab in tabs)
+            HvpNavItem(
+                label: tab.label, icon: tab.icon, activeIcon: tab.activeIcon),
         ],
         currentIndex: index,
         raisedIndex: raisedIndex,
-        onSelected: (i) => navigationShell.goBranch(i, initialLocation: i == index),
+        onSelected: (i) =>
+            navigationShell.goBranch(i, initialLocation: i == index),
+      ),
+    );
+  }
+}
+
+/// Round profile button in the top right corner of the staff shells.
+class _AccountButton extends StatelessWidget {
+  const _AccountButton({required this.tooltip, required this.onPressed});
+
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hvp;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: IconButton(
+        tooltip: tooltip,
+        style: IconButton.styleFrom(
+          backgroundColor: c.surfaceHigh,
+          side: BorderSide(color: c.borderStrong),
+        ),
+        icon: Icon(HvpIcons.user, color: c.gold),
+        onPressed: onPressed,
       ),
     );
   }

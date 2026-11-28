@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/hvp_context.dart';
+import '../../../core/design/hvp_icons.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_button.dart';
+import '../../../core/widgets/hvp_filter_chip.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_text_field.dart';
 import '../../audit_logs/domain/audit_log.dart';
@@ -25,23 +29,26 @@ class _ConfigHistoryScreenState extends ConsumerState<ConfigHistoryScreen> {
   Widget build(BuildContext context) {
     final filter = _filter;
     return Scaffold(
-        appBar: AppBar(title: const Text('Lịch sử cấu hình')),
+        appBar: const HvpAppBar(
+            title: 'Lịch sử cấu hình', titleIcon: HvpIcons.history),
         body: Column(children: <Widget>[
           Padding(
               padding: const EdgeInsets.all(12),
               child: Row(children: <Widget>[
-                ChoiceChip(
-                    label: const Text('Settings'),
+                HvpFilterChip(
+                    label: 'Settings',
+                    icon: HvpIcons.gear,
                     selected: _type == 'SYSTEM_CONFIG',
-                    onSelected: (_) => setState(() {
+                    onSelected: () => setState(() {
                           _type = 'SYSTEM_CONFIG';
                           _page = 1;
                         })),
                 const SizedBox(width: 8),
-                ChoiceChip(
-                    label: const Text('Rank'),
+                HvpFilterChip(
+                    label: 'Rank',
+                    icon: HvpIcons.medal,
                     selected: _type == 'RANK_CONFIG',
-                    onSelected: (_) => setState(() {
+                    onSelected: () => setState(() {
                           _type = 'RANK_CONFIG';
                           _page = 1;
                         }))
@@ -52,7 +59,7 @@ class _ConfigHistoryScreenState extends ConsumerState<ConfigHistoryScreen> {
                   onRetry: () => ref.invalidate(auditLogListProvider(filter)),
                   builder: (_, data) => data.items.isEmpty
                       ? const EmptyState(
-                          icon: Icons.history,
+                          icon: HvpIcons.history,
                           title: 'Chưa có lịch sử',
                           message: 'Chưa có thay đổi cấu hình.')
                       : ListView(
@@ -77,17 +84,23 @@ class _HistoryCard extends ConsumerWidget {
           child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-            Text(item.entityId, style: context.txt.titleS),
-            Text(
-                '${item.actorName ?? item.actorType} · ${item.createdAt.toLocal()}',
-                style: context.txt.bodySmall),
+            IconLabel(
+                icon: HvpIcons.gear,
+                iconSize: 18,
+                label: item.entityId,
+                style: context.txt.titleS),
+            IconLabel(
+                icon: HvpIcons.user,
+                label:
+                    '${item.actorName ?? item.actorType} · ${item.createdAt.toLocal()}'),
             if (item.reason != null)
-              Text(item.reason!, style: context.txt.bodySmall),
+              IconLabel(icon: HvpIcons.note, label: item.reason!),
             if (canRollback)
               Align(
                   alignment: Alignment.centerRight,
                   child: HvpButton.secondary(
                       label: 'Hoàn tác',
+                      icon: HvpIcons.history,
                       small: true,
                       onPressed: () => _rollback(context, ref)))
           ]));

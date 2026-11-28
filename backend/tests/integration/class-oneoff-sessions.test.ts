@@ -74,6 +74,20 @@ describe('classes: CLS-03 one-off, exam and cancelled sessions', () => {
       expect((await post('/sessions', coachA, body({ memberIds: ['x'] }))).status).toBe(400);
     });
 
+    it('limits the title to 100 characters and the notes to 1000', async () => {
+      const at = '2026-03-05T01:00:00Z';
+      for (const over of [{ title: 'a'.repeat(101) }, { notes: 'a'.repeat(1001) }]) {
+        const r = await post('/sessions', coachA, body({ startsAt: at, ...over }));
+        expect(r.body.error.code).toBe('VALIDATION_ERROR');
+      }
+      const ok = await post(
+        '/sessions',
+        coachA,
+        body({ startsAt: at, title: 'a'.repeat(100), notes: 'a'.repeat(1000) }),
+      );
+      expect(ok.status).toBe(201);
+    });
+
     it('coach creates a PT with learners; the learner sees it in /me/schedule', async () => {
       const res = await post('/sessions', coachA, body({ memberIds: [memberId, memberId] }));
       expect(res.status).toBe(201);
@@ -155,6 +169,7 @@ describe('classes: CLS-03 one-off, exam and cancelled sessions', () => {
       expect((await exam(memberToken, { date: '2026-03-04' })).status).toBe(403);
       expect((await exam(admin, { date: '2026-02-30' })).status).toBe(400);
       expect((await exam(admin, {})).status).toBe(400);
+      expect((await exam(admin, { date: '2026-03-04', title: 'a'.repeat(101) })).status).toBe(400);
       expect((await exam(admin, { date: '2026-03-04' }, '00000000-0000-4000-8000-000000000000')).status).toBe(404);
     });
 
@@ -221,6 +236,14 @@ describe('classes: CLS-03 one-off, exam and cancelled sessions', () => {
         expect(r.body.error.code).toBe('CANCEL_REASON_REQUIRED');
       }
       expect((await cancel(admin, '00000000-0000-4000-8000-000000000000')).status).toBe(404);
+    });
+
+    it('limits the reason to 255 characters', async () => {
+      const r = await cancel(admin, fri, { reason: 'a'.repeat(256) });
+      expect(r.body.error.code).toBe('VALIDATION_ERROR');
+      // 255 passes validation: an unknown session then answers 404, not 400.
+      const unknown = '00000000-0000-4000-8000-000000000000';
+      expect((await cancel(admin, unknown, { reason: 'a'.repeat(255) })).status).toBe(404);
     });
 
     it("a coach cannot cancel another coach's session", async () => {

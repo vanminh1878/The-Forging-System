@@ -16,9 +16,17 @@ const listQuery = paginationQuery.extend({
   isActive: boolString.optional(),
 });
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+// Short enough to read on a phone; the app enforces the same limits (class_rules.dart).
+const CLASS_NAME_MAX = 60;
+// Must hold the default exam title "Kiểm tra — {class name}".
+const SESSION_TITLE_MAX = 100;
+const SESSION_NOTES_MAX = 1000;
+// Goes into the notification sent to the learners.
+const CANCEL_REASON_MAX = 255;
+
 const classFields = {
   branchId: z.string().uuid(),
-  name: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(CLASS_NAME_MAX),
   sessionTypeCode: z.string().min(1).max(30),
   courseId: z.string().uuid().nullable(),
   defaultCoachId: z.string().uuid().nullable(),
@@ -57,23 +65,23 @@ const sessionBody = z.object({
   branchId: uuid,
   startsAt: isoInstant,
   durationMinutes: z.number().int().min(15).max(480),
-  title: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1).max(SESSION_TITLE_MAX),
   coachId: uuid.optional(),
   classId: uuid.optional(),
   lessonPlanId: uuid.optional(),
   isExam: z.boolean().optional(),
   capacity: z.number().int().min(1).max(1000).optional(),
   maxDpOverride: z.number().int().min(0).max(10000).optional(),
-  notes: z.string().trim().max(1000).optional(),
+  notes: z.string().trim().max(SESSION_NOTES_MAX).optional(),
   memberIds: z.array(uuid).max(50).optional(),
 });
 const examBody = z.object({
   date: date.refine((v) => new Date(`${v}T00:00:00Z`).toISOString().startsWith(v), 'invalid calendar date'),
-  title: z.string().trim().min(1).max(200).optional(),
+  title: z.string().trim().min(1).max(SESSION_TITLE_MAX).optional(),
   lessonPlanId: uuid.optional(),
 });
 // The reason is checked in the service so that a missing one answers CANCEL_REASON_REQUIRED.
-const cancelBody = z.object({ reason: z.string().max(500).optional() }).default({});
+const cancelBody = z.object({ reason: z.string().trim().max(CANCEL_REASON_MAX).optional() }).default({});
 
 const sessionsQuery = z.object({ from: date.optional(), to: date.optional() });
 

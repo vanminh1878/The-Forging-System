@@ -66,6 +66,26 @@ abstract final class HvpTheme {
         dividerColor: c.border,
         overlayColor: WidgetStatePropertyAll<Color>(c.goldSoft),
       ),
+      // Without this Material fills selected chips with the secondary colour
+      // (green in light, indigo in dark), which is off the brand.
+      chipTheme: ChipThemeData(
+        backgroundColor: c.surfaceHigh,
+        selectedColor: c.selected,
+        secondarySelectedColor: c.selected,
+        checkmarkColor: c.onSelected,
+        deleteIconColor: c.textSecondary,
+        iconTheme: IconThemeData(color: c.gold, size: 18),
+        side: BorderSide(color: c.borderStrong),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        labelStyle: t.titleS.copyWith(
+          color: WidgetStateColor.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? c.onSelected
+                : c.textPrimary,
+          ),
+        ),
+        secondaryLabelStyle: t.titleS.copyWith(color: c.onSelected),
+      ),
       dividerTheme: DividerThemeData(color: c.border, thickness: 1, space: 1),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: c.surface,

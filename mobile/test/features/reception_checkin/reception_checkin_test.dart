@@ -243,7 +243,8 @@ void main() {
 
     expect(search.queries, <String>['', 'Lan']);
     expect(find.text('Nguyễn Thị Lan'), findsOneWidget);
-    expect(find.text('0912345678 · HVP-AB12CD'), findsOneWidget);
+    expect(find.text('0912345678'), findsOneWidget);
+    expect(find.text('HVP-AB12CD'), findsOneWidget);
     expect(find.text('HOẠT ĐỘNG'), findsOneWidget);
     expect(find.text('BOOK I'), findsOneWidget);
     expect(find.text('ĐÃ ĐÓNG BĂNG'), findsOneWidget);
@@ -352,7 +353,7 @@ void main() {
         search: FakeSearch(
             const MemberSearchResult(items: <MemberHit>[], total: 0)),
         today: FakeToday(_day(const <CheckinSession>[])));
-    await tester.tap(find.text('HIỂN THỊ MÃ QR QUẦY'));
+    await tester.tap(find.text('MÃ QR QUẦY'));
     await tester.pumpAndSettle();
     expect(find.text('BRANCH-QR'), findsOneWidget);
   });

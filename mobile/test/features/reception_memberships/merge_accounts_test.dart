@@ -80,7 +80,7 @@ void main() {
           meta: pageMeta(1, 1)),
     });
     await pumpDeskApp(tester, desk);
-    await tester.tap(find.text('Học viên').first);
+    await tester.tap(find.text('HỌC VIÊN').first);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'lan');
     await tester.pump(const Duration(milliseconds: 400));

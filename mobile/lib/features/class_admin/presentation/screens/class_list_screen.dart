@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/route_paths.dart';
 
-import '../../../../core/design/hvp_context.dart';
 import '../../../../core/design/hvp_icons.dart';
+import '../../../../core/design/hvp_layout.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/hvp_button.dart';
+import '../../../../core/widgets/hvp_filter_chip.dart';
 import '../../../../core/widgets/hvp_refresh.dart';
 import '../../domain/class_models.dart';
 import '../../domain/session_types.dart';
@@ -45,32 +46,26 @@ class _ClassListScreenState extends ConsumerState<ClassListScreen> {
     return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text('LỚP HỌC', style: context.txt.titleL),
-                  if (!widget.readOnly) ...<Widget>[
-                    const SizedBox(height: 10),
-                    Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
-                      HvpButton.primary(
-                          label: 'Tạo lớp',
-                          icon: HvpIcons.book,
-                          small: true,
-                          onPressed: () => showClassForm(context)),
-                      HvpButton.secondary(
-                          label: 'Tạo buổi',
-                          icon: HvpIcons.calendarCheck,
-                          small: true,
-                          onPressed: () => showSessionForm(context)),
-                    ]),
-                  ],
-                ]),
-          ),
+          if (!widget.readOnly)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
+                HvpButton.primary(
+                    label: 'Tạo lớp',
+                    icon: HvpIcons.book,
+                    small: true,
+                    onPressed: () => showClassForm(context)),
+                HvpButton.secondary(
+                    label: 'Tạo buổi',
+                    icon: HvpIcons.newSession,
+                    small: true,
+                    onPressed: () => showSessionForm(context)),
+              ]),
+            ),
+          const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(children: <Widget>[
               _pill('Tất cả', null),
               for (final type in sessionTypes) _pill(type.label, type.code),
@@ -84,7 +79,8 @@ class _ClassListScreenState extends ConsumerState<ClassListScreen> {
               builder: (_, page) => HvpRefresh(
                 onRefresh: () => ref.refresh(classPageProvider(_query).future),
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
+                  padding: const EdgeInsets.fromLTRB(
+                      16, 8, 16, HvpLayout.navClearance),
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: <Widget>[
                     if (page.items.isEmpty)
@@ -136,10 +132,20 @@ class _ClassListScreenState extends ConsumerState<ClassListScreen> {
 
   Widget _pill(String label, String? code) => Padding(
         padding: const EdgeInsets.only(right: 8),
-        child: ChoiceChip(
-          label: Text(label),
+        child: HvpFilterChip(
+          label: label,
+          icon: _typeIcon(code),
           selected: _query.sessionTypeCode == code,
-          onSelected: (_) => _setType(code),
+          onSelected: () => _setType(code),
         ),
       );
+
+  static IconData _typeIcon(String? code) => switch (code) {
+        'GROUP' => HvpIcons.users,
+        'PT' => HvpIcons.user,
+        'ACADEMY' => HvpIcons.book,
+        'WORKSHOP' => HvpIcons.sparkle,
+        'SPARRING' => HvpIcons.glove,
+        _ => HvpIcons.all,
+      };
 }

@@ -32,7 +32,19 @@ class PeriodHeader extends StatelessWidget {
           icon: Icon(HvpIcons.caretLeft, color: c.textPrimary),
         ),
         Expanded(
-            child: Text(title, style: t.titleM, textAlign: TextAlign.center)),
+          // The range shrinks on a narrow phone instead of losing its end.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(HvpIcons.dateRange, size: 18, color: c.gold),
+                const SizedBox(width: 6),
+                Text(title, style: t.titleM, maxLines: 1),
+              ],
+            ),
+          ),
+        ),
         IconButton(
           tooltip: 'Sau',
           onPressed: onNext,
@@ -40,7 +52,16 @@ class PeriodHeader extends StatelessWidget {
         ),
         TextButton(
           onPressed: onToday,
-          child: Text(todayLabel, style: t.label.copyWith(color: c.gold)),
+          style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 6)),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(HvpIcons.calendarCheck, size: 16, color: c.gold),
+              const SizedBox(width: 4),
+              Text(todayLabel, style: t.label.copyWith(color: c.gold)),
+            ],
+          ),
         ),
       ],
     );

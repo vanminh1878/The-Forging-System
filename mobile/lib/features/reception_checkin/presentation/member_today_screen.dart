@@ -14,6 +14,7 @@ import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/inline_banner.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../checkin/domain/checkin_session.dart';
@@ -58,7 +59,7 @@ class _MemberTodayScreenState extends ConsumerState<MemberTodayScreen> {
     final today = ref.watch(memberTodayProvider(widget.memberId));
     final t = context.txt;
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Check-in hỗ trợ'),
+      appBar: const HvpAppBar(title: 'Check-in hỗ trợ', titleIcon: HvpIcons.scan),
       body: AsyncBody<TodayCheckin>(
         value: today,
         onRetry: () => ref.invalidate(memberTodayProvider(widget.memberId)),
@@ -76,7 +77,7 @@ class _MemberTodayScreenState extends ConsumerState<MemberTodayScreen> {
                 InlineBanner(title: 'Chưa check-in được', message: data.eligibility.message!),
                 const SizedBox(height: 12),
               ],
-              Text('BUỔI HÔM NAY', style: t.label),
+              IconLabel(icon: HvpIcons.calendar, label: 'BUỔI HÔM NAY', style: t.label),
               const SizedBox(height: 8),
               if (data.sessions.isEmpty)
                 const EmptyState(
@@ -118,15 +119,16 @@ class _SessionRow extends StatelessWidget {
         children: <Widget>[
           Text(session.title, style: t.titleS),
           const SizedBox(height: 2),
-          Text('$range · ${session.branchName}', style: t.bodySmall),
-          if (session.coachName.isNotEmpty) Text('Coach ${session.coachName}', style: t.caption),
+          IconLabel(icon: HvpIcons.clock, label: range),
+          if (session.branchName.isNotEmpty) IconLabel(icon: HvpIcons.mapPin, label: session.branchName),
+          if (session.coachName.isNotEmpty) IconLabel(icon: HvpIcons.glove, label: 'Coach ${session.coachName}', style: t.caption),
           const SizedBox(height: 8),
           Wrap(
             spacing: 6,
             runSpacing: 6,
             children: <Widget>[
-              StatusChip(label: checkinStatusLabel(session), tone: checkinStatusTone(session.state)),
-              if (session.isExam) const StatusChip(label: 'Kiểm tra', tone: ChipTone.info),
+              StatusChip(label: checkinStatusLabel(session), tone: checkinStatusTone(session.state), icon: checkinStatusIcon(session.state)),
+              if (session.isExam) const StatusChip(label: 'Kiểm tra', tone: ChipTone.info, icon: HvpIcons.exam),
             ],
           ),
           if (!session.canCheckin && session.message != null && session.state != CheckinState.checkedIn) ...<Widget>[

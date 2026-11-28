@@ -48,6 +48,7 @@ List<RouteBase> adminRoutes() => <RouteBase>[
           ShellTab(
             path: AdminPaths.members,
             label: 'Thành viên',
+            title: 'Nhân sự',
             icon: HvpIcons.users,
             activeIcon: HvpIcons.usersFill,
             builder: (_) => const StaffDirectoryScreen(),
@@ -55,6 +56,7 @@ List<RouteBase> adminRoutes() => <RouteBase>[
           ShellTab(
             path: AdminPaths.training,
             label: 'Đào tạo',
+            title: 'Lớp học',
             icon: HvpIcons.book,
             activeIcon: HvpIcons.bookFill,
             builder: (_) => const ClassListScreen(),
@@ -77,6 +79,7 @@ List<RouteBase> adminRoutes() => <RouteBase>[
           ShellTab(
             path: AdminPaths.settings,
             label: 'Cấu hình',
+            title: 'Cấu hình hệ thống',
             icon: HvpIcons.gear,
             activeIcon: HvpIcons.gearFill,
             builder: (_) => const AdminSettingsPage(),

@@ -49,7 +49,8 @@ class CheckinScanScreen extends ConsumerWidget {
     final pickedSession = picked != null && picked.isNotEmpty ? picked.first : null;
 
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Quét mã check-in'),
+      appBar: const HvpAppBar(
+          title: 'Quét mã check-in', titleIcon: HvpIcons.scan),
       body: Stack(
         fit: StackFit.expand,
         children: <Widget>[

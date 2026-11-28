@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/hvp_button.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../membership/domain/membership_models.dart';
 import '../../../membership/domain/membership_rules.dart';
@@ -31,22 +33,33 @@ class PackagePanel extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
-              Expanded(child: Text(title.toUpperCase(), style: t.label)),
+              Expanded(
+                  child: IconLabel(
+                      icon: HvpIcons.ticket,
+                      label: title.toUpperCase(),
+                      style: t.label)),
               if (package.endingSoon)
-                const StatusChip(label: 'Sắp hết hạn', tone: ChipTone.warning),
+                const StatusChip(
+                    label: 'Sắp hết hạn',
+                    tone: ChipTone.warning,
+                    icon: HvpIcons.warning),
             ],
           ),
           const SizedBox(height: 4),
-          Text(package.name, style: t.titleS),
-          Text(
-              <String>[validityLabel(package), if (days != null) days]
-                  .join(' · '),
-              style: t.bodySmall),
-          Text(sessionsLabel(package), style: t.bodySmall),
+          IconLabel(
+              icon: HvpIcons.lesson, label: package.name, style: t.titleS),
+          const SizedBox(height: 3),
+          IconLabel(
+              icon: HvpIcons.dateRange,
+              label: <String>[validityLabel(package), if (days != null) days]
+                  .join(' · ')),
+          const SizedBox(height: 3),
+          IconLabel(icon: HvpIcons.barbell, label: sessionsLabel(package)),
           if (onCancel != null && cancelLabel != null) ...<Widget>[
             const SizedBox(height: 12),
             HvpButton.danger(
                 label: cancelLabel!,
+                icon: HvpIcons.xCircle,
                 small: true,
                 expand: true,
                 onPressed: onCancel),

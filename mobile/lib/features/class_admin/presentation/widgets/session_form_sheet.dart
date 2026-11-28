@@ -138,7 +138,7 @@ class _SessionFormSheetState extends ConsumerState<SessionFormSheet> {
                     label: 'Tiêu đề',
                     controller: _title,
                     required: true,
-                    maxLength: 200,
+                    maxLength: sessionTitleMax,
                     textCapitalization: TextCapitalization.sentences,
                     validator: validateSessionTitle),
                 gap,
@@ -216,8 +216,9 @@ class _SessionFormSheetState extends ConsumerState<SessionFormSheet> {
                 HvpTextField(
                     label: 'Ghi chú',
                     controller: _notes,
-                    maxLength: 1000,
-                    maxLines: 2),
+                    maxLength: sessionNotesMax,
+                    maxLines: 2,
+                    validator: validateSessionNotes),
                 SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text('Buổi kiểm tra', style: context.txt.body),

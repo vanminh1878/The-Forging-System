@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
+import '../../../../core/design/hvp_layout.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../../../core/widgets/hvp_button.dart';
+import '../../../../core/widgets/hvp_card.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
 import '../../../../core/widgets/hvp_toast.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/inline_banner.dart';
 import '../../../../core/widgets/section_header.dart';
 import '../../../../core/widgets/status_chip.dart';
@@ -31,7 +35,10 @@ class ClassSessionsSection extends ConsumerWidget {
     return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          const SectionHeader(title: 'Buổi tập sắp tới'),
+          const SectionHeader(
+              title: 'Buổi tập sắp tới',
+              icon: HvpIcons.calendar,
+              padding: EdgeInsets.only(top: 8, bottom: 10)),
           AsyncBody<List<ClassSession>>(
             value: sessions,
             onRetry: () => ref.invalidate(classSessionsProvider(classId)),
@@ -66,26 +73,63 @@ class _SessionRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cancellable = !readOnly &&
         canCancelSession(session.status, session.startsAt, DateTime.now());
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(formatDateTime(session.startsAt), style: context.txt.bodyL),
-      subtitle: Text(
-          [
-            session.title,
-            if (session.coachName != null) 'Coach ${session.coachName}',
-            if (session.isExam) 'Kiểm tra'
-          ].join(' · '),
-          style: context.txt.bodySmall),
-      trailing: cancellable
-          ? TextButton(
-              style: TextButton.styleFrom(foregroundColor: context.hvp.red),
-              onPressed: () => _cancel(context, ref),
-              child: const Text('Huỷ buổi'))
-          : StatusChip(
-              label: _statusLabel(session.status),
-              tone: session.status == 'CANCELLED'
-                  ? ChipTone.danger
-                  : ChipTone.neutral),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: HvpCard(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            // The chip drops under the date rather than squeezing it.
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 6,
+                children: <Widget>[
+                  IconLabel(
+                      icon: HvpIcons.event,
+                      iconSize: 18,
+                      label: formatDateTime(session.startsAt),
+                      style: context.txt.bodyL),
+                  StatusChip(
+                      label: _statusLabel(session.status),
+                      tone: _statusTone(session.status),
+                      icon: _statusIcon(session.status)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            IconLabel(icon: HvpIcons.lesson, label: session.title, maxLines: 2),
+            if (session.coachName != null) ...<Widget>[
+              const SizedBox(height: 3),
+              IconLabel(
+                  icon: HvpIcons.glove, label: 'Coach ${session.coachName}'),
+            ],
+            if (session.isExam) ...<Widget>[
+              const SizedBox(height: 8),
+              const StatusChip(
+                  label: 'Kiểm tra',
+                  tone: ChipTone.warning,
+                  icon: HvpIcons.exam),
+            ],
+            if (cancellable)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                    style: TextButton.styleFrom(
+                        foregroundColor: context.hvp.red,
+                        minimumSize:
+                            const Size(HvpLayout.minTap, HvpLayout.minTap)),
+                    onPressed: () => _cancel(context, ref),
+                    icon: const Icon(HvpIcons.xCircle, size: 18),
+                    label: const Text('Huỷ buổi')),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -106,6 +150,22 @@ String _statusLabel(String status) => switch (status) {
       'COMPLETED' => 'Đã xong',
       'CANCELLED' => 'Đã huỷ',
       _ => status,
+    };
+
+ChipTone _statusTone(String status) => switch (status) {
+      'SCHEDULED' => ChipTone.info,
+      'IN_PROGRESS' => ChipTone.warning,
+      'COMPLETED' => ChipTone.success,
+      'CANCELLED' => ChipTone.danger,
+      _ => ChipTone.neutral,
+    };
+
+IconData _statusIcon(String status) => switch (status) {
+      'SCHEDULED' => HvpIcons.upcoming,
+      'IN_PROGRESS' => HvpIcons.play,
+      'COMPLETED' => HvpIcons.checkCircle,
+      'CANCELLED' => HvpIcons.block,
+      _ => HvpIcons.info,
     };
 
 class _CancelSheet extends ConsumerStatefulWidget {
@@ -159,7 +219,7 @@ class _CancelSheetState extends ConsumerState<_CancelSheet> {
             HvpTextField(
                 label: 'Lý do huỷ',
                 controller: _reason,
-                maxLength: 500,
+                maxLength: cancelReasonMax,
                 maxLines: 2),
             if (_error != null)
               Text(_error!,
