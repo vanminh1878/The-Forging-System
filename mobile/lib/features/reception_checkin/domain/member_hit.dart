@@ -10,6 +10,8 @@ class MemberHit {
     this.rankName,
     this.packageName,
     this.packageEndDate,
+    this.dpBalance,
+    this.marksBalance,
   });
 
   final String id;
@@ -27,6 +29,8 @@ class MemberHit {
 
   /// When that package ends, a calendar date `YYYY-MM-DD`; null for no expiry.
   final String? packageEndDate;
+  final int? dpBalance;
+  final int? marksBalance;
 }
 
 class MemberSearchResult {

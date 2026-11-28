@@ -27,6 +27,8 @@ class AdminPointsRepositoryImpl implements AdminPointsRepository {
           phone: strOrNull(json, 'phone'),
           avatarUrl: strOrNull(json, 'avatarUrl'),
           rankName: strOrNull(json, 'rankName'),
+          dpBalance: (json['dpBalance'] as num?)?.toInt(),
+          marksBalance: (json['marksBalance'] as num?)?.toInt(),
         );
       }).toList(growable: false),
       total: intOf(response.meta ?? const <String, dynamic>{}, 'total'),

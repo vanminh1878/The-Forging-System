@@ -47,7 +47,7 @@ void main() {
       }
     });
 
-    await t.repo.searchMembers(' An ');
+    await t.repo.searchMembers('');
     await t.repo.ledger('member-1');
     await t.repo.monthlyStatus('member-1');
     await t.repo.adjust('member-1',
@@ -61,7 +61,8 @@ void main() {
       '/admin/members/member-1/points/adjust',
       '/admin/points/transactions/tx-1/reverse',
     ]);
-    expect(t.adapter.requests[0].queryParameters['q'], 'An');
+    expect(t.adapter.requests[0].queryParameters['q'], '');
+    expect(t.adapter.requests[0].queryParameters['page'], 1);
     expect(t.adapter.requests[1].queryParameters['limit'], 50);
     expect(t.adapter.requests[3].data, <String, dynamic>{
       'dpDelta': 10,
