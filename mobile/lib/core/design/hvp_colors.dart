@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 /// feature widgets read them through `context.hvp`.
 ///
 /// Two themes only: [dark] ("ringside after dark": deep indigo + ember orange,
-/// palette B) and [light] (lavender paper + orange). The `gold*` tokens hold the
-/// orange accent and the `pine*` tokens the indigo panels; names are kept so
-/// feature widgets do not change.
+/// palette B) and [light] (warm paper + gold). The `gold*` tokens hold the
+/// accent (orange in dark, gold in light) and the `pine*` tokens the panels
+/// (indigo in dark, green in light); names are shared so feature widgets do
+/// not change.
 @immutable
 class HvpColors extends ThemeExtension<HvpColors> {
   const HvpColors({
@@ -57,7 +58,7 @@ class HvpColors extends ThemeExtension<HvpColors> {
   final Color goldDeep;
   final Color goldSoft;
 
-  /// Brand indigo (the "ring canvas"): hero panels, spotlight, selected states.
+  /// Brand panel colour (the "ring canvas"): hero panels, spotlight, selected states.
   final Color pine;
   final Color pineDeep;
   final Color pineGlow;
@@ -113,41 +114,41 @@ class HvpColors extends ThemeExtension<HvpColors> {
     shadow: Color(0xFF000000),
   );
 
-  /// Lavender paper variant of palette B.
+  /// Warm paper variant of the approved prototype.
   static const HvpColors light = HvpColors(
     isDark: false,
-    bg: Color(0xFFF4F2FB),
-    bgDeep: Color(0xFFE6E2F5),
-    surface: Color(0xFFFFFFFF),
-    surfaceHigh: Color(0xFFF0EEF9),
-    surfaceHighest: Color(0xFFE4E0F3),
-    border: Color(0xFFD3CFE8),
-    borderStrong: Color(0xFFB3ADD6),
-    gold: Color(0xFFC94A05),
-    goldBright: Color(0xFFF0792A),
-    goldDeep: Color(0xFF9F3600),
-    goldSoft: Color(0x24C94A05),
-    pine: Color(0xFF3B3590),
-    pineDeep: Color(0xFF1E1A5C),
-    pineGlow: Color(0xFF5B54C9),
-    red: Color(0xFFC0243C),
-    redDeep: Color(0xFF8E1B2C),
-    redSoft: Color(0x1FC0243C),
+    bg: Color(0xFFF5EEDC),
+    bgDeep: Color(0xFFEBDFBE),
+    surface: Color(0xFFFFFDF7),
+    surfaceHigh: Color(0xFFFBF3DE),
+    surfaceHighest: Color(0xFFF3E7C9),
+    border: Color(0xFFDDD0AE),
+    borderStrong: Color(0xFFC2B283),
+    gold: Color(0xFFB7841E),
+    goldBright: Color(0xFFE0A92E),
+    goldDeep: Color(0xFF8F6512),
+    goldSoft: Color(0x24B7841E),
+    pine: Color(0xFF1F7D5C),
+    pineDeep: Color(0xFF0E3A2C),
+    pineGlow: Color(0xFF2FA374),
+    red: Color(0xFFC0302A),
+    redDeep: Color(0xFF9A2A22),
+    redSoft: Color(0x1FC0302A),
     emerald: Color(0xFF256B45),
     emeraldSoft: Color(0x1F256B45),
     amber: Color(0xFFB06A0F),
     amberSoft: Color(0x29B06A0F),
     info: Color(0xFF2A5D82),
     infoSoft: Color(0x1F2A5D82),
-    textPrimary: Color(0xFF1A1633),
-    textSecondary: Color(0xFF4A4570),
-    textMuted: Color(0xFF7A74A0),
-    onGold: Color(0xFFFFFFFF),
+    textPrimary: Color(0xFF231705),
+    textSecondary: Color(0xFF5B4A2E),
+    textMuted: Color(0xFF8C7A57),
+    onGold: Color(0xFF1C1204),
     onRed: Color(0xFFFFFFFF),
-    shadow: Color(0xFF2A2457),
+    shadow: Color(0xFF4A3407),
   );
 
-  /// Ember orange: the primary call-to-action fill.
+  /// Primary call-to-action fill (ember orange in dark, belt gold in light).
   LinearGradient get goldGradient => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -160,7 +161,7 @@ class HvpColors extends ThemeExtension<HvpColors> {
         colors: <Color>[red, redDeep],
       );
 
-  /// Indigo hero panels (rank card, wordmark plate).
+  /// Hero panels (rank card, wordmark plate).
   LinearGradient get pineGradient => LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
