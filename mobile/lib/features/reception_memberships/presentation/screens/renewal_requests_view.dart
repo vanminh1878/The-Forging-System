@@ -9,6 +9,7 @@ import '../../../../core/design/hvp_layout.dart';
 import '../../../../core/widgets/async_body.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/hvp_button.dart';
+import '../../../../core/widgets/hvp_filter_chip.dart';
 import '../../../../core/widgets/hvp_refresh.dart';
 import '../../../../core/widgets/hvp_text_field.dart';
 import '../../domain/renewal_models.dart';
@@ -71,10 +72,15 @@ class _RenewalRequestsViewState extends ConsumerState<RenewalRequestsView> {
             spacing: 8,
             children: <Widget>[
               for (final entry in renewalStatusLabels.entries)
-                ChoiceChip(
-                  label: Text(entry.value),
+                HvpFilterChip(
+                  label: entry.value,
+                  icon: switch (entry.key) {
+                    'COMPLETED' => HvpIcons.checkCircle,
+                    'CANCELLED' => HvpIcons.xCircle,
+                    _ => HvpIcons.hourglass,
+                  },
                   selected: filter.status == entry.key,
-                  onSelected: (_) => ref
+                  onSelected: () => ref
                       .read(renewalFilterProvider.notifier)
                       .setStatus(entry.key),
                 ),
@@ -114,14 +120,16 @@ class _RenewalRequestsViewState extends ConsumerState<RenewalRequestsView> {
                           : <Widget>[
                               HvpButton.gold(
                                 label: widget.approveLabel,
+                                icon: HvpIcons.money,
                                 small: true,
                                 expand: true,
                                 onPressed: () =>
                                     askApproveRenewal(context, ref, request),
                               ),
                               const SizedBox(height: 8),
-                              HvpButton.ghost(
+                              HvpButton.danger(
                                 label: 'Huỷ yêu cầu',
+                                icon: HvpIcons.close,
                                 small: true,
                                 expand: true,
                                 onPressed: () =>
@@ -153,6 +161,7 @@ class _MoreButton extends ConsumerWidget {
                 style: context.txt.bodySmall.copyWith(color: context.hvp.red)),
           HvpButton.secondary(
             label: 'Tải thêm',
+            icon: HvpIcons.caretDown,
             small: true,
             loading: list.loadingMore,
             onPressed: list.loadingMore

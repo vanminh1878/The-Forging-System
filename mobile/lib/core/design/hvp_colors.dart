@@ -171,6 +171,12 @@ class HvpColors extends ThemeExtension<HvpColors> {
   /// Heat colours for gauges: cold -> hot.
   List<Color> get heatColors => <Color>[goldDeep, gold, amber, red];
 
+  /// Fill of a selected filter chip: ember orange in dark, deep gold in light.
+  Color get selected => isDark ? gold : goldDeep;
+
+  /// Text and icons on [selected].
+  Color get onSelected => isDark ? onGold : surface;
+
   @override
   HvpColors copyWith() => this;
 

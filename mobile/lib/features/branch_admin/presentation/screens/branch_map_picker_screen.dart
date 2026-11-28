@@ -39,7 +39,7 @@ class _BranchMapPickerScreenState extends State<BranchMapPickerScreen> {
     final t = context.txt;
     final picked = _picked;
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Chọn vị trí'),
+      appBar: const HvpAppBar(title: 'Chọn vị trí', titleIcon: HvpIcons.mapPin),
       body: Column(
         children: <Widget>[
           Expanded(

@@ -5,8 +5,10 @@ import '../../../../core/branch/branch.dart';
 import '../../../../core/branch/branch_providers.dart';
 import '../../../../core/design/hvp_context.dart';
 import '../../../../core/design/hvp_icons.dart';
+import '../../../../core/design/hvp_layout.dart';
 import '../../../../core/widgets/hvp_bottom_sheet.dart';
 import '../../domain/schedule_models.dart';
+import 'session_status_style.dart';
 
 /// Branch + status filter chips shared by the week and month views.
 class FilterBar extends ConsumerWidget {
@@ -73,7 +75,7 @@ class FilterBar extends ConsumerWidget {
           const SizedBox(width: 8),
           Expanded(
             child: _FilterChip(
-              icon: HvpIcons.list,
+              icon: HvpIcons.filter,
               label: status?.label ?? 'Tất cả trạng thái',
               active: status != null,
               onTap: () async {
@@ -83,9 +85,14 @@ class FilterBar extends ConsumerWidget {
                   selected: status?.wire ?? '',
                   options: <SheetOption<String>>[
                     const SheetOption<String>(
-                        value: '', label: 'Tất cả trạng thái'),
+                        value: '',
+                        label: 'Tất cả trạng thái',
+                        icon: HvpIcons.all),
                     for (final s in SessionStatus.values)
-                      SheetOption<String>(value: s.wire, label: s.label),
+                      SheetOption<String>(
+                          value: s.wire,
+                          label: s.label,
+                          icon: sessionStatusIcon(s)),
                   ],
                 );
                 if (picked != null) {
@@ -116,18 +123,23 @@ class _FilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.hvp;
     final t = context.txt;
-    final color = active ? c.gold : c.textSecondary;
+    final color = active ? c.onSelected : c.textPrimary;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(9),
+      side: BorderSide(color: active ? c.selected : c.borderStrong),
+    );
     return Material(
-      color: active ? c.goldSoft : c.surfaceHigh,
-      shape: StadiumBorder(side: BorderSide(color: active ? c.gold : c.border)),
+      color: active ? c.selected : c.surfaceHigh,
+      shape: shape,
       child: InkWell(
-        customBorder: const StadiumBorder(),
+        customBorder: shape,
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: HvpLayout.minTap),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: <Widget>[
-              Icon(icon, size: 16, color: color),
+              Icon(icon, size: 18, color: active ? c.onSelected : c.gold),
               const SizedBox(width: 6),
               Expanded(
                   child: Text(label,

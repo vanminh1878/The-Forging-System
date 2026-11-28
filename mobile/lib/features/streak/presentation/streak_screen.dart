@@ -9,6 +9,7 @@ import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/streak.dart';
 import '../../auth/presentation/providers/auth_controller.dart';
@@ -26,7 +27,7 @@ class StreakScreen extends ConsumerWidget {
       if (value != null) _showMilestone(context, ref, value);
     });
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Chuỗi tập'),
+      appBar: const HvpAppBar(title: 'Chuỗi tập', titleIcon: HvpIcons.fire),
       body: AsyncBody<StreakSummary>(
         value: summary,
         onRetry: () => ref.invalidate(streakSummaryProvider),
@@ -45,7 +46,7 @@ class StreakScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               _FreezeInfo(count: value.availableFreezes),
               const SizedBox(height: 20),
-              Text('LỊCH SỬ CHỐT TUẦN', style: context.txt.titleS),
+              IconLabel(icon: HvpIcons.history, label: 'LỊCH SỬ CHỐT TUẦN', style: context.txt.titleS),
               const SizedBox(height: 8),
               if (value.logs.isEmpty)
                 const SizedBox(
@@ -115,13 +116,13 @@ class _Progress extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = summary.targetSessions == 0 ? 0.0 : (summary.sessionsThisWeek / summary.targetSessions).clamp(0, 1).toDouble();
     return HvpCard(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-      Text('TIẾN ĐỘ TUẦN NÀY', style: context.txt.titleS),
+      IconLabel(icon: HvpIcons.barbell, label: 'TIẾN ĐỘ TUẦN NÀY', style: context.txt.titleS),
       const SizedBox(height: 8),
       Text('${summary.sessionsThisWeek}/${summary.targetSessions} buổi đã xác nhận', style: context.txt.bodySmall),
       const SizedBox(height: 8),
       LinearProgressIndicator(value: progress, minHeight: 8),
       const SizedBox(height: 8),
-      Text('Tuần bắt đầu ${formatDate(summary.currentWeekStart)}.', style: context.txt.caption),
+      IconLabel(icon: HvpIcons.calendar, label: 'Tuần bắt đầu ${formatDate(summary.currentWeekStart)}.', style: context.txt.caption),
     ]));
   }
 }
@@ -150,7 +151,7 @@ class _LogCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => HvpCard(child: Row(children: <Widget>[
     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-      Text('Tuần ${formatDate(log.weekStart)}', style: context.txt.titleS),
+      IconLabel(icon: HvpIcons.calendar, label: 'Tuần ${formatDate(log.weekStart)}', style: context.txt.titleS),
       Text('${log.sessionsCount}/${log.targetSessions} buổi xác nhận · ${log.streakBefore} → ${log.streakAfter} tuần', style: context.txt.bodySmall),
     ])),
     StatusChip(label: streakResultLabel(log.result), tone: streakResultTone(log.result)),

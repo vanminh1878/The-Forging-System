@@ -10,6 +10,7 @@ import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/course.dart';
@@ -26,7 +27,7 @@ class CourseDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(courseDetailProvider(courseId));
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Khóa học'),
+      appBar: const HvpAppBar(title: 'Khóa học', titleIcon: HvpIcons.book),
       body: AsyncBody<CourseDetail>(
         value: detail,
         onRetry: () => ref.invalidate(courseDetailProvider(courseId)),
@@ -47,7 +48,9 @@ class CourseDetailScreen extends ConsumerWidget {
                   message: 'Khóa này chưa có bài học nào.',
                 ),
               for (final week in data.lessonsByWeek.entries) ...<Widget>[
-                SectionHeader(title: week.key == 0 ? 'Bài học khác' : 'Tuần ${week.key}'),
+                SectionHeader(
+                    title: week.key == 0 ? 'Bài học khác' : 'Tuần ${week.key}',
+                    icon: HvpIcons.dateRange),
                 for (final lesson in week.value)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -100,7 +103,7 @@ class _CourseHeader extends StatelessWidget {
             Text(course.description!, style: t.bodySmall),
           ],
           const SizedBox(height: 6),
-          Text('${course.durationWeeks} tuần · ${course.totalLessons} bài', style: t.caption),
+          IconLabel(icon: HvpIcons.lesson, label: '${course.durationWeeks} tuần · ${course.totalLessons} bài', style: t.caption),
           const SizedBox(height: 12),
           CourseProgressBar(course: course),
         ],
@@ -165,9 +168,9 @@ class _LessonTile extends StatelessWidget {
   }
 
   List<Widget> get _chips => <Widget>[
-        if (state == _LessonState.next) const StatusChip(label: 'Tiếp theo', tone: ChipTone.gold),
-        if (lesson.isAssessment) const StatusChip(label: 'Kiểm tra', tone: ChipTone.info),
-        if (lesson.isGraduation) const StatusChip(label: 'Tốt nghiệp', tone: ChipTone.warning),
-        if (lesson.isAdvanced) const StatusChip(label: 'Nâng cao'),
+        if (state == _LessonState.next) const StatusChip(label: 'Tiếp theo', tone: ChipTone.gold, icon: HvpIcons.play),
+        if (lesson.isAssessment) const StatusChip(label: 'Kiểm tra', tone: ChipTone.info, icon: HvpIcons.exam),
+        if (lesson.isGraduation) const StatusChip(label: 'Tốt nghiệp', tone: ChipTone.warning, icon: HvpIcons.crown),
+        if (lesson.isAdvanced) const StatusChip(label: 'Nâng cao', icon: HvpIcons.star),
       ];
 }

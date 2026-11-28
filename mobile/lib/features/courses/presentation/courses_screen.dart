@@ -11,49 +11,60 @@ import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
 import '../../../core/widgets/hvp_app_bar.dart';
 import '../../../core/widgets/hvp_card.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../domain/course.dart';
 import 'course_providers.dart';
 import 'widgets/course_progress_bar.dart';
 
-/// Student roadmap: the five courses (BOOK I..V) in order, with progress.
-class CoursesScreen extends ConsumerWidget {
+/// Student roadmap screen.
+class CoursesScreen extends StatelessWidget {
   const CoursesScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+        appBar: HvpAppBar(title: 'Lộ trình khóa học', titleIcon: HvpIcons.route),
+        body: CourseRoadmap(),
+      );
+}
+
+/// The five courses (BOOK I..V) in order, with progress. Body only, so the
+/// schedule tab can show it as its "Giáo án" section.
+class CourseRoadmap extends ConsumerWidget {
+  const CourseRoadmap({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final courses = ref.watch(coursesProvider);
-    return Scaffold(
-      appBar: const HvpAppBar(title: 'Lộ trình khóa học'),
-      body: AsyncBody<List<Course>>(
-        value: courses,
-        onRetry: () => ref.invalidate(coursesProvider),
-        builder: (context, items) => RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(coursesProvider);
-            await ref.read(coursesProvider.future);
-          },
-          child: items.isEmpty
-              ? ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  children: const <Widget>[
-                    EmptyState(
-                      icon: HvpIcons.book,
-                      title: 'Chưa có khóa học',
-                      message: 'Lộ trình khóa học sẽ xuất hiện ở đây.',
-                    ),
-                  ],
-                )
-              : ListView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, HvpLayout.navClearance),
-                  itemCount: items.length,
-                  itemBuilder: (context, i) => _RoadmapStep(
-                    number: i + 1,
-                    course: items[i],
-                    isLast: i == items.length - 1,
+    return AsyncBody<List<Course>>(
+      value: courses,
+      onRetry: () => ref.invalidate(coursesProvider),
+      builder: (context, items) => RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(coursesProvider);
+          await ref.read(coursesProvider.future);
+        },
+        child: items.isEmpty
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const <Widget>[
+                  EmptyState(
+                    icon: HvpIcons.book,
+                    title: 'Chưa có khóa học',
+                    message: 'Lộ trình khóa học sẽ xuất hiện ở đây.',
                   ),
+                ],
+              )
+            : ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                    16, 12, 16, HvpLayout.navClearance),
+                itemCount: items.length,
+                itemBuilder: (context, i) => _RoadmapStep(
+                  number: i + 1,
+                  course: items[i],
+                  isLast: i == items.length - 1,
                 ),
-        ),
+              ),
       ),
     );
   }
@@ -61,7 +72,8 @@ class CoursesScreen extends ConsumerWidget {
 
 /// One course on the roadmap: numbered medallion on a vertical line, then the card.
 class _RoadmapStep extends StatelessWidget {
-  const _RoadmapStep({required this.number, required this.course, required this.isLast});
+  const _RoadmapStep(
+      {required this.number, required this.course, required this.isLast});
 
   final int number;
   final Course course;
@@ -87,13 +99,16 @@ class _RoadmapStep extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: done ? c.emerald : c.goldSoft,
-                    border: Border.all(color: done ? c.emerald : c.gold.fade(0.6)),
+                    border: Border.all(
+                        color: done ? c.emerald : c.gold.fade(0.6)),
                   ),
                   child: done
                       ? Icon(HvpIcons.check, size: 18, color: c.onGold)
-                      : Text('$number', style: t.titleS.copyWith(color: c.gold)),
+                      : Text('$number',
+                          style: t.titleS.copyWith(color: c.gold)),
                 ),
-                if (!isLast) Expanded(child: Container(width: 2, color: c.border)),
+                if (!isLast)
+                  Expanded(child: Container(width: 2, color: c.border)),
               ],
             ),
           ),
@@ -136,7 +151,11 @@ class _CourseCard extends StatelessWidget {
             Text(course.description!, style: t.bodySmall),
           ],
           const SizedBox(height: 6),
-          Text('${course.durationWeeks} tuần · ${course.totalLessons} bài', style: t.caption),
+          IconLabel(
+              icon: HvpIcons.lesson,
+              label:
+                  '${course.durationWeeks} tuần · ${course.totalLessons} bài',
+              style: t.caption),
           const SizedBox(height: 12),
           CourseProgressBar(course: course),
         ],

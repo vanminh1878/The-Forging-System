@@ -179,7 +179,7 @@ void main() {
       quantity: 5,
       reason: 'Nhập hàng',
     ));
-    await tester.tap(find.text('Lịch sử'));
+    await tester.tap(find.text('LỊCH SỬ'));
     await tester.pumpAndSettle();
     expect(find.text('Nhập hàng'), findsOneWidget);
     expect(find.text('NHẬP KHO'), findsOneWidget);
@@ -197,7 +197,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Lịch sử'));
+    await tester.tap(find.text('LỊCH SỬ'));
     await tester.pumpAndSettle();
     expect(find.text('Nhập hàng'), findsOneWidget);
 

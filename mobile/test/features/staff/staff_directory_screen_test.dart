@@ -107,7 +107,7 @@ void main() {
       (tester) async {
     final repo = FakeStaffRepository();
     await showDirectory(tester, repo);
-    await tester.tap(find.text('Bộ lọc'));
+    await tester.tap(find.text('BỘ LỌC'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Tất cả vai trò').last);
     await tester.pumpAndSettle();
@@ -127,7 +127,7 @@ void main() {
     expect(repo.queries.last.role, StaffRole.receptionist);
     expect(repo.queries.last.status, StaffStatus.disabled);
     expect(repo.queries.last.branchId, 'q7');
-    expect(find.text('Bộ lọc (3)'), findsOneWidget);
+    expect(find.text('BỘ LỌC (3)'), findsOneWidget);
     await tester.tap(find.text('Xóa tìm kiếm / lọc'));
     await tester.pumpAndSettle();
     expect(repo.queries.last, const StaffQuery());
@@ -143,9 +143,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(repo.queries.last.page, 2);
     expect(find.text('21 nhân sự · Trang 2/2'), findsOneWidget);
-    await tester.tap(find.byTooltip('Làm mới danh sách'));
+    final before = repo.queries.length;
+    await tester.tap(find.text('LÀM MỚI'));
+    await tester.pump();
+    expect(find.text('Đang làm mới danh sách…'), findsOneWidget);
     await tester.pumpAndSettle();
+    expect(repo.queries.length, before + 1);
     expect(repo.queries.last.page, 2);
+    expect(find.text('Đang làm mới danh sách…'), findsNothing);
   });
 
   testWidgets('shows a retryable API failure and recovers', (tester) async {

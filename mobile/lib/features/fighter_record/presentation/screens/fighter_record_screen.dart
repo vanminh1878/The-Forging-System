@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/hvp_app_bar.dart';
+import '../../../../core/widgets/hvp_sub_nav.dart';
 import '../widgets/badges_tab.dart';
 import '../widgets/points_tab.dart';
 import '../widgets/rank_progress_tab.dart';
@@ -16,28 +17,21 @@ class FighterRecordScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.hvp;
-    final t = context.txt;
-    return DefaultTabController(
+    return const DefaultTabController(
       length: 3,
       child: Scaffold(
         appBar: HvpAppBar(
           title: 'Fighter Record',
-          bottom: TabBar(
-            labelColor: c.gold,
-            unselectedLabelColor: c.textMuted,
-            indicatorColor: c.gold,
-            dividerColor: c.border,
-            labelStyle: t.titleS,
-            unselectedLabelStyle: t.titleS,
-            tabs: const <Widget>[
-              Tab(text: 'LÊN HẠNG'),
-              Tab(text: 'HUY HIỆU'),
-              Tab(text: 'SỔ ĐIỂM'),
+          titleIcon: HvpIcons.trophy,
+          bottom: HvpSubNav(
+            items: <HvpSubNavItem>[
+              HvpSubNavItem(label: 'Lên hạng', icon: HvpIcons.rocket),
+              HvpSubNavItem(label: 'Huy hiệu', icon: HvpIcons.medal),
+              HvpSubNavItem(label: 'Sổ điểm', icon: HvpIcons.receipt),
             ],
           ),
         ),
-        body: const Stack(
+        body: Stack(
           fit: StackFit.expand,
           children: <Widget>[
             TabBarView(

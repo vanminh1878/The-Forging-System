@@ -6,12 +6,17 @@ import 'package:go_router/go_router.dart';
 import '../../../app/route_paths.dart';
 import '../../../core/design/hvp_context.dart';
 import '../../../core/design/hvp_icons.dart';
+import '../../../core/design/hvp_layout.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/async_body.dart';
 import '../../../core/widgets/empty_state.dart';
+import '../../../core/widgets/hvp_button.dart';
 import '../../../core/widgets/hvp_card.dart';
 import '../../../core/widgets/hvp_bottom_sheet.dart';
+import '../../../core/widgets/hvp_filter_chip.dart';
 import '../../../core/widgets/hvp_pagination_bar.dart';
+import '../../../core/widgets/hvp_refresh_overlay.dart';
+import '../../../core/widgets/icon_label.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../domain/catalog.dart';
 import '../domain/wallet.dart';
@@ -36,30 +41,36 @@ class _ArmoryCatalogScreenState extends ConsumerState<ArmoryCatalogScreen> {
     final query = (tierCode: tierCode, page: page);
     final rewards = ref.watch(armoryRewardsProvider(query));
     final wallet = ref.watch(armoryWalletProvider);
+    final refreshing = rewards.isRefreshing && rewards.hasValue;
+
+    void refresh() {
+      ref.invalidate(armoryTiersProvider);
+      ref.invalidate(armoryRewardsProvider(query));
+      ref.invalidate(armoryWalletProvider);
+    }
+
     return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
           Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    Row(children: <Widget>[
-                      Expanded(
-                          child: Text('THE ARMORY', style: context.txt.titleL)),
-                      IconButton(
-                        tooltip: 'Lịch sử đổi quà',
+                    Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
+                      HvpButton.gold(
+                        label: 'Lịch sử đổi quà',
+                        icon: HvpIcons.history,
+                        small: true,
                         onPressed: () =>
                             context.push(StudentPaths.armoryRedemptions),
-                        icon: const Icon(HvpIcons.history),
                       ),
+                      HvpRefreshButton(
+                          refreshing: refreshing, onPressed: refresh),
                     ]),
-                    const SizedBox(height: 4),
-                    Text('Phần quà dành cho hành trình của bạn',
-                        style: context.txt.bodySmall),
                     const SizedBox(height: 12),
                     _WalletSummary(value: wallet),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     AsyncBody<List<ArmoryTier>>(
                         value: tiers,
                         onRetry: () => ref.invalidate(armoryTiersProvider),
@@ -67,58 +78,63 @@ class _ArmoryCatalogScreenState extends ConsumerState<ArmoryCatalogScreen> {
                         builder: (_, items) => SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: Row(children: <Widget>[
-                                _tierChip(null, 'Tất cả'),
+                                _tierChip(null, 'Tất cả', HvpIcons.all),
                                 for (final tier in items)
-                                  _tierChip(tier.code, tier.name),
+                                  _tierChip(tier.code, tier.name, HvpIcons.tag),
                               ]),
                             )),
                   ])),
           Expanded(
-              child: AsyncBody<RewardPage>(
-                  value: rewards,
-                  onRetry: () => ref.invalidate(armoryRewardsProvider(query)),
-                  builder: (_, result) => RefreshIndicator(
-                      onRefresh: () async {
-                        ref.invalidate(armoryTiersProvider);
-                        ref.invalidate(armoryRewardsProvider(query));
-                        ref.invalidate(armoryWalletProvider);
-                        await ref.read(armoryRewardsProvider(query).future);
-                        await ref.read(armoryWalletProvider.future);
-                      },
-                      child: ListView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
-                          children: <Widget>[
-                            Text(
-                                '${result.total} phần quà · Trang ${result.page}/${result.totalPages}',
-                                style: context.txt.caption),
-                            const SizedBox(height: 12),
-                            if (result.items.isEmpty)
-                              const EmptyState(
-                                  icon: HvpIcons.gift,
-                                  title: 'Chưa có phần quà',
-                                  message:
-                                      'Hiện chưa có quà mở bán trong tầng này.'),
-                            for (final reward in result.items)
-                              Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: _RewardCard(reward: reward)),
-                            HvpPaginationBar(
-                              page: result.page,
-                              totalPages: result.totalPages,
-                              onPageChanged: (value) =>
-                                  setState(() => page = value),
-                            ),
-                          ])))),
+              child: HvpRefreshOverlay(
+                  refreshing: refreshing,
+                  label: 'Đang tải phần quà…',
+                  child: AsyncBody<RewardPage>(
+                      value: rewards,
+                      onRetry: () =>
+                          ref.invalidate(armoryRewardsProvider(query)),
+                      builder: (_, result) => RefreshIndicator(
+                          onRefresh: () async {
+                            refresh();
+                            await ref.read(armoryRewardsProvider(query).future);
+                            await ref.read(armoryWalletProvider.future);
+                          },
+                          child: ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(
+                                  16, 8, 16, HvpLayout.navClearance),
+                              children: <Widget>[
+                                Text(
+                                    '${result.total} phần quà · Trang ${result.page}/${result.totalPages}',
+                                    style: context.txt.caption),
+                                const SizedBox(height: 12),
+                                if (result.items.isEmpty)
+                                  const EmptyState(
+                                      icon: HvpIcons.gift,
+                                      title: 'Chưa có phần quà',
+                                      message:
+                                          'Hiện chưa có quà mở bán trong tầng này.'),
+                                for (final reward in result.items)
+                                  Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 10),
+                                      child: _RewardCard(reward: reward)),
+                                HvpPaginationBar(
+                                  page: result.page,
+                                  totalPages: result.totalPages,
+                                  onPageChanged: (value) =>
+                                      setState(() => page = value),
+                                ),
+                              ]))))),
         ]);
   }
 
-  Widget _tierChip(String? code, String title) => Padding(
+  Widget _tierChip(String? code, String title, IconData icon) => Padding(
       padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(title),
+      child: HvpFilterChip(
+        label: title,
+        icon: icon,
         selected: tierCode == code,
-        onSelected: (_) => setState(() {
+        onSelected: () => setState(() {
           tierCode = code;
           page = 1;
         }),
@@ -160,7 +176,11 @@ class _WalletSummary extends StatelessWidget {
             Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: <Widget>[
-                  Text('Đang giữ', style: context.txt.caption),
+                  IconLabel(
+                      icon: HvpIcons.limit,
+                      iconSize: 13,
+                      label: 'Đang giữ',
+                      style: context.txt.caption),
                   Text('${formatInt(wallet.marksHeld)} Marks',
                       style: context.txt.bodySmall),
                   if (!wallet.canRedeem)
@@ -204,9 +224,16 @@ class _RewardCard extends StatelessWidget {
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                        Text(reward.name, style: context.txt.titleM),
+                        Text(reward.name,
+                            style: context.txt.titleM,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis),
                         if (reward.tierName != null)
-                          Text(reward.tierName!, style: context.txt.caption),
+                          IconLabel(
+                              icon: HvpIcons.tag,
+                              iconSize: 13,
+                              label: reward.tierName!,
+                              style: context.txt.caption),
                       ])),
                 ]),
             if (reward.description != null &&
@@ -217,20 +244,27 @@ class _RewardCard extends StatelessWidget {
             const SizedBox(height: 12),
             Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
               StatusChip(
-                  label: '${reward.marksCost} Marks', tone: ChipTone.gold),
+                  label: '${reward.marksCost} Marks',
+                  tone: ChipTone.gold,
+                  icon: HvpIcons.coins),
               StatusChip(
                   label: reward.stock > 0 ? 'Còn ${reward.stock}' : 'Hết hàng',
-                  tone: reward.stock > 0 ? ChipTone.success : ChipTone.danger),
+                  tone: reward.stock > 0 ? ChipTone.success : ChipTone.danger,
+                  icon: reward.stock > 0 ? HvpIcons.stock : HvpIcons.block),
             ]),
             if (reward.minRankName != null) ...<Widget>[
               const SizedBox(height: 8),
-              Text('Hạng tối thiểu: ${reward.minRankName}',
+              IconLabel(
+                  icon: HvpIcons.medal,
+                  label: 'Hạng tối thiểu: ${reward.minRankName}',
                   style: context.txt.caption)
             ],
             if (reward.perMemberLimit != null) ...<Widget>[
               const SizedBox(height: 4),
-              Text(
-                  'Giới hạn: ${reward.perMemberLimit} / ${_period(reward.limitPeriod)}',
+              IconLabel(
+                  icon: HvpIcons.limit,
+                  label:
+                      'Giới hạn: ${reward.perMemberLimit} / ${_period(reward.limitPeriod)}',
                   style: context.txt.caption)
             ],
           ]));

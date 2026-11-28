@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../reception_checkin/domain/member_hit.dart';
 import '../../../reception_checkin/presentation/widgets/member_card.dart';
@@ -43,12 +45,21 @@ class MemberRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(member.fullName, style: t.titleS),
-                if (contact.isNotEmpty) Text(contact, style: t.bodySmall),
-                if (member.packageName != null)
-                  Text(
-                      '${member.packageName} · ${end == null ? 'không thời hạn' : 'hết hạn ${formatCalendarDate(end)}'}',
-                      style: t.bodySmall),
+                Text(member.fullName,
+                    style: t.titleS,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
+                if (contact.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 4),
+                  IconLabel(icon: HvpIcons.phone, label: contact),
+                ],
+                if (member.packageName != null) ...<Widget>[
+                  const SizedBox(height: 4),
+                  IconLabel(
+                      icon: HvpIcons.ticket,
+                      label:
+                          '${member.packageName} · ${end == null ? 'không thời hạn' : 'hết hạn ${formatCalendarDate(end)}'}'),
+                ],
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
@@ -57,7 +68,9 @@ class MemberRow extends StatelessWidget {
                     memberStatusChip(member.status),
                     if (member.packageName == null)
                       const StatusChip(
-                          label: 'Chưa có gói', tone: ChipTone.warning),
+                          label: 'Chưa có gói',
+                          tone: ChipTone.warning,
+                          icon: HvpIcons.warning),
                   ],
                 ),
               ],

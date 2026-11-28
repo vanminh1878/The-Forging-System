@@ -37,6 +37,7 @@ class _ProfileDetailsState extends ConsumerState<ProfileDetails> {
             const Expanded(
                 child: SectionHeader(
                     title: 'Thông tin cá nhân',
+                    icon: HvpIcons.profileCard,
                     padding: EdgeInsets.only(top: 20, bottom: 10))),
             if (profile.hasValue && !_editing)
               IconButton(
@@ -62,16 +63,30 @@ class _ProfileDetailsState extends ConsumerState<ProfileDetails> {
                         onDone: () => setState(() => _editing = false)),
                   )
                 else ...<Widget>[
-                  _InfoRow(label: 'Họ và tên', value: p.fullName),
-                  _InfoRow(label: 'Số điện thoại', value: p.phone),
-                  _InfoRow(label: 'Email', value: p.email),
+                  _InfoRow(
+                      icon: HvpIcons.user,
+                      label: 'Họ và tên',
+                      value: p.fullName),
+                  _InfoRow(
+                      icon: HvpIcons.phone,
+                      label: 'Số điện thoại',
+                      value: p.phone),
+                  _InfoRow(icon: HvpIcons.mail, label: 'Email', value: p.email),
                 ],
                 _InfoRow(
+                    icon: HvpIcons.event,
                     label: 'Ngày tham gia',
                     value: p.joinedAt == null ? null : formatDate(p.joinedAt!)),
-                _InfoRow(label: 'Hạng hiện tại', value: rank),
-                _InfoRow(label: 'Trạng thái tài khoản', value: p.statusLabel),
-                _InfoRow(label: 'Chi nhánh chính', value: p.homeBranchName),
+                _InfoRow(
+                    icon: HvpIcons.medal, label: 'Hạng hiện tại', value: rank),
+                _InfoRow(
+                    icon: HvpIcons.shieldCheck,
+                    label: 'Trạng thái tài khoản',
+                    value: p.statusLabel),
+                _InfoRow(
+                    icon: HvpIcons.storefront,
+                    label: 'Chi nhánh chính',
+                    value: p.homeBranchName),
               ],
             ),
           ),
@@ -82,8 +97,10 @@ class _ProfileDetailsState extends ConsumerState<ProfileDetails> {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value});
+  const _InfoRow(
+      {required this.icon, required this.label, required this.value});
 
+  final IconData icon;
   final String label;
   final String? value;
 
@@ -95,6 +112,8 @@ class _InfoRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          Icon(icon, size: 18, color: context.hvp.gold),
+          const SizedBox(width: 10),
           Expanded(flex: 4, child: Text(label, style: t.bodySmall)),
           Expanded(
             flex: 6,

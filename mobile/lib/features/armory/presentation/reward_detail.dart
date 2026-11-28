@@ -62,12 +62,14 @@ class _RewardDetailState extends ConsumerState<RewardDetail> {
               const SizedBox(height: 14),
               Wrap(spacing: 8, runSpacing: 8, children: <Widget>[
                 StatusChip(
-                    label: '${reward.marksCost} Marks', tone: ChipTone.gold),
+                    label: '${reward.marksCost} Marks',
+                    tone: ChipTone.gold,
+                    icon: HvpIcons.coins),
                 StatusChip(
                     label:
                         reward.stock > 0 ? 'Còn ${reward.stock}' : 'Hết hàng',
-                    tone:
-                        reward.stock > 0 ? ChipTone.success : ChipTone.danger),
+                    tone: reward.stock > 0 ? ChipTone.success : ChipTone.danger,
+                    icon: reward.stock > 0 ? HvpIcons.stock : HvpIcons.block),
               ]),
               const SizedBox(height: 18),
               HvpCard(
@@ -89,22 +91,23 @@ class _RewardDetailState extends ConsumerState<RewardDetail> {
                       children: <Widget>[
                     Text('ĐIỀU KIỆN ĐỔI', style: context.txt.titleS),
                     const SizedBox(height: 8),
-                    _line(context, 'Hạng tối thiểu',
+                    _line(context, HvpIcons.medal, 'Hạng tối thiểu',
                         reward.minRankName ?? 'Không yêu cầu hạng tối thiểu'),
                     _line(
                         context,
+                        HvpIcons.limit,
                         'Giới hạn đổi',
                         reward.perMemberLimit == null
                             ? 'Không giới hạn theo cấu hình'
                             : '${reward.perMemberLimit} / ${_period(reward.limitPeriod)}'),
                     if (reward.pickupDays != null)
-                      _line(context, 'Thời gian nhận',
+                      _line(context, HvpIcons.hourglass, 'Thời gian nhận',
                           '${reward.pickupDays} ngày'),
                     if (reward.saleStartsAt != null)
-                      _line(context, 'Mở bán từ',
+                      _line(context, HvpIcons.eventStart, 'Mở bán từ',
                           formatDate(reward.saleStartsAt!)),
                     if (reward.saleEndsAt != null)
-                      _line(context, 'Kết thúc mở bán',
+                      _line(context, HvpIcons.eventEnd, 'Kết thúc mở bán',
                           formatDate(reward.saleEndsAt!)),
                   ])),
               const SizedBox(height: 12),
@@ -180,13 +183,23 @@ class _RewardDetailState extends ConsumerState<RewardDetail> {
     }
   }
 
-  Widget _line(BuildContext context, String label, String value) => Padding(
+  Widget _line(
+          BuildContext context, IconData icon, String label, String value) =>
+      Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Column(
+        child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(label, style: context.txt.caption),
-              Text(value, style: context.txt.bodySmall),
+              Icon(icon, size: 18, color: context.hvp.gold),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(label, style: context.txt.caption),
+                      Text(value, style: context.txt.bodySmall),
+                    ]),
+              ),
             ]),
       );
 

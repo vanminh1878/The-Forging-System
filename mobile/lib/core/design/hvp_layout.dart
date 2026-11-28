@@ -14,9 +14,9 @@ abstract final class HvpLayout {
   /// 16dp gutter on phones.
   static const EdgeInsets screenPadding = EdgeInsets.symmetric(horizontal: 16);
 
-  /// Content inside a tab page must keep this much space at the bottom so the
-  /// floating bottom bar never covers the last item.
-  static const double navClearance = 108;
+  /// Breathing room under the last item of a page. Pages already stop above the
+  /// bottom bar and the phone's navigation bar, so this is only spacing.
+  static const double navClearance = 16;
 
   static const double minTap = 48;
   static const double maxContentWidth = 560;

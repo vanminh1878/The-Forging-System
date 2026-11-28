@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/design/hvp_context.dart';
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../domain/membership_models.dart';
 import '../../domain/membership_rules.dart';
 
 class _Line extends StatelessWidget {
-  const _Line(this.label, this.value);
+  const _Line(this.icon, this.label, this.value);
 
+  final IconData icon;
   final String label;
   final String value;
 
@@ -17,9 +20,11 @@ class _Line extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.txt;
     return Padding(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 8),
       child: Row(
         children: <Widget>[
+          Icon(icon, size: 18, color: context.hvp.gold),
+          const SizedBox(width: 8),
           Expanded(child: Text(label, style: t.bodySmall)),
           Text(value, style: t.body),
         ],
@@ -41,6 +46,7 @@ class CurrentPackageCard extends StatelessWidget {
     final badge = currentPackageBadge(package);
     final fraction = sessionsFraction(package);
     final days = daysRemainingLabel(package.daysRemaining);
+    final endingSoon = badge == CurrentPackageBadge.endingSoon;
     return HvpCard(
       highlighted: true,
       child: Column(
@@ -48,9 +54,14 @@ class CurrentPackageCard extends StatelessWidget {
         children: <Widget>[
           Row(
             children: <Widget>[
+              Icon(HvpIcons.lesson, size: 22, color: c.gold),
+              const SizedBox(width: 8),
               Expanded(child: Text(package.name, style: t.titleM)),
               if (package.isTrial) ...<Widget>[
-                const StatusChip(label: 'Gói thử', tone: ChipTone.gold),
+                const StatusChip(
+                    label: 'Gói thử',
+                    tone: ChipTone.gold,
+                    icon: HvpIcons.sparkle),
                 const SizedBox(width: 6),
               ],
             ],
@@ -58,24 +69,29 @@ class CurrentPackageCard extends StatelessWidget {
           const SizedBox(height: 8),
           StatusChip(
             label: badge.label,
-            tone: badge == CurrentPackageBadge.endingSoon
-                ? ChipTone.warning
-                : ChipTone.success,
+            icon: endingSoon ? HvpIcons.warning : HvpIcons.checkCircle,
+            tone: endingSoon ? ChipTone.warning : ChipTone.success,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           _Line(
+              HvpIcons.eventStart,
               'Bắt đầu',
               package.startDate == null
                   ? ''
                   : formatCalendarDate(package.startDate!)),
           _Line(
+              HvpIcons.eventEnd,
               'Hết hạn',
               package.endDate == null
                   ? 'Không thời hạn'
                   : formatCalendarDate(package.endDate!)),
-          if (days != null) _Line('Thời gian', days),
+          if (days != null) _Line(HvpIcons.hourglass, 'Thời gian', days),
           const SizedBox(height: 12),
-          Text(sessionsLabel(package), style: t.body),
+          IconLabel(
+              icon: HvpIcons.barbell,
+              iconSize: 18,
+              label: sessionsLabel(package),
+              style: t.body),
           if (fraction != null) ...<Widget>[
             const SizedBox(height: 8),
             ClipRRect(
@@ -110,16 +126,30 @@ class ScheduledPackageCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          const StatusChip(label: 'Gói sắp kích hoạt', tone: ChipTone.info),
+          const StatusChip(
+              label: 'Gói sắp kích hoạt',
+              tone: ChipTone.info,
+              icon: HvpIcons.scheduled),
           const SizedBox(height: 8),
-          Text(package.name, style: t.titleS),
+          IconLabel(
+              icon: HvpIcons.lesson,
+              iconSize: 18,
+              label: package.name,
+              style: t.titleS),
           const SizedBox(height: 6),
-          Text(validityLabel(package), style: t.body),
-          Text(total == null ? 'Không giới hạn số buổi' : '$total buổi',
-              style: t.bodySmall),
+          IconLabel(
+              icon: HvpIcons.dateRange,
+              label: validityLabel(package),
+              style: t.body),
+          const SizedBox(height: 4),
+          IconLabel(
+              icon: HvpIcons.barbell,
+              label: total == null ? 'Không giới hạn số buổi' : '$total buổi'),
           const SizedBox(height: 8),
-          Text(
-              'Gói này tự kích hoạt khi gói hiện tại hết hạn, thời hạn không bị mất.',
+          IconLabel(
+              icon: HvpIcons.info,
+              label:
+                  'Gói này tự kích hoạt khi gói hiện tại hết hạn, thời hạn không bị mất.',
               style: t.caption),
         ],
       ),
@@ -147,15 +177,18 @@ class PendingRenewalCard extends StatelessWidget {
                   child: Text('Đã gửi yêu cầu · chờ lễ tân xác nhận',
                       style: t.titleS)),
               const SizedBox(width: 8),
-              const StatusChip(label: 'Chờ duyệt', tone: ChipTone.warning),
+              const StatusChip(
+                  label: 'Chờ duyệt',
+                  tone: ChipTone.warning,
+                  icon: HvpIcons.hourglass),
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            sent == null
+          IconLabel(
+            icon: HvpIcons.send,
+            label: sent == null
                 ? renewal.packageName
                 : '${renewal.packageName} · gửi ${formatDate(sent)}',
-            style: t.bodySmall,
           ),
         ],
       ),
@@ -184,6 +217,11 @@ class RenewalRequestTile extends StatelessWidget {
               const SizedBox(width: 8),
               StatusChip(
                 label: request.status.label,
+                icon: switch (request.status) {
+                  RenewalStatus.pending => HvpIcons.hourglass,
+                  RenewalStatus.completed => HvpIcons.checkCircle,
+                  RenewalStatus.cancelled => HvpIcons.xCircle,
+                },
                 tone: switch (request.status) {
                   RenewalStatus.pending => ChipTone.warning,
                   RenewalStatus.completed => ChipTone.success,
@@ -193,16 +231,19 @@ class RenewalRequestTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            [
+          IconLabel(
+            icon: HvpIcons.money,
+            label: [
               if (sent != null) 'Gửi ${formatDate(sent)}',
               priceLabel(request.priceVnd),
             ].join(' · '),
-            style: t.bodySmall,
           ),
           if (reason != null) ...<Widget>[
             const SizedBox(height: 4),
-            Text('Lý do huỷ: $reason', style: t.body),
+            IconLabel(
+                icon: HvpIcons.note,
+                label: 'Lý do huỷ: $reason',
+                style: t.body),
           ],
         ],
       ),

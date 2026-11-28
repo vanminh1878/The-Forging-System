@@ -38,7 +38,8 @@ class SessionDetailScreen extends ConsumerWidget {
     final c = context.hvp;
     final t = context.txt;
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Nội dung buổi tập'),
+      appBar: const HvpAppBar(
+          title: 'Nội dung buổi tập', titleIcon: HvpIcons.glove),
       body: AsyncBody<SessionDetail>(
         value: ref.watch(provider),
         onRetry: () => ref.invalidate(provider),

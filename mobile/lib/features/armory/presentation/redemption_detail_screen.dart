@@ -69,7 +69,8 @@ class _RedemptionDetailScreenState
     final redemptionId = widget.redemptionId;
     final detail = ref.watch(redemptionDetailProvider(redemptionId));
     return Scaffold(
-      appBar: const HvpAppBar(title: 'Chi tiết đổi quà'),
+      appBar: const HvpAppBar(
+          title: 'Chi tiết đổi quà', titleIcon: HvpIcons.receipt),
       body: AsyncBody<ArmoryRedemption>(
         value: detail,
         onRetry: () => ref.invalidate(redemptionDetailProvider(redemptionId)),
@@ -100,15 +101,16 @@ class _RedemptionDetailScreenState
                   children: <Widget>[
                     Text('THÔNG TIN YÊU CẦU', style: context.txt.titleS),
                     const SizedBox(height: 8),
-                    _line(context, 'Mã yêu cầu', redemption.code),
-                    _line(context, 'Marks đã đổi',
+                    _line(context, HvpIcons.receipt, 'Mã yêu cầu',
+                        redemption.code),
+                    _line(context, HvpIcons.coins, 'Marks đã đổi',
                         '${formatInt(redemption.marksCost)} Marks'),
-                    _line(
-                        context, 'Chi nhánh nhận', redemption.pickupBranchName),
-                    _line(context, 'Thời điểm yêu cầu',
+                    _line(context, HvpIcons.storefront, 'Chi nhánh nhận',
+                        redemption.pickupBranchName),
+                    _line(context, HvpIcons.clock, 'Thời điểm yêu cầu',
                         formatDateTime(redemption.requestedAt)),
                     if (redemption.decidedAt != null)
-                      _line(context, 'Cập nhật lần cuối',
+                      _line(context, HvpIcons.history, 'Cập nhật lần cuối',
                           formatDateTime(redemption.decidedAt!)),
                   ]),
             ),
@@ -129,6 +131,7 @@ class _RedemptionDetailScreenState
               const SizedBox(height: 16),
               HvpButton.danger(
                 label: 'Hủy yêu cầu đổi quà',
+                icon: HvpIcons.xCircle,
                 expand: true,
                 loading: _cancelling,
                 onPressed: _cancelling ? null : () => _cancel(redemption),
@@ -144,13 +147,23 @@ class _RedemptionDetailScreenState
     );
   }
 
-  Widget _line(BuildContext context, String label, String value) => Padding(
+  Widget _line(
+          BuildContext context, IconData icon, String label, String value) =>
+      Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Column(
+        child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(label, style: context.txt.caption),
-              Text(value, style: context.txt.bodySmall),
+              Icon(icon, size: 18, color: context.hvp.gold),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(label, style: context.txt.caption),
+                      Text(value, style: context.txt.bodySmall),
+                    ]),
+              ),
             ]),
       );
 }

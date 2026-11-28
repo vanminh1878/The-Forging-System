@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/hvp_app_bar.dart';
 import 'renewal_requests_view.dart';
 
@@ -9,7 +10,7 @@ class AdminRenewalRequestsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Scaffold(
-        appBar: HvpAppBar(title: 'Yêu cầu gia hạn'),
+        appBar: HvpAppBar(title: 'Yêu cầu gia hạn', titleIcon: HvpIcons.inbox),
         body: RenewalRequestsView(approveLabel: 'ĐÃ THU PHÍ · DUYỆT'),
       );
 }

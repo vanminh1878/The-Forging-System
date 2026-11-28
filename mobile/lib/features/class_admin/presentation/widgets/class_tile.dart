@@ -5,6 +5,7 @@ import '../../../../core/branch/branch_providers.dart';
 import '../../../../core/design/hvp_context.dart';
 import '../../../../core/design/hvp_icons.dart';
 import '../../../../core/widgets/hvp_card.dart';
+import '../../../../core/widgets/icon_label.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../domain/class_models.dart';
 import '../../domain/class_rules.dart';
@@ -48,27 +49,34 @@ class ClassTile extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Row(children: <Widget>[
-            Expanded(child: Text(item.name, style: t.titleM)),
+            Expanded(
+                child: Text(item.name,
+                    style: t.titleM,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis)),
             if (onEdit != null)
               IconButton(
                   tooltip: 'Sửa lớp',
                   icon: const Icon(HvpIcons.pencil),
                   onPressed: onEdit),
             if (!item.isActive)
-              const StatusChip(label: 'Ngừng', tone: ChipTone.danger),
+              const StatusChip(
+                  label: 'Ngừng', tone: ChipTone.danger, icon: HvpIcons.block),
           ]),
           const SizedBox(height: 4),
-          Text(
-              '${sessionTypeLabel(item.sessionTypeCode)} · ${weekdaysLabel(item.weekdays)} · ${item.startTime}',
+          IconLabel(
+              icon: HvpIcons.eventRepeat,
+              label:
+                  '${sessionTypeLabel(item.sessionTypeCode)} · ${weekdaysLabel(item.weekdays)} · ${item.startTime}',
               style: t.body),
-          const SizedBox(height: 2),
-          Text(
-              [
+          const SizedBox(height: 4),
+          IconLabel(
+              icon: HvpIcons.storefront,
+              label: [
                 if (branch != null) branch.name,
                 if (coach != null) 'Coach ${coach.name}',
                 '${enrolmentLabel(item.enrolledCount, item.capacity)} học viên',
-              ].join(' · '),
-              style: t.bodySmall),
+              ].join(' · ')),
         ],
       ),
     );

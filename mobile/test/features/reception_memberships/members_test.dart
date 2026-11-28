@@ -77,7 +77,7 @@ Map<String, Reply> detailRoutes(
     };
 
 Future<void> openMembersTab(WidgetTester tester) async {
-  await tester.tap(find.text('Học viên').first);
+  await tester.tap(find.text('HỌC VIÊN').first);
   await tester.pumpAndSettle();
 }
 

@@ -102,13 +102,13 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Khác'));
-    await tester.tap(find.text('Khác'));
+    await tester.ensureVisible(find.text('KHÁC'));
+    await tester.tap(find.text('KHÁC'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Nhật ký Audit'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Nhật ký Audit'), findsOneWidget);
+    expect(find.text('NHẬT KÝ AUDIT'), findsOneWidget);
     expect(find.text('Thay đổi hệ thống'), findsOneWidget);
   });
 }

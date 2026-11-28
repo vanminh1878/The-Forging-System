@@ -67,9 +67,9 @@ class _MembersTabState extends ConsumerState<MembersTab> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Align(
             alignment: Alignment.centerLeft,
-            child: HvpButton.secondary(
+            child: HvpButton.gold(
                 label: 'Tạo học viên mới',
-                icon: HvpIcons.plus,
+                icon: HvpIcons.userPlus,
                 small: true,
                 onPressed: _create),
           ),

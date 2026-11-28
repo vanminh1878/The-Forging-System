@@ -159,7 +159,7 @@ class _ClassFormSheetState extends ConsumerState<ClassFormSheet> {
                       controller: _name,
                       focusNode: _nameFocus,
                       required: true,
-                      maxLength: 120,
+                      maxLength: classNameMax,
                       textCapitalization: TextCapitalization.sentences,
                       textInputAction: TextInputAction.next,
                       validator: validateClassName),

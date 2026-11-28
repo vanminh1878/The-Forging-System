@@ -130,8 +130,7 @@ void main() {
       'Gói tập',
       'Lớp học',
       'Kho quà',
-      'Giao quà',
-      'Hồ sơ'
+      'Giao quà'
     ],
     AppRole.admin: <String>[
       'Dashboard',
@@ -149,12 +148,56 @@ void main() {
         expect(_navLabel(label), findsOneWidget, reason: label);
       }
       // Coach and admin reach theme + logout through the app bar account button;
-      // reception has its own Hồ sơ tab for that.
+      // reception's button opens the Hồ sơ screen instead.
+      final reception = entry.key == AppRole.reception;
       expect(find.byTooltip('Tài khoản'),
-          entry.key == AppRole.reception ? findsNothing : findsOneWidget);
+          reception ? findsNothing : findsOneWidget);
+      expect(
+          find.byTooltip('Hồ sơ'), reception ? findsOneWidget : findsNothing);
       expect(find.byTooltip('Thông báo'), findsOneWidget);
     });
   }
+
+  testWidgets(
+      'reception: the top right button opens Hồ sơ, logout there returns to login',
+      (tester) async {
+    final repo = FakeAuthRepository(restored: makeUser(AppRole.reception));
+    await _pumpApp(tester, repo);
+    expect(_navLabel('Hồ sơ'), findsNothing);
+
+    await tester.tap(find.byTooltip('Hồ sơ'));
+    await tester.pumpAndSettle();
+    expect(find.text('HỒ SƠ'), findsOneWidget);
+    expect(find.byType(HvpNavBar), findsNothing);
+
+    await tester.ensureVisible(find.text('ĐĂNG XUẤT'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ĐĂNG XUẤT'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(HvpButton, 'ĐĂNG XUẤT').last);
+    await tester.pumpAndSettle();
+
+    expect(repo.logoutCalls, 1);
+    expect(find.byType(LoginScreen), findsOneWidget);
+  });
+
+  testWidgets('the page stops above the bottom bar and the phone system bar',
+      (tester) async {
+    tester.view.padding = const FakeViewPadding(bottom: 48 * 3);
+    tester.view.viewPadding = const FakeViewPadding(bottom: 48 * 3);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+    await _pumpApp(
+        tester, FakeAuthRepository(restored: makeUser(AppRole.student)));
+
+    final screen =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio;
+    final bar = tester.getRect(find.byType(HvpNavBar));
+    expect(bar.bottom, lessThanOrEqualTo(screen - 48));
+    // Whatever the tab shows ends where the bar begins.
+    expect(tester.getRect(find.byType(ComingSoonPage)).bottom,
+        lessThanOrEqualTo(bar.top));
+  });
 
   testWidgets('admin can open the Challenge tab from the six-item navigation',
       (tester) async {

@@ -85,6 +85,8 @@ class ComingSoonPage extends StatelessWidget {
       ),
     );
     if (!standalone) return body;
-    return Scaffold(appBar: HvpAppBar(title: title), body: body);
+    return Scaffold(
+        appBar: HvpAppBar(title: title, titleIcon: icon ?? HvpIcons.wrench),
+        body: body);
   }
 }

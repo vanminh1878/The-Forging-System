@@ -102,7 +102,10 @@ void main() {
     expect(find.text('Đã gửi yêu cầu gia hạn tới lễ tân.'), findsOneWidget);
     expect(find.text('CHỌN GÓI TẬP'), findsNothing);
     expect(repo.membershipCalls, 2);
-    expect(repo.historyCalls, 2);
+    // The history has its own tab: it is read fresh when the learner opens it.
+    await tester.tap(find.text('LỊCH SỬ'));
+    await tester.pumpAndSettle();
+    expect(repo.historyCalls, 1);
   });
 
   testWidgets('declining the confirmation sends nothing', (tester) async {

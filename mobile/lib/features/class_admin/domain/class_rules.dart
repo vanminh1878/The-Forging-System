@@ -23,9 +23,21 @@ String weekdaysLabel(List<int> weekdays) {
 String enrolmentLabel(int enrolled, int? capacity) =>
     '$enrolled/${capacity ?? '∞'}';
 
+/// Longest texts the server accepts (`backend/.../classes/class.routes.ts`).
+const int classNameMax = 60;
+const int sessionTitleMax = 100;
+const int sessionNotesMax = 1000;
+const int cancelReasonMax = 255;
+
+/// Counted like the server does (UTF-16 units after trimming), so an emoji or a
+/// decomposed Vietnamese letter that the field lets through is still caught.
+String? _tooLong(String? v, int max, String what) =>
+    (v ?? '').trim().length > max ? '$what tối đa $max ký tự.' : null;
+
 /// Form validators (null = valid). Messages are shown as is.
-String? validateClassName(String? v) =>
-    (v ?? '').trim().isEmpty ? 'Nhập tên lớp.' : null;
+String? validateClassName(String? v) => (v ?? '').trim().isEmpty
+    ? 'Nhập tên lớp.'
+    : _tooLong(v, classNameMax, 'Tên lớp');
 
 String? validateStartTime(String? v) =>
     RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch((v ?? '').trim())
@@ -49,8 +61,9 @@ String? validateCapacity(String? v) {
 bool canCancelSession(String status, DateTime startsAt, DateTime now) =>
     status == 'SCHEDULED' && startsAt.isAfter(now);
 
-String? validateCancelReason(String? v) =>
-    (v ?? '').trim().isEmpty ? 'Vui lòng nhập lý do huỷ.' : null;
+String? validateCancelReason(String? v) => (v ?? '').trim().isEmpty
+    ? 'Vui lòng nhập lý do huỷ.'
+    : _tooLong(v, cancelReasonMax, 'Lý do huỷ');
 
 /// The instant of [day] at `HH:mm` Vietnam wall-clock time (UTC+7). Only the
 /// y/m/d of [day] count, whatever its own timezone.
@@ -61,8 +74,16 @@ DateTime vietnamInstant(DateTime day, String hhmm) {
       .subtract(vietnamOffset);
 }
 
-String? validateSessionTitle(String? v) =>
-    (v ?? '').trim().isEmpty ? 'Nhập tiêu đề buổi.' : null;
+String? validateSessionTitle(String? v) => (v ?? '').trim().isEmpty
+    ? 'Nhập tiêu đề buổi.'
+    : _tooLong(v, sessionTitleMax, 'Tiêu đề');
+
+/// The exam title is optional: empty means "Kiểm tra — {class name}".
+String? validateExamTitle(String? v) =>
+    _tooLong(v, sessionTitleMax, 'Tên buổi kiểm tra');
+
+String? validateSessionNotes(String? v) =>
+    _tooLong(v, sessionNotesMax, 'Ghi chú');
 
 String? validateSessionDuration(String? v) {
   final n = int.tryParse((v ?? '').trim());

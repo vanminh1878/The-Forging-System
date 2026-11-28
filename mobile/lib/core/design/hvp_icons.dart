@@ -105,6 +105,51 @@ abstract final class HvpIcons {
   static const IconData barbell = Icons.fitness_center;
   static const IconData search = Icons.search;
   static const IconData filter = Icons.tune;
+  static const IconData caretUp = Icons.expand_less;
+
+  // Content rows, filters and actions
+  static const IconData login = Icons.login;
+  static const IconData all = Icons.apps;
+  static const IconData tag = Icons.sell_outlined;
+  static const IconData limit = Icons.lock_clock_outlined;
+  static const IconData money = Icons.payments_outlined;
+  static const IconData send = Icons.send_outlined;
+  static const IconData note = Icons.sticky_note_2_outlined;
+  static const IconData qrCode = Icons.qr_code_2;
+  static const IconData stockIn = Icons.move_to_inbox;
+  static const IconData stockOut = Icons.outbox;
+  static const IconData stock = Icons.inventory;
+  static const IconData handover = Icons.local_shipping_outlined;
+  static const IconData block = Icons.block;
+  static const IconData personOff = Icons.person_off_outlined;
+  static const IconData adminShield = Icons.admin_panel_settings_outlined;
+  static const IconData deskStaff = Icons.support_agent;
+  static const IconData inbox = Icons.inbox;
+  static const IconData upcoming = Icons.upcoming_outlined;
+  static const IconData scheduled = Icons.schedule_send_outlined;
+  static const IconData eventStart = Icons.event_available_outlined;
+  static const IconData eventEnd = Icons.event_busy_outlined;
+  static const IconData event = Icons.event_outlined;
+  static const IconData eventRepeat = Icons.event_repeat;
+  static const IconData dateRange = Icons.date_range_outlined;
+  static const IconData weekView = Icons.view_week_outlined;
+  static const IconData monthView = Icons.calendar_view_month;
+  static const IconData exam = Icons.assignment_outlined;
+  static const IconData objective = Icons.track_changes;
+  static const IconData route = Icons.route_outlined;
+  static const IconData lesson = Icons.menu_book_outlined;
+  static const IconData appearance = Icons.palette_outlined;
+  static const IconData profileCard = Icons.contact_page_outlined;
+  static const IconData newPackage = Icons.add_card_outlined;
+  static const IconData newTier = Icons.library_add_outlined;
+  static const IconData newGift = Icons.add_box_outlined;
+  static const IconData newSession = Icons.more_time;
+  static const IconData overview = Icons.dashboard_outlined;
+  static const IconData more = Icons.more_horiz;
+  static const IconData audit = Icons.fact_check_outlined;
+  static const IconData adjust = Icons.exposure;
+  static const IconData diamond = Icons.diamond_outlined;
+  static const IconData play = Icons.play_circle_outline;
 
   /// One icon per rank order (1..7).
   static IconData rank(int order) {

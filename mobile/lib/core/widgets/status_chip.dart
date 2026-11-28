@@ -9,11 +9,19 @@ enum ChipTone { neutral, gold, success, warning, danger, info }
 
 /// Small pill with a tone: statuses, tags, filters.
 class StatusChip extends StatelessWidget {
-  const StatusChip({super.key, required this.label, this.tone = ChipTone.neutral, this.icon});
+  const StatusChip(
+      {super.key,
+      required this.label,
+      this.tone = ChipTone.neutral,
+      this.icon,
+      this.solid = false});
 
   final String label;
   final ChipTone tone;
   final IconData? icon;
+
+  /// Filled with the tone colour, for a status that must not fade into the card.
+  final bool solid;
 
   static Color foreground(HvpColors c, ChipTone tone) {
     switch (tone) {
@@ -36,16 +44,21 @@ class StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.hvp;
     final t = context.txt;
-    final fg = foreground(c, tone);
+    final toneColor = foreground(c, tone);
+    final fg = solid ? (c.isDark ? c.bgDeep : c.surface) : toneColor;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
       decoration: ShapeDecoration(
-        color: tone == ChipTone.neutral ? c.surfaceHigh : fg.fade(0.16),
+        color: solid
+            ? toneColor
+            : tone == ChipTone.neutral
+                ? c.surfaceHigh
+                : toneColor.fade(0.16),
         shape: ChamferBorder(
           cut: 6,
           topLeft: true,
           bottomRight: true,
-          side: BorderSide(color: fg.fade(0.5)),
+          side: BorderSide(color: solid ? toneColor : toneColor.fade(0.5)),
         ),
       ),
       child: Row(
